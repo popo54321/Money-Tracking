@@ -18,9 +18,12 @@ import { db, uid } from '../db/db';
 import { deleteRecurring, postOccurrence, saveRecurring, skipOccurrence } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji } from '../ui/emoji';
+import { holdProps } from '../components/hold';
+import { QuickActions, type QuickAction } from '../components/QuickActions';
 
 export function RecurringList() {
-  const { go, today, currency } = useApp();
+  const { confirm, currency, go, rates, toast, today } = useApp();
+  const [quick, setQuick] = useState<Recurring | null>(null);
   const data = useData();
   const list = data.recurring.slice().sort((a, b) => {
     const na = nextUnposted(a, a.lastPosted) ?? '9999';
@@ -75,6 +78,7 @@ export function RecurringList() {
                   key={r.id}
                   className="row"
                   onClick={() => go({ name: 'recurringEdit', id: r.id })}
+                  {...holdProps(() => setQuick(r))}
                   style={{ opacity: r.active ? 1 : 0.55 }}
                 >
                   <div className={`bubble ${r.kind === 'income' ? 'mint' : r.kind === 'transfer' ? 'lav' : 'peach'}`}>
@@ -108,6 +112,59 @@ export function RecurringList() {
           </div>
         )}
       </div>
+      {quick && (
+        <QuickActions
+          title={quick.name}
+          onClose={() => setQuick(null)}
+          actions={(() => {
+            const next = nextUnposted(quick, quick.lastPosted);
+            const list: QuickAction[] = [];
+            if (next && quick.active) {
+              list.push({
+                label: `✅ Record now (due ${fmtDate(next, false)})`,
+                tone: 'mint',
+                run: async () => {
+                  await postOccurrence(quick, next, rates, currency);
+                  toast(`✅ Recorded for ${fmtDate(next, false)}`);
+                },
+              });
+              list.push({
+                label: `⏭️ Skip ${fmtDate(next, false)}`,
+                tone: 'butter',
+                run: async () => {
+                  await skipOccurrence(quick, next);
+                  toast(`⏭️ Skipped ${fmtDate(next, false)}`);
+                },
+              });
+            }
+            list.push({
+              label: quick.active ? '⏸️ Pause' : '▶️ Resume',
+              tone: 'sky',
+              run: async () => {
+                await saveRecurring({ ...quick, active: !quick.active });
+                toast(quick.active ? '⏸️ Paused' : '▶️ Resumed');
+              },
+            });
+            list.push({ label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'recurringEdit', id: quick.id }) });
+            list.push({
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                const ok = await confirm({
+                  title: `Delete “${quick.name}”?`,
+                  message: 'Entries it already recorded stay.',
+                  ok: 'Delete',
+                  danger: true,
+                });
+                if (!ok) return;
+                await deleteRecurring(quick.id, false);
+                toast('🗑️ Deleted');
+              },
+            });
+            return list;
+          })()}
+        />
+      )}
     </>
   );
 }
@@ -291,7 +348,7 @@ export function RecurringEdit({ id }: { id?: string }) {
                 toast(`✅ Recorded for ${fmtDate(next, false)}`);
               }}
             >
-              ✅ Record {fmtDate(next, false)} now
+              ✅ Record now (due {fmtDate(next, false)})
             </button>
             <button
               className="btn butter"

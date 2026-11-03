@@ -1,5 +1,6 @@
 // Small building blocks used across screens.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { evaluate, hasOperator } from '../domain/calculator';
 import { COMMON_CURRENCIES } from '../domain/fx';
 import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
@@ -142,14 +143,21 @@ export function Sheet({
     };
   }, [open, onClose, pushOverlay]);
   if (!open) return null;
-  return (
+  // Rendered at the top of the page so nothing (top bar, tab bar) can cover it.
+  return createPortal(
     <div className="backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-        <div className="grab" />
-        {title && <h3>{title}</h3>}
+        <div className="sheet-head">
+          <div className="grab" />
+          {title ? <h3>{title}</h3> : <span className="grow" />}
+          <button className="icon-btn" aria-label="Close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -364,25 +372,39 @@ export function CurrencySheet({
     set.delete('BTC');
     return [...set];
   }, [prices.perUsd, settings.favouriteCurrencies, extra]);
-  const list = all.filter((c) => c.toLowerCase().includes(q.trim().toLowerCase()));
+  const query = q.trim().toLowerCase();
+  const list = all.filter((c) => c.toLowerCase().includes(query));
+  const top = query
+    ? []
+    : [...new Set([...settings.favouriteCurrencies, ...COMMON_CURRENCIES, ...extra])].filter((c) => c !== 'BTC');
+  const rest = query ? list : list.filter((c) => !top.includes(c));
+  const chip = (c: string) => (
+    <button
+      key={c}
+      className={`chip ${c === value ? 'on' : ''}`}
+      onClick={() => {
+        onPick(c);
+        onClose();
+        setQ('');
+      }}
+    >
+      {c}
+    </button>
+  );
   return (
     <Sheet open={open} onClose={onClose} title="Currency">
-      <input placeholder="Search, e.g. JPY" value={q} onChange={(e) => setQ(e.target.value)} className="mb" />
-      <div className="chips">
-        {list.map((c) => (
-          <button
-            key={c}
-            className={`chip ${c === value ? 'on' : ''}`}
-            onClick={() => {
-              onPick(c);
-              onClose();
-              setQ('');
-            }}
-          >
-            {c}
-          </button>
-        ))}
+      <div className="sheet-sticky">
+        <input placeholder="Search, e.g. JPY" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
+      {top.length > 0 && (
+        <>
+          <div className="cat-group-name">Favourites & common</div>
+          <div className="chips">{top.map(chip)}</div>
+          <div className="cat-group-name">All currencies</div>
+        </>
+      )}
+      <div className="chips">{rest.map(chip)}</div>
+      {list.length === 0 && <div className="small muted mt">No currency matches “{q}”.</div>}
     </Sheet>
   );
 }

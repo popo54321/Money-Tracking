@@ -1,4 +1,9 @@
 /* Layout and components, shared by every theme. Colours come from themes.css. */
+/* Safe areas: the browser's value, or the one Capacitor provides on Android, whichever is larger. */
+:root {
+  --sab: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --sat: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+}
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -64,7 +69,7 @@ textarea {
   margin: 0 auto;
   min-height: 100vh;
   min-height: 100dvh;
-  padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  padding-bottom: calc(86px + var(--sab));
 }
 .topbar {
   position: sticky;
@@ -73,7 +78,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  padding: calc(10px + var(--sat)) 16px 10px;
   background: color-mix(in srgb, var(--sky-top) 92%, var(--card));
   box-shadow: 0 6px 10px -8px rgba(150, 110, 200, 0.35);
   border-bottom: 1.5px solid var(--deco-border);
@@ -115,7 +120,7 @@ textarea {
   z-index: 30;
   display: flex;
   justify-content: center;
-  padding: 0 12px calc(8px + env(safe-area-inset-bottom));
+  padding: 0 12px calc(8px + var(--sab));
   pointer-events: none;
 }
 .tabbar-inner {
@@ -812,14 +817,39 @@ button.row:active {
 .sheet {
   width: 100%;
   max-width: 560px;
-  max-height: 88vh;
-  max-height: 88dvh;
+  max-height: calc(84vh - var(--sat));
+  max-height: calc(84dvh - var(--sat));
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--bg);
   border-radius: 28px 28px 0 0;
   border-top: 2px solid var(--deco-border);
-  padding: 10px 16px calc(18px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(28px + var(--sab));
   animation: up 0.2s ease;
+}
+.sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -16px 12px;
+  padding: 10px 16px 8px;
+  background: var(--bg);
+  border-bottom: 1.5px solid var(--line);
+}
+.sheet-head h3 {
+  flex: 1;
+  margin: 0 !important;
+}
+.sheet-sticky {
+  position: sticky;
+  top: 59px;
+  z-index: 1;
+  margin: -4px -16px 6px;
+  padding: 4px 16px 8px;
+  background: var(--bg);
 }
 .sheet .grab {
   width: 44px;
@@ -829,6 +859,13 @@ button.row:active {
   margin: 0 auto 10px;
 }
 .dialog h3,
+.sheet .sheet-head .grab {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+}
 .sheet h3 {
   color: var(--title-color);
   margin: 0 0 12px;
@@ -879,7 +916,7 @@ button.row:active {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(100px + env(safe-area-inset-bottom));
+  bottom: calc(100px + var(--sab));
   transform: translateX(-50%);
   z-index: 80;
   background: var(--ink);
@@ -1164,7 +1201,7 @@ body::after {
   bottom: 0;
   z-index: 15;
   margin: 14px -16px 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(12px + var(--sab));
   background: linear-gradient(180deg, transparent, var(--bg) 35%);
 }
 .quick-actions {

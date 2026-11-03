@@ -9,10 +9,13 @@ import { db, uid } from '../db/db';
 import { deleteTrip, recordOwed, saveTrip, type OwedItem } from '../db/repo';
 import { todayISO } from '../domain/dates';
 import { copyText } from '../services/platform';
+import { holdProps } from '../components/hold';
+import { QuickActions } from '../components/QuickActions';
 import { useApp } from '../state/app';
 
 export function TripList() {
-  const { go, profiles, settings, rates } = useApp();
+  const { go, profiles, settings, rates, confirm, toast } = useApp();
+  const [quick, setQuick] = useState<Trip | null>(null);
   const trips = useLiveQuery(() => db.trips.orderBy('updatedAt').reverse().toArray(), []);
   const create = async () => {
     const base = settings.defaultCurrency;
@@ -50,7 +53,12 @@ export function TripList() {
               const r = computeTrip(t);
               const s = r.settlements[0];
               return (
-                <button key={t.id} className="row" onClick={() => go({ name: 'trip', id: t.id })}>
+                <button
+                  key={t.id}
+                  className="row"
+                  onClick={() => go({ name: 'trip', id: t.id })}
+                  {...holdProps(() => setQuick(t))}
+                >
                   <div className="bubble butter">🧳</div>
                   <div className="main">
                     <div className="title">{t.name}</div>
@@ -68,6 +76,40 @@ export function TripList() {
           </div>
         )}
       </div>
+      {quick && (
+        <QuickActions
+          title={quick.name || 'Trip'}
+          onClose={() => setQuick(null)}
+          actions={[
+            { label: '✏️ Open', tone: 'plain', run: () => go({ name: 'trip', id: quick.id }) },
+            {
+              label: '🧳 New trip with the same people',
+              tone: 'mint',
+              run: async () => {
+                const copy: Trip = {
+                  ...quick,
+                  id: uid(),
+                  name: 'New trip',
+                  entries: [],
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                };
+                await saveTrip(copy);
+                go({ name: 'trip', id: copy.id });
+              },
+            },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: `Delete ${quick.name || 'this trip'}?`, ok: 'Delete', danger: true }))) return;
+                await deleteTrip(quick.id);
+                toast('🗑️ Deleted');
+              },
+            },
+          ]}
+        />
+      )}
     </>
   );
 }
@@ -246,6 +288,7 @@ export function TripEdit({ id }: { id: string }) {
   const stored = useLiveQuery(() => db.trips.get(id), [id]);
   const [t, setT] = useState<Trip | null>(null);
   const [entry, setEntry] = useState<TripEntry | null>(null);
+  const [quickEntry, setQuickEntry] = useState<TripEntry | null>(null);
   const [newName, setNewName] = useState('');
   const [member, setMember] = useState<TripMember | null>(null);
   const [rateCur, setRateCur] = useState(false);
@@ -380,7 +423,7 @@ export function TripEdit({ id }: { id: string }) {
                     ? 'shared by all'
                     : `shared by ${(e.sharedBy ?? []).map(nameOf).join(', ')}`;
               return (
-                <button key={e.id} className="row" onClick={() => setEntry(e)}>
+                <button key={e.id} className="row" onClick={() => setEntry(e)} {...holdProps(() => setQuickEntry(e))}>
                   <Avatar name={nameOf(e.payerId)} />
                   <div className="main">
                     <div className="title">{e.bill || 'Bill'}</div>
@@ -587,6 +630,34 @@ export function TripEdit({ id }: { id: string }) {
           }
         }}
       />
+      {quickEntry && (
+        <QuickActions
+          title={quickEntry.bill || 'Bill'}
+          onClose={() => setQuickEntry(null)}
+          actions={[
+            { label: '✏️ Edit', tone: 'plain', run: () => setEntry(quickEntry) },
+            { label: '📄 Duplicate', tone: 'mint', run: () => update({ entries: [...t.entries, { ...quickEntry, id: uid() }] }) },
+            {
+              label: quickEntry.split === 'none' ? '👯 Make it shared by everyone' : '🙋 Make it personal',
+              tone: 'sky',
+              run: () =>
+                update({
+                  entries: t.entries.map((x) =>
+                    x.id === quickEntry.id ? { ...x, split: x.split === 'none' ? 'all' : 'none', sharedBy: undefined } : x,
+                  ),
+                }),
+            },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: `Delete ${quickEntry.bill || 'this bill'}?`, ok: 'Delete', danger: true }))) return;
+                update({ entries: t.entries.filter((x) => x.id !== quickEntry.id) });
+              },
+            },
+          ]}
+        />
+      )}
     </>
   );
 }

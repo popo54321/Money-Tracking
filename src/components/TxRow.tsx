@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { fmtDate, relativeDays, todayISO, addDays } from '../domain/dates';
-import { deleteTx } from '../db/repo';
+import { deleteTx, postOccurrence, skipOccurrence } from '../db/repo';
+import type { UpcomingItem } from '../domain/reserve';
 import { db } from '../db/db';
 import { holdProps } from './hold';
-import { Sheet } from './ui';
+import { QuickActions } from './QuickActions';
 import { fmtMoney } from '../domain/money';
 import type { Tx } from '../domain/types';
 import { useApp, useData } from '../state/app';
@@ -56,7 +57,6 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
     .filter(Boolean)
     .join(' · ');
   const duplicate = () => {
-    setMenu(false);
     go({
       name: 'entry',
       kind: tx.kind === 'adjust' ? 'expense' : tx.kind,
@@ -87,24 +87,16 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
         </div>
       </button>
       {menu && (
-        <Sheet open onClose={() => setMenu(false)} title={`${title} · ${fmtMoney(amount, cur)}`}>
-          <div className="vstack">
-            <button
-              className="btn block"
-              onClick={() => {
-                setMenu(false);
-                go({ name: 'entry', id: tx.id });
-              }}
-            >
-              ✏️ Edit
-            </button>
-            <button className="btn mint block" onClick={duplicate}>
-              📄 Duplicate (log it again today)
-            </button>
-            <button
-              className="btn danger block"
-              onClick={async () => {
-                setMenu(false);
+        <QuickActions
+          title={`${title} · ${fmtMoney(amount, cur)}`}
+          onClose={() => setMenu(false)}
+          actions={[
+            { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
+            { label: '📄 Duplicate (log it again today)', tone: 'mint', run: duplicate },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
                 if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
                 await deleteTx(tx.id);
                 if (tx.recurringId) {
@@ -113,12 +105,10 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
                   if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
                 }
                 toast('🗑️ Deleted');
-              }}
-            >
-              🗑️ Delete
-            </button>
-          </div>
-        </Sheet>
+              },
+            },
+          ]}
+        />
       )}
     </>
   );
@@ -162,8 +152,9 @@ export function TxGroups({ txs, contextAccountId, limit }: { txs: Tx[]; contextA
  * each repeating entry and unpaid card statements. Each becomes a normal entry on its day.
  */
 export function ScheduledList({ accountId, days = 31, limit }: { accountId?: string; days?: number; limit?: number }) {
-  const { go, today } = useApp();
+  const { go, today, rates, currency, toast } = useApp();
   const data = useData();
+  const [quick, setQuick] = useState<UpcomingItem | null>(null);
   const txRows = data.scheduled
     .filter((t) => !accountId || t.accountId === accountId || t.toAccountId === accountId)
     .map((t) => ({ key: `t:${t.id}`, date: t.date, node: <TxRow key={t.id} tx={t} contextAccountId={accountId} ghost /> }));
@@ -188,6 +179,7 @@ export function ScheduledList({ accountId, days = 31, limit }: { accountId?: str
             onClick={() =>
               u.source === 'card' ? go({ name: 'account', id: u.refId }) : go({ name: 'recurringEdit', id: u.refId })
             }
+            {...holdProps(() => setQuick(u))}
           >
             <div className={`bubble ${u.kind === 'income' ? 'mint' : u.overdue ? 'pink' : groupColour(cat?.group ?? '')}`}>
               {emoji}
@@ -223,6 +215,54 @@ export function ScheduledList({ accountId, days = 31, limit }: { accountId?: str
         </button>
       </div>
       <div className="list">{shown.map((r) => r.node)}</div>
+      {quick && (
+        <QuickActions
+          title={quick.label}
+          onClose={() => setQuick(null)}
+          actions={(() => {
+            if (quick.source === 'card') {
+              const card = data.accountById.get(quick.refId);
+              return [
+                {
+                  label: `💳 Pay ${fmtMoney(quick.amount, quick.currency)} now`,
+                  tone: 'mint' as const,
+                  run: () =>
+                    go({
+                      name: 'entry',
+                      kind: 'transfer',
+                      accountId: card?.payFromAccountId,
+                      toAccountId: quick.refId,
+                      amount: quick.amount,
+                      note: `${card?.name ?? 'Card'} payment`,
+                    }),
+                },
+                { label: '📖 Open card', tone: 'plain' as const, run: () => go({ name: 'account', id: quick.refId }) },
+              ];
+            }
+            const r = data.recurring.find((x) => x.id === quick.refId);
+            if (!r) return [];
+            return [
+              {
+                label: `✅ Record now (due ${fmtDate(quick.date, false)})`,
+                tone: 'mint' as const,
+                run: async () => {
+                  await postOccurrence(r, quick.date, rates, currency);
+                  toast(`✅ Recorded for ${fmtDate(quick.date, false)}`);
+                },
+              },
+              {
+                label: `⏭️ Skip ${fmtDate(quick.date, false)}`,
+                tone: 'butter' as const,
+                run: async () => {
+                  await skipOccurrence(r, quick.date);
+                  toast(`⏭️ Skipped ${fmtDate(quick.date, false)}`);
+                },
+              },
+              { label: '✏️ Edit repeating entry', tone: 'plain' as const, run: () => go({ name: 'recurringEdit', id: r.id }) },
+            ];
+          })()}
+        />
+      )}
     </>
   );
 }
