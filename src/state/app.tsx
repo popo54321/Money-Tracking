@@ -1,5 +1,6 @@
 // App-wide state: settings, prices, the active profile and its data, navigation, toasts and dialogs.
 import { useLiveQuery } from 'dexie-react-hooks';
+import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { balancesByAccount } from '../domain/balances';
 import { todayISO } from '../domain/dates';
@@ -326,40 +327,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
           {toastMsg}
         </div>
       )}
-      {dialog && (
-        <div
-          className="backdrop dialog-backdrop"
-          onClick={() => {
-            dialog.resolve(false);
-            setDialog(null);
-          }}
-        >
-          <div className="dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h3>{dialog.title}</h3>
-            {dialog.message && <p>{dialog.message}</p>}
-            <div className="btn-row">
-              <button
-                className="btn ghost"
-                onClick={() => {
-                  dialog.resolve(false);
-                  setDialog(null);
-                }}
-              >
-                {dialog.cancel ?? 'Cancel'}
-              </button>
-              <button
-                className={dialog.danger ? 'btn danger' : 'btn primary'}
-                onClick={() => {
-                  dialog.resolve(true);
-                  setDialog(null);
-                }}
-              >
-                {dialog.ok ?? 'OK'}
-              </button>
+      {dialog &&
+        createPortal(
+          <div
+            className="backdrop dialog-backdrop"
+            onClick={() => {
+              dialog.resolve(false);
+              setDialog(null);
+            }}
+          >
+            <div className="dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+              <h3>{dialog.title}</h3>
+              {dialog.message && <p>{dialog.message}</p>}
+              <div className="btn-row">
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    dialog.resolve(false);
+                    setDialog(null);
+                  }}
+                >
+                  {dialog.cancel ?? 'Cancel'}
+                </button>
+                <button
+                  className={dialog.danger ? 'btn danger' : 'btn primary'}
+                  onClick={() => {
+                    dialog.resolve(true);
+                    setDialog(null);
+                  }}
+                >
+                  {dialog.ok ?? 'OK'}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </Ctx.Provider>
   );
 }

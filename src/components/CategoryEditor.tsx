@@ -1,20 +1,24 @@
 // Add or edit a category: used by the Categories screen and by press-and-hold anywhere a category is shown.
 import { useState } from 'react';
 import { EXPENSE_GROUPS, type Category } from '../domain/types';
+import { orderGroups } from '../domain/groups';
 import { categoryInUse, deleteCategory, saveCategory } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { EMOJI_CHOICES, categoryEmoji } from '../ui/emoji';
 import { Field, Sheet, ToggleRow } from './ui';
 
 export function CategoryEditor({ category, onClose }: { category: Category; onClose: () => void }) {
-  const { toast, confirm, skin } = useApp();
+  const { toast, confirm, skin, profile } = useApp();
   const data = useData();
   const [c, setC] = useState<Category>(category);
   const exists = data.categoryById.has(c.id);
   const groups =
     c.kind === 'income'
       ? ['Income']
-      : [...new Set([...EXPENSE_GROUPS, ...data.categories.filter((x) => x.kind === 'expense').map((x) => x.group), c.group])];
+      : orderGroups(
+          [...EXPENSE_GROUPS, ...data.categories.filter((x) => x.kind === 'expense').map((x) => x.group), c.group],
+          profile.categoryGroupOrder,
+        );
 
   return (
     <Sheet open onClose={onClose} title={exists ? 'Edit category' : 'New category'}>

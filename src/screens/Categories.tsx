@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Seg, Topbar } from '../components/ui';
 import { EXPENSE_GROUPS, type Category, type CategoryKind } from '../domain/types';
-import { db, uid } from '../db/db';
+import { uid } from '../db/db';
+import { reorderRows, saveGroupOrder } from '../db/repo';
+import { moveItem, orderGroups } from '../domain/groups';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
@@ -14,20 +16,21 @@ export function Categories() {
   const [edit, setEdit] = useState<Category | null>(null);
   const [newGroup, setNewGroup] = useState('');
   const list = data.categories.filter((c) => c.kind === kind);
-  const groups = kind === 'income' ? ['Income'] : [...new Set([...EXPENSE_GROUPS, ...list.map((c) => c.group)])];
+  const groups =
+    kind === 'income' ? ['Income'] : orderGroups([...EXPENSE_GROUPS, ...list.map((c) => c.group)], profile.categoryGroupOrder);
 
+  /** Swap a category with its neighbour in the same group, then number every category afresh. */
   const move = async (c: Category, dir: -1 | 1) => {
     const same = list.filter((x) => x.group === c.group);
-    const i = same.findIndex((x) => x.id === c.id);
-    const j = i + dir;
-    if (j < 0 || j >= same.length) return;
-    const a = same[i];
-    const b = same[j];
-    await db.transaction('rw', db.categories, async () => {
-      await db.categories.update(a.id, { order: b.order });
-      await db.categories.update(b.id, { order: a.order });
-    });
+    const other = same[same.findIndex((x) => x.id === c.id) + dir];
+    if (!other) return;
+    const ids = data.categories.map((x) => x.id);
+    const i = ids.indexOf(c.id);
+    const j = ids.indexOf(other.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    await reorderRows('categories', ids);
   };
+  const moveGroup = (g: string, dir: -1 | 1) => saveGroupOrder(profile.id, 'category', moveItem(groups, g, dir));
 
   return (
     <>
@@ -41,12 +44,33 @@ export function Categories() {
             { v: 'income', label: '💰 Income', cls: 'income' },
           ]}
         />
-        {groups.map((g) => {
+        {kind === 'expense' && <div className="tiny muted mb">▲ ▼ next to a group name moves the whole group.</div>}
+        {groups.map((g, gi) => {
           const items = list.filter((c) => c.group === g);
           return (
             <div key={g}>
               <div className="section-title">
                 {g} <span className="grow" />
+                {kind === 'expense' && (
+                  <>
+                    <button
+                      className="btn sm ghost"
+                      aria-label={`Move ${g} up`}
+                      disabled={gi === 0}
+                      onClick={() => moveGroup(g, -1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      className="btn sm ghost"
+                      aria-label={`Move ${g} down`}
+                      disabled={gi === groups.length - 1}
+                      onClick={() => moveGroup(g, 1)}
+                    >
+                      ▼
+                    </button>
+                  </>
+                )}
                 <button
                   className="btn sm ghost"
                   onClick={() =>
@@ -66,7 +90,7 @@ export function Categories() {
               </div>
               {items.length > 0 && (
                 <div className="list">
-                  {items.map((c) => (
+                  {items.map((c, ci) => (
                     <div key={c.id} className="row" style={{ opacity: c.archived ? 0.5 : 1 }}>
                       <div className={`bubble ${kind === 'income' ? 'mint' : groupColour(g)}`}>{categoryEmoji(c)}</div>
                       <button
@@ -77,10 +101,15 @@ export function Categories() {
                         <div className="title">{c.name}</div>
                         <div className="sub">{c.archived ? 'hidden' : 'tap to edit'}</div>
                       </button>
-                      <button className="btn sm ghost" aria-label="Move up" onClick={() => move(c, -1)}>
+                      <button className="btn sm ghost" aria-label="Move up" disabled={ci === 0} onClick={() => move(c, -1)}>
                         ▲
                       </button>
-                      <button className="btn sm ghost" aria-label="Move down" onClick={() => move(c, 1)}>
+                      <button
+                        className="btn sm ghost"
+                        aria-label="Move down"
+                        disabled={ci === items.length - 1}
+                        onClick={() => move(c, 1)}
+                      >
                         ▼
                       </button>
                     </div>

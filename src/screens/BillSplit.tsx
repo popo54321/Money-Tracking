@@ -255,7 +255,12 @@ function PayersSection({
   const guessMe = b.people.find((p) => p.name.trim().toLowerCase() === profile.name.trim().toLowerCase())?.id;
   const [meId, setMeId] = useState<string | undefined>(guessMe);
   const [added, setAdded] = useState(false);
+  const [paysFor, setPaysFor] = useState<{ payer?: string; who: string[] } | null>(null);
   const owedTotal = r.shares.reduce((x, s) => x + s.pay, 0);
+  const nameOf = (id?: string) => b.people.find((p) => p.id === id)?.name ?? '?';
+  const covered = b.people.filter((p) => p.paidById && b.people.some((x) => x.id === p.paidById));
+  const setPaidById = (ids: string[], payer: string | undefined) =>
+    update({ people: b.people.map((p) => (ids.includes(p.id) ? { ...p, paidById: payer } : p)) });
 
   const setPayment = (personId: string, patch: Partial<BillPayment>) => {
     const list = b.payments ?? [];
@@ -358,6 +363,31 @@ function PayersSection({
         </>
       )}
 
+      <div className="cat-group-name">🤝 Paying for someone else</div>
+      {covered.length === 0 ? (
+        <div className="tiny muted">E.g. a friend pays for his wife: her share is added to his.</div>
+      ) : (
+        covered.map((p) => (
+          <div key={p.id} className="between small" style={{ padding: '2px 0' }}>
+            <span>
+              {nameOf(p.paidById)} pays for {p.name}
+            </span>
+            <button
+              className="btn sm ghost"
+              aria-label={`${p.name} pays their own`}
+              onClick={() => setPaidById([p.id], undefined)}
+            >
+              ✕
+            </button>
+          </div>
+        ))
+      )}
+      {b.people.length > 1 && (
+        <button className="btn sm ghost mt" onClick={() => setPaysFor({ who: [] })}>
+          ＋ Someone pays for another person
+        </button>
+      )}
+
       {plan.transfers.length > 0 && (
         <>
           <div className="cat-group-name">💌 Settle up</div>
@@ -406,6 +436,58 @@ function PayersSection({
           <div className="tiny muted mt">Adding again after changes updates the amounts; it never counts twice.</div>
         </>
       )}
+      <Sheet open={!!paysFor} onClose={() => setPaysFor(null)} title="🤝 Who pays for whom?">
+        {paysFor && (
+          <>
+            <Field label="Who pays?">
+              <div className="chips">
+                {b.people.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`chip ${paysFor.payer === p.id ? 'on' : ''}`}
+                    onClick={() => setPaysFor({ payer: p.id, who: paysFor.who.filter((x) => x !== p.id) })}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            {paysFor.payer && (
+              <Field label={`${nameOf(paysFor.payer)} pays for`}>
+                <div className="chips">
+                  {b.people
+                    .filter((p) => p.id !== paysFor.payer)
+                    .map((p) => {
+                      const on = paysFor.who.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          className={`chip mint ${on ? 'on' : ''}`}
+                          onClick={() =>
+                            setPaysFor({ ...paysFor, who: on ? paysFor.who.filter((x) => x !== p.id) : [...paysFor.who, p.id] })
+                          }
+                        >
+                          {on ? '✓ ' : ''}
+                          {p.name}
+                        </button>
+                      );
+                    })}
+                </div>
+              </Field>
+            )}
+            <button
+              className="btn primary block mt"
+              disabled={!paysFor.payer || paysFor.who.length === 0}
+              onClick={() => {
+                setPaidById(paysFor.who, paysFor.payer);
+                setPaysFor(null);
+              }}
+            >
+              Save
+            </button>
+          </>
+        )}
+      </Sheet>
     </div>
   );
 }
@@ -444,7 +526,7 @@ export function BillEdit({ id }: { id: string }) {
   };
   const removePerson = (pid: string) => {
     update({
-      people: b.people.filter((p) => p.id !== pid),
+      people: b.people.filter((p) => p.id !== pid).map((p) => (p.paidById === pid ? { ...p, paidById: undefined } : p)),
       items: b.items
         .filter((i) => i.shared || i.sharedBy[0] !== pid)
         .map((i) => ({ ...i, sharedBy: i.sharedBy.filter((x) => x !== pid) })),
@@ -455,10 +537,20 @@ export function BillEdit({ id }: { id: string }) {
   const setItem = (item: BillItem) => update({ items: b.items.map((i) => (i.id === item.id ? item : i)) });
   const removeItem = (iid: string) => update({ items: b.items.filter((i) => i.id !== iid) });
   const shared = b.items.filter((i) => i.shared);
+  /** even split: every dish that isn't "only for some" */
+  const food = b.items.filter((i) => !i.shared);
+  const foodTotal = food.reduce((x, i) => x + (i.price || 0), 0);
+  /** by what they had: dishes that belong to nobody (added in even split) */
+  const tableItems = food.filter((i) => !b.people.some((p) => p.id === i.sharedBy[0]));
 
   const summaryText = () => {
     const lines = [`🍽️ ${b.title} · ${fmtDate(b.date)}`];
-    for (const s of r.shares) lines.push(`${s.name}: ${fmtMoney(s.pay, cur)}${s.exempt ? ' (treated to service & VAT)' : ''}`);
+    for (const s of r.shares)
+      lines.push(
+        `${s.name}: ${s.paidBy ? `paid by ${s.paidBy}` : fmtMoney(s.pay, cur)}${
+          s.paysFor.length ? ` (incl. ${s.paysFor.join(', ')})` : ''
+        }${s.exempt ? ' (treated to service & VAT)' : ''}`,
+      );
     lines.push(`Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%)`);
     for (const t of plan.transfers) lines.push(`${t.fromName} → ${t.toName}: ${fmtMoney(t.amount, cur)}`);
     return lines.join('\n');
@@ -502,6 +594,7 @@ export function BillEdit({ id }: { id: string }) {
           {b.people.map((p) => (
             <button key={p.id} className="chip" onClick={() => setPersonEdit(p)}>
               <Avatar name={p.name} /> {p.name} {p.exemptCharges ? '🎁' : ''}
+              {p.paidById ? '🤝' : ''}
             </button>
           ))}
         </div>
@@ -526,40 +619,80 @@ export function BillEdit({ id }: { id: string }) {
           ]}
         />
         {b.mode === 'even' && (
-          <div className="tiny muted mt">Everyone pays the same share of the food. Items below only make the total.</div>
+          <div className="tiny muted mt">
+            Food is shared equally by everyone. Items under “Only for some” (drinks…) are shared only by the people ticked.
+          </div>
         )}
 
-        <div className="section-title">🍜 Own orders</div>
-        {b.people.map((p) => {
-          const own = b.items.filter((i) => !i.shared && i.sharedBy[0] === p.id);
-          return (
-            <div key={p.id} className="person-card">
-              <div className="hstack">
-                <Avatar name={p.name} />
-                <span className="bold grow">{p.name}</span>
-                <span className="small muted">
-                  {fmtMoney(
-                    own.reduce((s, i) => s + (i.price || 0), 0),
-                    cur,
-                  )}
-                </span>
-              </div>
-              {own.map((i) => (
+        {b.mode === 'even' ? (
+          <>
+            <div className="section-title">🍜 Food for everyone</div>
+            <div className="person-card">
+              {food.map((i) => (
                 <ItemLine key={i.id} item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
               ))}
-              <button
-                className="btn sm ghost"
-                onClick={() =>
-                  update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: [p.id], shared: false }] })
-                }
-              >
-                ＋ Add order
-              </button>
+              <div className="between">
+                <button
+                  className="btn sm ghost"
+                  onClick={() => update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: [], shared: false }] })}
+                >
+                  ＋ Add dish
+                </button>
+                <span className="tiny muted">
+                  {fmtMoney(foodTotal, cur)} ÷ {b.people.length} ={' '}
+                  {fmtMoney(b.people.length ? foodTotal / b.people.length : 0, cur)} each
+                </span>
+              </div>
             </div>
-          );
-        })}
+          </>
+        ) : (
+          <>
+            <div className="section-title">🍜 Own orders</div>
+            {tableItems.length > 0 && (
+              <div className="person-card">
+                <div className="bold">🍽️ For the whole table (shared by everyone)</div>
+                {tableItems.map((i) => (
+                  <ItemLine key={i.id} item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {b.mode === 'itemised' &&
+          b.people.map((p) => {
+            const own = b.items.filter((i) => !i.shared && i.sharedBy[0] === p.id);
+            return (
+              <div key={p.id} className="person-card">
+                <div className="hstack">
+                  <Avatar name={p.name} />
+                  <span className="bold grow">{p.name}</span>
+                  <span className="small muted">
+                    {fmtMoney(
+                      own.reduce((s, i) => s + (i.price || 0), 0),
+                      cur,
+                    )}
+                  </span>
+                </div>
+                {own.map((i) => (
+                  <ItemLine key={i.id} item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
+                ))}
+                <button
+                  className="btn sm ghost"
+                  onClick={() =>
+                    update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: [p.id], shared: false }] })
+                  }
+                >
+                  ＋ Add order
+                </button>
+              </div>
+            );
+          })}
 
-        <div className="section-title">🍻 Shared items (split between the people ticked)</div>
+        <div className="section-title">
+          {b.mode === 'even'
+            ? '🍻 Only for some (drinks…, split between the people ticked)'
+            : '🍻 Shared items (split between the people ticked)'}
+        </div>
         {shared.map((i) => (
           <div key={i.id} className="person-card">
             <ItemLine item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
@@ -600,7 +733,7 @@ export function BillEdit({ id }: { id: string }) {
             update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: b.people.map((p) => p.id), shared: true }] })
           }
         >
-          ＋ Shared item (drinks, dishes for the table…)
+          {b.mode === 'even' ? '＋ Item only some people had' : '＋ Shared item (drinks, dishes for the table…)'}
         </button>
 
         <div className="card">
@@ -660,10 +793,16 @@ export function BillEdit({ id }: { id: string }) {
                 </div>
                 <div className="sub">
                   food {fmtMoney(s.food, cur)} · service {fmtMoney(s.service, cur)} · VAT {fmtMoney(s.vat, cur)}
+                  {s.paysFor.length > 0 && ` · 🤝 pays for ${s.paysFor.join(', ')}`}
                 </div>
               </div>
               <div className="end">
-                <div className="amt">{fmtMoney(s.pay, cur)}</div>
+                <div className="amt">{s.paidBy ? '—' : fmtMoney(s.pay, cur)}</div>
+                {s.paidBy ? (
+                  <div className="amt2">🤝 {s.paidBy} pays</div>
+                ) : (
+                  s.paysFor.length > 0 && <div className="amt2">own {fmtMoney(s.own, cur)}</div>
+                )}
               </div>
             </div>
           ))}
@@ -704,6 +843,30 @@ export function BillEdit({ id }: { id: string }) {
               on={!!personEdit.exemptCharges}
               onChange={(v) => setPersonEdit({ ...personEdit, exemptCharges: v })}
             />
+            <Field label="🤝 Who pays for them?">
+              <div className="chips">
+                <button
+                  className={`chip ${!personEdit.paidById ? 'on' : ''}`}
+                  onClick={() => setPersonEdit({ ...personEdit, paidById: undefined })}
+                >
+                  They pay their own
+                </button>
+                {b.people
+                  .filter((p) => p.id !== personEdit.id)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      className={`chip ${personEdit.paidById === p.id ? 'on' : ''}`}
+                      onClick={() => setPersonEdit({ ...personEdit, paidById: p.id })}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+              </div>
+              <div className="tiny muted mt">
+                E.g. a friend pays for his wife: her whole share is added to his, and she owes nobody.
+              </div>
+            </Field>
             <div className="btn-row mt">
               <button
                 className="btn danger"

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { evaluate, hasOperator } from '../domain/calculator';
 import { COMMON_CURRENCIES } from '../domain/fx';
 import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
+import { orderGroups } from '../domain/groups';
 import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
 import { accountColour, accountEmoji, categoryEmoji, nameColour } from '../ui/emoji';
@@ -448,9 +449,9 @@ export function AccountSheet({
   title?: string;
   exclude?: string;
 }) {
-  const { data } = useApp();
+  const { data, profile } = useApp();
   const list = accounts.filter((a) => !a.archived && a.id !== exclude);
-  const groups = [...ACCOUNT_GROUPS, ...new Set(list.map((a) => a.group))].filter((g, i, arr) => arr.indexOf(g) === i);
+  const groups = orderGroups([...ACCOUNT_GROUPS, ...list.map((a) => a.group)], profile.accountGroupOrder);
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       {groups.map((g) => {
@@ -543,7 +544,10 @@ export function CategoryGrid({
   const { profile } = useApp();
   const [editing, setEditing] = useState<Category | null>(null);
   const list = categories.filter((c) => c.kind === kind && (!c.archived || c.id === value));
-  const groups = [...new Set(list.map((c) => c.group))];
+  const groups = orderGroups(
+    list.map((c) => c.group),
+    profile.categoryGroupOrder,
+  );
   const newCategory = (group: string): Category => ({
     id: uid(),
     profileId: profile.id,

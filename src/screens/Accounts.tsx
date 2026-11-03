@@ -10,6 +10,8 @@ import { accountColour, accountEmoji } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
 import { holdProps } from '../components/hold';
 import { QuickActions } from '../components/QuickActions';
+import { moveItem, orderGroups } from '../domain/groups';
+import { reorderRows, saveGroupOrder } from '../db/repo';
 
 export function AccountLine({ a }: { a: Account }) {
   const { go, rates, currency, today } = useApp();
@@ -86,13 +88,28 @@ export function AccountLine({ a }: { a: Account }) {
 }
 
 export function Accounts() {
-  const { go, rates, currency } = useApp();
+  const { go, rates, currency, profile } = useApp();
   const data = useData();
   const [showArchived, setShowArchived] = useState(false);
+  const [arrange, setArrange] = useState(false);
   const visible = data.accounts.filter((a) => showArchived || !a.archived);
   const nw = netWorth(data.accounts, data.balances, rates, currency);
-  const groups = [...ACCOUNT_GROUPS, ...new Set(visible.map((a) => a.group))].filter((g, i, arr) => arr.indexOf(g) === i);
+  const groups = orderGroups([...ACCOUNT_GROUPS, ...visible.map((a) => a.group)], profile.accountGroupOrder);
+  const shownGroups = groups.filter((g) => visible.some((a) => a.group === g));
   const archivedCount = data.accounts.filter((a) => a.archived).length;
+
+  const moveGroup = (g: string, dir: -1 | 1) =>
+    saveGroupOrder(profile.id, 'account', [...moveItem(shownGroups, g, dir), ...groups.filter((x) => !shownGroups.includes(x))]);
+  /** Swap an account with its neighbour in the same group, then number every account afresh. */
+  const moveAccount = async (a: Account, items: Account[], dir: -1 | 1) => {
+    const other = items[items.indexOf(a) + dir];
+    if (!other) return;
+    const ids = data.accounts.map((x) => x.id);
+    const i = ids.indexOf(a.id);
+    const j = ids.indexOf(other.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    await reorderRows('accounts', ids);
+  };
 
   return (
     <>
@@ -117,13 +134,26 @@ export function Accounts() {
           </div>
         </div>
 
-        <button className="btn primary block mb" onClick={() => go({ name: 'accountEdit' })}>
-          ＋ Add account, card or purse
-        </button>
+        <div className="hstack mb">
+          <button className="btn primary grow" onClick={() => go({ name: 'accountEdit' })}>
+            ＋ Add account, card or purse
+          </button>
+          <button className={`btn ${arrange ? 'mint' : ''}`} onClick={() => setArrange(!arrange)}>
+            {arrange ? '✓ Done' : '↕️ Arrange'}
+          </button>
+        </div>
+        {arrange && (
+          <div className="banner">
+            <span>↕️</span>
+            <span className="grow small">
+              ▲ ▼ next to a group name moves the whole group (e.g. Credit to the top). ▲ ▼ on an account moves it inside its
+              group.
+            </span>
+          </div>
+        )}
 
-        {groups.map((g) => {
+        {shownGroups.map((g, gi) => {
           const items = visible.filter((a) => a.group === g);
-          if (!items.length) return null;
           const total = items.reduce(
             (s, a) =>
               s +
@@ -135,12 +165,58 @@ export function Accounts() {
               <div className="section-title">
                 <span>{g}</span>
                 <span className="grow" />
-                <span className="small">{fmtMoney(total, currency, { compact: true })}</span>
+                {arrange ? (
+                  <>
+                    <button
+                      className="btn sm ghost"
+                      aria-label={`Move ${g} up`}
+                      disabled={gi === 0}
+                      onClick={() => moveGroup(g, -1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      className="btn sm ghost"
+                      aria-label={`Move ${g} down`}
+                      disabled={gi === shownGroups.length - 1}
+                      onClick={() => moveGroup(g, 1)}
+                    >
+                      ▼
+                    </button>
+                  </>
+                ) : (
+                  <span className="small">{fmtMoney(total, currency, { compact: true })}</span>
+                )}
               </div>
               <div className="list">
-                {items.map((a) => (
-                  <AccountLine key={a.id} a={a} />
-                ))}
+                {items.map((a, ai) =>
+                  arrange ? (
+                    <div key={a.id} className="row">
+                      <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
+                      <div className="main">
+                        <div className="title">{a.name}</div>
+                      </div>
+                      <button
+                        className="btn sm ghost"
+                        aria-label="Move up"
+                        disabled={ai === 0}
+                        onClick={() => moveAccount(a, items, -1)}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        className="btn sm ghost"
+                        aria-label="Move down"
+                        disabled={ai === items.length - 1}
+                        onClick={() => moveAccount(a, items, 1)}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  ) : (
+                    <AccountLine key={a.id} a={a} />
+                  ),
+                )}
               </div>
             </div>
           );

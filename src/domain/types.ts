@@ -6,6 +6,10 @@ export interface Profile {
   name: string;
   emoji?: string;
   order: number;
+  /** the user's order of the account groups (Bank, Credit…) */
+  accountGroupOrder?: string[];
+  /** the user's order of the spending groups (Eating Out, Fixed…) */
+  categoryGroupOrder?: string[];
 }
 
 export type AccountType =
@@ -135,13 +139,15 @@ export interface BillPerson {
   name: string;
   /** does not pay service charge or VAT; the others cover it */
   exemptCharges?: boolean;
+  /** someone else pays this person's whole share (e.g. a friend pays for his wife) */
+  paidById?: string;
 }
 
 export interface BillItem {
   id: string;
   name: string;
   price: number;
-  /** who shares this item; one person = their own item */
+  /** who shares this item; one person = their own item; nobody = food for the whole table */
   sharedBy: string[];
   /** shown in the Shared items section */
   shared: boolean;
@@ -165,6 +171,7 @@ export interface BillSplit {
   servicePct: number;
   vatPct: number;
   vatOnService: boolean;
+  /** even = the food is shared equally by everyone; shared items still go only to the people ticked */
   mode: 'itemised' | 'even';
   roundWhole: boolean;
   /** one person paid the whole bill */

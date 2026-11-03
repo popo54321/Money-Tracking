@@ -299,18 +299,15 @@ button.row:active {
   flex: 1;
   min-width: 0;
 }
+/* names and the line under them wrap instead of being cut off */
 .row .title {
   font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .row .sub {
   font-size: 12.5px;
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .row .end {
   text-align: right;
@@ -858,7 +855,6 @@ button.row:active {
   background: var(--line);
   margin: 0 auto 10px;
 }
-.dialog h3,
 .sheet .sheet-head .grab {
   position: absolute;
   top: 4px;
@@ -875,6 +871,8 @@ button.row:active {
 .dialog-backdrop {
   align-items: center;
   padding: 16px;
+  /* above any open sheet, so "Delete?" always shows on top */
+  z-index: 60;
 }
 .dialog {
   width: 100%;
@@ -1262,14 +1260,18 @@ body::after {
   line-height: 1.25;
 }
 
-/* press-and-hold: no text selection or system pop-up on long press */
-button,
-.row,
-.cat,
-.chip {
+/* press-and-hold: no text selection or system pop-up on long press, anywhere but typing boxes */
+body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 .cat.cat-new {
   border: 2px dashed var(--line);

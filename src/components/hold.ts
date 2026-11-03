@@ -19,6 +19,8 @@ export function holdProps(onHold: () => void) {
       cancel();
       timer = setTimeout(() => {
         fired = true;
+        // the finger is still down: make sure the phone doesn't start selecting text in the menu that opens
+        window.getSelection()?.removeAllRanges();
         try {
           navigator.vibrate?.(15);
         } catch {

@@ -42,12 +42,13 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 | **Summary** | Income and spending by category and group, per month, year or dates |
 | **Month close** | The numbers in the year sheet's order, tap to copy, or export to Excel / CSV |
 | **Budget plan** | Any number of phases, bonus split, leftover-money rule, monthly transfer checklist; can **import a Budget Allocation sheet** from an `.xlsx` workbook |
-| **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly; one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
+| **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly (food shared by all, drinks only by who had them), one person pays for others (e.g. his wife); one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up; add what's owed to Who owes me |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price, monthly saving or a linked account, and when you can buy it |
 | **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |
 | **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
+| **Arrange** | Move whole groups (e.g. Credit or Fixed to the top) and items inside them: Categories page, and Accounts → Arrange |
 | **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |
 | **Backup** | Save a backup file (Drive, email, Files), restore it, export all entries; Android also keeps a daily copy in `Documents/MoneyTracking` |
 

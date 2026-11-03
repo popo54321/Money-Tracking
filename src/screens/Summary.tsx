@@ -3,6 +3,7 @@ import { ProgressBar, Seg, Topbar, Sparkle, SkinName } from '../components/ui';
 import { addMonthKey, fmtMonth, monthEnd, monthKey, monthStart, yearEnd, yearStart } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { summarise, type CatLine } from '../domain/summary';
+import { orderGroups } from '../domain/groups';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
@@ -13,7 +14,7 @@ import type { Category } from '../domain/types';
 type Mode = 'month' | 'year' | 'custom';
 
 export function Summary() {
-  const { currency, rates, today, go } = useApp();
+  const { currency, rates, today, go, profile } = useApp();
   const data = useData();
   const [mode, setMode] = useState<Mode>('month');
   const [month, setMonth] = useState(monthKey(today));
@@ -29,6 +30,11 @@ export function Summary() {
         ? { from: yearStart(year), to: yearEnd(year), label: String(year) }
         : { from, to, label: 'Custom dates' };
   const s = summarise(data.txs, data.categories, range.from, range.to, currency, rates);
+  // spending groups in the order chosen on the Categories page
+  const expenseGroups = orderGroups(
+    s.expense.groups.map((g) => g.group),
+    profile.categoryGroupOrder,
+  ).map((name) => s.expense.groups.find((g) => g.group === name)!);
   const maxExpense = Math.max(1, ...s.expense.groups.flatMap((g) => g.cats.map((c) => c.total)));
   const maxIncome = Math.max(1, ...s.income.cats.map((c) => c.total));
 
@@ -128,7 +134,7 @@ export function Summary() {
           💸 Spending <span className="grow" /> <span className="small neg">{fmtMoney(s.expense.total, currency)}</span>
         </div>
         {s.expense.groups.length === 0 && <div className="card small muted center">No spending in this period. 🐣</div>}
-        {s.expense.groups.map((g) => (
+        {expenseGroups.map((g) => (
           <div key={g.group}>
             <div className="between" style={{ padding: '8px 6px 6px' }}>
               <span className="bold small">
