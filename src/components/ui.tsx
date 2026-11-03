@@ -266,6 +266,7 @@ export function AmountField({
   placeholder = 'Tap to enter',
   title = 'Amount',
   allowNegative,
+  compact,
 }: {
   value: number | null | undefined;
   onChange: (v: number) => void;
@@ -273,14 +274,16 @@ export function AmountField({
   placeholder?: string;
   title?: ReactNode;
   allowNegative?: boolean;
+  /** small box without the currency label, for tight rows */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const empty = value === null || value === undefined;
   return (
     <>
-      <button type="button" className={`amount-field ${empty ? 'empty' : ''}`} onClick={() => setOpen(true)}>
+      <button type="button" className={`amount-field ${empty ? 'is-empty' : ''}`} onClick={() => setOpen(true)}>
         <span>{empty ? placeholder : fmtNumber(value, decimalsFor(currency), 0)}</span>
-        <span className="cur">{currency} 🧮</span>
+        {!compact && <span className="cur">{currency} 🧮</span>}
       </button>
       <CalcSheet
         open={open}
@@ -478,7 +481,7 @@ export function AccountPickerButton({
   const a = accounts.find((x) => x.id === value);
   return (
     <>
-      <button type="button" className={`amount-field ${a ? '' : 'empty'}`} onClick={() => setOpen(true)}>
+      <button type="button" className={`amount-field ${a ? '' : 'is-empty'}`} onClick={() => setOpen(true)}>
         <span className="hstack" style={{ minWidth: 0 }}>
           {a ? (
             <>

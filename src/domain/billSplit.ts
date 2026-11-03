@@ -2,7 +2,8 @@
 // service charge and VAT in proportion to what each person had, people who are treated
 // to the charges, an even-split mode, and rounding that always adds up to the bill.
 import { allocate, decimalsFor, roundTo, sum } from './money';
-import type { BillItem, BillPerson } from './types';
+import { settle } from './tripSplit';
+import type { BillItem, BillPayment, BillPerson } from './types';
 
 export interface BillInput {
   people: BillPerson[];
@@ -110,6 +111,57 @@ export interface Owing {
   toId: string;
   toName: string;
   amount: number;
+}
+
+export interface PaymentPlan {
+  /** what each person put down, by person id */
+  paid: Map<string, number>;
+  paidTotal: number;
+  /** what still has to be paid at the table (negative = paid too much) */
+  missing: number;
+  /** fewest payments so everyone ends up paying exactly their share */
+  transfers: Owing[];
+}
+
+/**
+ * One or several people paid the bill (e.g. A paid 60 %, B 40 %). Each person's share is compared with
+ * what they put down, and the fewest payments square everyone up.
+ */
+export function settleBill(
+  result: BillResult,
+  payments: BillPayment[] | undefined,
+  paidBy: string | undefined,
+  currency: string,
+): PaymentPlan {
+  const dp = decimalsFor(currency);
+  const owedTotal = sum(result.shares.map((s) => s.pay));
+  const ids = new Set(result.shares.map((s) => s.personId));
+  let list = (payments ?? []).filter((p) => ids.has(p.personId));
+  if (list.length === 0 && paidBy && ids.has(paidBy)) list = [{ personId: paidBy, amount: owedTotal }];
+
+  const amounts = new Map<string, number>();
+  const byPct = list.filter((p) => p.pct !== undefined);
+  if (byPct.length === list.length && list.length > 0 && Math.abs(sum(byPct.map((p) => p.pct!)) - 1) < 1e-9) {
+    // percentages that add up to 100 % cover the bill exactly, to the last satang
+    allocate(
+      owedTotal,
+      byPct.map((p) => p.pct!),
+      dp,
+    ).forEach((v, i) => amounts.set(byPct[i].personId, v));
+  } else {
+    for (const p of list)
+      amounts.set(
+        p.personId,
+        (amounts.get(p.personId) ?? 0) + (p.pct !== undefined ? roundTo(owedTotal * p.pct, dp) : p.amount || 0),
+      );
+  }
+  const paidTotal = sum([...amounts.values()]);
+  const transfers = settle(
+    result.shares.map((s) => ({ id: s.personId, name: s.name, net: (amounts.get(s.personId) ?? 0) - s.pay })),
+  )
+    .map((t) => ({ fromId: t.fromId, fromName: t.fromName, toId: t.toId, toName: t.toName, amount: roundTo(t.amount, dp) }))
+    .filter((t) => t.amount > 0);
+  return { paid: amounts, paidTotal, missing: roundTo(owedTotal - paidTotal, dp), transfers };
 }
 
 /** When one person paid the whole bill, everyone else owes them their share. */

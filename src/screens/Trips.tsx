@@ -1,12 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
 import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar } from '../components/ui';
-import { computeTrip, entryBase } from '../domain/tripSplit';
+import { computeTrip, entryBase, type TripResult } from '../domain/tripSplit';
 import { rateBetween } from '../domain/fx';
 import { fmtMoney, roundTo } from '../domain/money';
 import type { Trip, TripEntry, TripMember } from '../domain/types';
 import { db, uid } from '../db/db';
-import { deleteTrip, saveTrip } from '../db/repo';
+import { deleteTrip, recordOwed, saveTrip, type OwedItem } from '../db/repo';
+import { todayISO } from '../domain/dates';
 import { copyText } from '../services/platform';
 import { useApp } from '../state/app';
 
@@ -173,6 +174,70 @@ function EntrySheet({
         extra={Object.keys(trip.rates)}
       />
     </Sheet>
+  );
+}
+
+/** Put what friends still owe me from this trip (or what I owe them) into Who owes me. */
+function TripOwedButton({ t, settlements }: { t: Trip; settlements: TripResult['settlements'] }) {
+  const { profile, toast, go } = useApp();
+  const guess = t.members.find((m) => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase())?.id;
+  const [meId, setMeId] = useState<string | undefined>(guess);
+  const [added, setAdded] = useState(false);
+  if (settlements.length === 0) return null;
+  const mine: OwedItem[] = meId
+    ? settlements
+        .filter((s) => s.toId === meId || s.fromId === meId)
+        .map((s) => {
+          const theyOweMe = s.toId === meId;
+          return {
+            person: theyOweMe ? s.fromName : s.toName,
+            direction: theyOweMe ? ('owedToMe' as const) : ('iOwe' as const),
+            amount: roundTo(s.payBack, 2),
+            currency: t.payBackCurrency,
+            date: todayISO(),
+            note: t.name || 'Trip',
+            key: `trip:${t.id}:${theyOweMe ? s.fromId : s.toId}:${theyOweMe ? 'in' : 'out'}`,
+          };
+        })
+    : [];
+  return (
+    <div className="card">
+      <div className="field">
+        <div className="label">Which one is you?</div>
+        <div className="chips">
+          {t.members.map((m) => (
+            <button
+              key={m.id}
+              className={`chip ${meId === m.id ? 'on' : ''}`}
+              onClick={() => {
+                setMeId(m.id);
+                setAdded(false);
+              }}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      {added ? (
+        <button className="btn mint block" onClick={() => go({ name: 'debts' })}>
+          ✓ Added · open Who owes me ›
+        </button>
+      ) : (
+        <button
+          className="btn sky block"
+          disabled={mine.length === 0}
+          onClick={async () => {
+            const n = await recordOwed(profile.id, mine);
+            setAdded(true);
+            toast(`🦉 ${n} added to Who owes me`);
+          }}
+        >
+          🦉 {mine.length ? `Add ${mine.length} to Who owes me` : 'Nothing between you and others'}
+        </button>
+      )}
+      <div className="tiny muted mt">Adding again after changes updates the amounts; it never counts twice.</div>
+    </div>
   );
 }
 
@@ -374,6 +439,7 @@ export function TripEdit({ id }: { id: string }) {
             Pay back in {pay} ▾
           </button>
         </div>
+        <TripOwedButton t={t} settlements={r.settlements} />
 
         <div className="card">
           <table className="t">

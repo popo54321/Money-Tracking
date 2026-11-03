@@ -147,6 +147,14 @@ export interface BillItem {
   shared: boolean;
 }
 
+export interface BillPayment {
+  personId: string;
+  /** amount paid */
+  amount: number;
+  /** when set, this payer covers this share of the bill (0–1) and the amount follows the total */
+  pct?: number;
+}
+
 export interface BillSplit {
   id: string;
   title: string;
@@ -159,7 +167,10 @@ export interface BillSplit {
   vatOnService: boolean;
   mode: 'itemised' | 'even';
   roundWhole: boolean;
+  /** one person paid the whole bill */
   paidBy?: string;
+  /** several people paid part of the bill each (used instead of paidBy when set) */
+  payments?: BillPayment[];
   createdAt: number;
   updatedAt: number;
 }

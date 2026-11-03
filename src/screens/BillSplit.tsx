@@ -3,23 +3,23 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccountPickerButton,
   AmountField,
+  Avatar,
   CategoryGrid,
   CurrencySheet,
   Field,
   NumberInput,
   Seg,
   Sheet,
+  Sparkle,
   ToggleRow,
   Topbar,
-  Sparkle,
-  Avatar,
 } from '../components/ui';
-import { computeBill, whoOwes } from '../domain/billSplit';
+import { computeBill, settleBill, type BillResult, type PaymentPlan } from '../domain/billSplit';
 import { fmtDate } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
-import type { BillItem, BillPerson, BillSplit } from '../domain/types';
+import type { BillItem, BillPayment, BillPerson, BillSplit } from '../domain/types';
 import { db, uid } from '../db/db';
-import { deleteBill, saveBill, saveTx } from '../db/repo';
+import { deleteBill, recordOwed, saveBill, saveTx, type OwedItem } from '../db/repo';
 import { copyText } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
@@ -127,14 +127,16 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
   const r = computeBill(bill);
   const guessMe = bill.people.find((p) => p.name.trim().toLowerCase() === profile.name.toLowerCase())?.id ?? bill.people[0]?.id;
   const [me, setMe] = useState(guessMe);
-  const [what, setWhat] = useState<'share' | 'full'>('share');
+  const [what, setWhat] = useState<'share' | 'full' | 'paid'>('share');
+  const plan = settleBill(r, bill.payments, bill.paidBy, bill.currency);
   const dinner = data.categories.find((c) => c.kind === 'expense' && c.name.toLowerCase() === 'dinner')?.id;
   const [categoryId, setCategoryId] = useState<string | undefined>(dinner);
   const [accountId, setAccountId] = useState<string | undefined>(
     data.accounts.find((a) => a.type === 'cash' || a.type === 'bank')?.id,
   );
   const share = r.shares.find((s) => s.personId === me)?.pay ?? 0;
-  const amount = what === 'share' ? share : r.total;
+  const myPaid = me ? (plan.paid.get(me) ?? 0) : 0;
+  const amount = what === 'share' ? share : what === 'paid' ? myPaid : r.total;
   const acc = accountId ? data.accountById.get(accountId) : undefined;
   const save = async () => {
     if (!acc || !categoryId) return toast('Choose an account and a category');
@@ -149,7 +151,7 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
         origAmount: sameCur ? undefined : amount,
         origCurrency: sameCur ? undefined : bill.currency,
         categoryId,
-        note: `${bill.title}${what === 'full' ? ' (whole bill)' : ''}`,
+        note: `${bill.title}${what === 'full' ? ' (whole bill)' : what === 'paid' ? ' (what I paid)' : ''}`,
       },
       rates,
       currency,
@@ -173,11 +175,14 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
         onChange={setWhat}
         options={[
           { v: 'share', label: `My share ${fmtMoney(share, bill.currency)}` },
+          ...(myPaid > 0 && Math.abs(myPaid - r.total) > 0.005
+            ? [{ v: 'paid' as const, label: `What I paid ${fmtMoney(myPaid, bill.currency)}` }]
+            : []),
           { v: 'full', label: `Whole bill ${fmtMoney(r.total, bill.currency)}` },
         ]}
       />
       <div className="tiny muted mt">
-        Paid the whole bill? Log the whole bill, then log money friends pay back as income (Payback).
+        Paid for others? Log what you paid, then log money friends pay back as income (Payback), or add them to Who owes me below.
       </div>
       <Field label="Paid with">
         <AccountPickerButton accounts={data.accounts} value={accountId} onChange={setAccountId} />
@@ -187,6 +192,179 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
         Log {fmtMoney(amount, bill.currency)}
       </button>
     </Sheet>
+  );
+}
+
+/** Who put money down (one person, or several by amount or %), the fewest payments to settle, and a link to Who owes me. */
+function PayersSection({
+  b,
+  r,
+  plan,
+  update,
+}: {
+  b: BillSplit;
+  r: BillResult;
+  plan: PaymentPlan;
+  update: (patch: Partial<BillSplit>) => void;
+}) {
+  const { profile, toast, go } = useApp();
+  const cur = b.currency;
+  const several = b.payments !== undefined;
+  const guessMe = b.people.find((p) => p.name.trim().toLowerCase() === profile.name.trim().toLowerCase())?.id;
+  const [meId, setMeId] = useState<string | undefined>(guessMe);
+  const [added, setAdded] = useState(false);
+  const owedTotal = r.shares.reduce((x, s) => x + s.pay, 0);
+
+  const setPayment = (personId: string, patch: Partial<BillPayment>) => {
+    const list = b.payments ?? [];
+    const next = list.some((p) => p.personId === personId)
+      ? list.map((p) => (p.personId === personId ? { ...p, ...patch } : p))
+      : [...list, { personId, amount: 0, ...patch }];
+    update({ payments: next });
+  };
+
+  const mine: OwedItem[] = meId
+    ? plan.transfers
+        .filter((t) => t.toId === meId || t.fromId === meId)
+        .map((t) => {
+          const theyOweMe = t.toId === meId;
+          const otherId = theyOweMe ? t.fromId : t.toId;
+          return {
+            person: theyOweMe ? t.fromName : t.toName,
+            direction: theyOweMe ? ('owedToMe' as const) : ('iOwe' as const),
+            amount: t.amount,
+            currency: cur,
+            date: b.date,
+            note: b.title || 'Bill split',
+            key: `bill:${b.id}:${otherId}:${theyOweMe ? 'in' : 'out'}`,
+          };
+        })
+    : [];
+
+  return (
+    <div className="card">
+      <h2>💳 Who paid?</h2>
+      <Seg
+        value={several ? 'several' : 'one'}
+        onChange={(v) =>
+          update(
+            v === 'one' ? { payments: undefined } : { payments: b.paidBy ? [{ personId: b.paidBy, amount: 0, pct: 1 }] : [] },
+          )
+        }
+        options={[
+          { v: 'one', label: 'One person' },
+          { v: 'several', label: 'Several people' },
+        ]}
+      />
+      {!several ? (
+        <div className="chips mt">
+          {b.people.map((p) => (
+            <button key={p.id} className={`chip ${b.paidBy === p.id ? 'on' : ''}`} onClick={() => update({ paidBy: p.id })}>
+              {p.name}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="tiny muted mt mb">Type what each person paid, or a % of the bill. Leave the rest at 0.</div>
+          {b.people.map((p) => {
+            const pay = (b.payments ?? []).find((x) => x.personId === p.id);
+            const amount = plan.paid.get(p.id) ?? 0;
+            const pct = pay?.pct !== undefined ? pay.pct * 100 : owedTotal > 0 ? (amount / owedTotal) * 100 : 0;
+            return (
+              <div key={p.id} className="item-line">
+                <Avatar name={p.name} />
+                <span className="grow small bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.name}
+                </span>
+                <div style={{ width: 92, flex: 'none' }}>
+                  <AmountField
+                    compact
+                    value={amount || null}
+                    onChange={(v) => setPayment(p.id, { amount: v, pct: undefined })}
+                    currency={cur}
+                    placeholder="0"
+                    title={`${p.name} paid`}
+                  />
+                </div>
+                <div style={{ width: 54, flex: 'none' }}>
+                  <NumberInput
+                    className="inline-input"
+                    value={Math.round(pct * 100) / 100}
+                    onChange={(v) => setPayment(p.id, { pct: v / 100, amount: 0 })}
+                  />
+                </div>
+                <span className="tiny">%</span>
+                <button
+                  className="btn sm ghost"
+                  title="Pay the rest"
+                  onClick={() => setPayment(p.id, { amount: Math.max(0, amount + plan.missing), pct: undefined })}
+                >
+                  rest
+                </button>
+              </div>
+            );
+          })}
+          <div className={`small mt ${Math.abs(plan.missing) > 0.005 ? 'neg' : 'pos'}`}>
+            Paid {fmtMoney(plan.paidTotal, cur)} of {fmtMoney(owedTotal, cur)}
+            {plan.missing > 0.005
+              ? ` · ${fmtMoney(plan.missing, cur)} still to pay`
+              : plan.missing < -0.005
+                ? ` · ${fmtMoney(-plan.missing, cur)} too much`
+                : ' ✓'}
+          </div>
+        </>
+      )}
+
+      {plan.transfers.length > 0 && (
+        <>
+          <div className="cat-group-name">💌 Settle up</div>
+          {plan.transfers.map((t) => (
+            <div key={`${t.fromId}-${t.toId}`} className="between small" style={{ padding: '4px 0' }}>
+              <span>
+                {t.fromName} → {t.toName}
+              </span>
+              <b>{fmtMoney(t.amount, cur)}</b>
+            </div>
+          ))}
+          <div className="field mt">
+            <div className="label">Which one is you?</div>
+            <div className="chips">
+              {b.people.map((p) => (
+                <button
+                  key={p.id}
+                  className={`chip ${meId === p.id ? 'on' : ''}`}
+                  onClick={() => {
+                    setMeId(p.id);
+                    setAdded(false);
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          {added ? (
+            <button className="btn mint block" onClick={() => go({ name: 'debts' })}>
+              ✓ Added · open Who owes me ›
+            </button>
+          ) : (
+            <button
+              className="btn sky block"
+              disabled={mine.length === 0}
+              onClick={async () => {
+                const n = await recordOwed(profile.id, mine);
+                setAdded(true);
+                toast(`🦉 ${n} added to Who owes me`);
+              }}
+            >
+              🦉 {mine.length ? `Add ${mine.length} to Who owes me` : 'Nothing between you and others'}
+            </button>
+          )}
+          <div className="tiny muted mt">Adding again after changes updates the amounts; it never counts twice.</div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -213,7 +391,7 @@ export function BillEdit({ id }: { id: string }) {
     saveTimer.current = setTimeout(() => saveBill(next), 300);
   };
   const r = computeBill(b);
-  const owes = whoOwes(r, b.paidBy);
+  const plan = settleBill(r, b.payments, b.paidBy, b.currency);
   const cur = b.currency;
 
   const addPerson = () => {
@@ -229,6 +407,7 @@ export function BillEdit({ id }: { id: string }) {
         .filter((i) => i.shared || i.sharedBy[0] !== pid)
         .map((i) => ({ ...i, sharedBy: i.sharedBy.filter((x) => x !== pid) })),
       paidBy: b.paidBy === pid ? b.people.find((p) => p.id !== pid)?.id : b.paidBy,
+      payments: b.payments?.filter((x) => x.personId !== pid),
     });
   };
   const setItem = (item: BillItem) => update({ items: b.items.map((i) => (i.id === item.id ? item : i)) });
@@ -239,8 +418,7 @@ export function BillEdit({ id }: { id: string }) {
     const lines = [`🍽️ ${b.title} · ${fmtDate(b.date)}`];
     for (const s of r.shares) lines.push(`${s.name}: ${fmtMoney(s.pay, cur)}${s.exempt ? ' (treated to service & VAT)' : ''}`);
     lines.push(`Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%)`);
-    const payer = b.people.find((p) => p.id === b.paidBy);
-    if (payer) lines.push(`Please pay ${payer.name} 🙏`);
+    for (const t of plan.transfers) lines.push(`${t.fromName} → ${t.toName}: ${fmtMoney(t.amount, cur)}`);
     return lines.join('\n');
   };
 
@@ -454,28 +632,8 @@ export function BillEdit({ id }: { id: string }) {
           </div>
         )}
 
-        <Field label="Who paid the bill?">
-          <div className="chips">
-            {b.people.map((p) => (
-              <button key={p.id} className={`chip ${b.paidBy === p.id ? 'on' : ''}`} onClick={() => update({ paidBy: p.id })}>
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </Field>
-        {owes.length > 0 && (
-          <div className="card">
-            <h2>💌 Pay back</h2>
-            {owes.map((o) => (
-              <div key={o.fromId} className="between small" style={{ padding: '4px 0' }}>
-                <span>
-                  {o.fromName} → {o.toName}
-                </span>
-                <b>{fmtMoney(o.amount, cur)}</b>
-              </div>
-            ))}
-          </div>
-        )}
+        <PayersSection b={b} r={r} plan={plan} update={update} />
+
         <div className="btn-row">
           <button
             className="btn sky"
