@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
+import { holdProps } from '../components/hold';
 import { Sheet, Topbar, Sparkle } from '../components/ui';
 import { TxGroups } from '../components/TxRow';
 import { netWorth } from '../domain/balances';
@@ -15,7 +16,7 @@ import { isNative } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
 export function ProfileSwitch() {
-  const { profiles, profile, setProfile, stackDepth } = useApp();
+  const { profiles, profile, setProfile, stackDepth, go } = useApp();
   const [open, setOpen] = useState(false);
   if (profiles.length < 2) return null;
   const compact = stackDepth > 1;
@@ -38,6 +39,10 @@ export function ProfileSwitch() {
                   setProfile(p.id);
                   setOpen(false);
                 }}
+                {...holdProps(() => {
+                  setOpen(false);
+                  go({ name: 'settings' });
+                })}
               >
                 <div className="bubble lav">{p.emoji ?? '🙂'}</div>
                 <div className="main">
@@ -58,6 +63,7 @@ export function ProfileSwitch() {
           key={p.id}
           className={p.id === profile.id ? 'on' : ''}
           onClick={() => setProfile(p.id)}
+          {...holdProps(() => go({ name: 'settings' }))}
           role="tab"
           aria-selected={p.id === profile.id}
           aria-label={p.name}

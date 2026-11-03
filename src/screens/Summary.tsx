@@ -6,6 +6,9 @@ import { summarise, type CatLine } from '../domain/summary';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
+import { holdProps } from '../components/hold';
+import { CategoryEditor } from '../components/CategoryEditor';
+import type { Category } from '../domain/types';
 
 type Mode = 'month' | 'year' | 'custom';
 
@@ -17,6 +20,7 @@ export function Summary() {
   const [year, setYear] = useState(Number(today.slice(0, 4)));
   const [from, setFrom] = useState(monthStart(monthKey(today)));
   const [to, setTo] = useState(today);
+  const [editing, setEditing] = useState<Category | null>(null);
 
   const range =
     mode === 'month'
@@ -35,6 +39,7 @@ export function Summary() {
       key={c.category?.id ?? 'none'}
       className="row"
       onClick={() => go({ name: 'txList', categoryId: c.category?.id ?? '', from: range.from, to: range.to, title: c.name })}
+      {...holdProps(() => c.category && setEditing(c.category))}
       style={{ alignItems: 'flex-start' }}
     >
       <div className={`bubble ${kind === 'income' ? 'mint' : colour}`}>{categoryEmoji(c.category)}</div>
@@ -134,6 +139,8 @@ export function Summary() {
             <div className="list">{g.cats.map((c) => catRow(c, maxExpense, groupColour(g.group), 'expense'))}</div>
           </div>
         ))}
+        <div className="tiny muted mt center">Tip: press and hold a category to edit it.</div>
+        {editing && <CategoryEditor category={editing} onClose={() => setEditing(null)} />}
         <button className="btn sky block mt" onClick={() => go({ name: 'monthClose' })}>
           📋 Month close (numbers for my workbook)
         </button>

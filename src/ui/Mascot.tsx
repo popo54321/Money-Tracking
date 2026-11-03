@@ -63,8 +63,8 @@ function Dino({ pose }: { pose: Pose }) {
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
       {/* tail */}
       <path d="M48 46 q12 2 12 -8 q-4 6 -12 2z" fill={body} stroke={dark} strokeWidth="1.5" strokeLinejoin="round" />
-      {/* spikes */}
-      <path d="M22 13 l3 -7 3 7z M30 10 l3 -7 3 7z M38 13 l3 -7 3 7z" fill={spike} stroke={dark} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* one spike on top of the head */}
+      <path d="M27.5 12.5 q4.5 -12 9 0z" fill={spike} stroke={dark} strokeWidth="1.3" strokeLinejoin="round" />
       {/* body */}
       <path d="M12 40 q-2 -28 20 -29 q22 1 20 29 q1 16 -20 16 q-21 0 -20 -16z" fill={body} stroke={dark} strokeWidth="1.8" />
       {/* tummy */}

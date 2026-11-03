@@ -1,0 +1,47 @@
+// Press and hold: returns props for any element so a long press runs `onHold`
+// and the tap that ends the press does not also count as a normal tap.
+import type React from 'react';
+
+let timer: ReturnType<typeof setTimeout> | undefined;
+let fired = false;
+let sx = 0;
+let sy = 0;
+
+const HOLD_MS = 500;
+
+export function holdProps(onHold: () => void) {
+  const cancel = () => clearTimeout(timer);
+  return {
+    onPointerDown(e: React.PointerEvent) {
+      fired = false;
+      sx = e.clientX;
+      sy = e.clientY;
+      cancel();
+      timer = setTimeout(() => {
+        fired = true;
+        try {
+          navigator.vibrate?.(15);
+        } catch {
+          // vibration is a bonus
+        }
+        onHold();
+      }, HOLD_MS);
+    },
+    onPointerMove(e: React.PointerEvent) {
+      if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) cancel();
+    },
+    onPointerUp: cancel,
+    onPointerCancel: cancel,
+    onPointerLeave: cancel,
+    onContextMenu(e: React.MouseEvent) {
+      e.preventDefault();
+    },
+    onClickCapture(e: React.MouseEvent) {
+      if (fired) {
+        e.preventDefault();
+        e.stopPropagation();
+        fired = false;
+      }
+    },
+  };
+}

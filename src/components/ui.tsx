@@ -7,6 +7,9 @@ import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '
 import { useApp } from '../state/app';
 import { accountColour, accountEmoji, categoryEmoji } from '../ui/emoji';
 import { Mascot } from '../ui/Mascot';
+import { uid } from '../db/db';
+import { CategoryEditor } from './CategoryEditor';
+import { holdProps } from './hold';
 
 // ---------- layout ----------
 
@@ -129,7 +132,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
 // ---------- calculator ----------
 
-const KEYS = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '.', '0', '⌫', '+', '(', ')', 'C', '='];
+// Like a normal phone calculator: clear, delete and brackets on top, operators down the right.
+const KEYS = ['C', '⌫', '(', ')', '7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', '.', '=', '+'];
 
 export function useCalc(initial = '') {
   const [expr, setExpr] = useState(initial);
@@ -165,7 +169,7 @@ export function Keypad({ onKey, okLabel }: { onKey: (k: string) => void; okLabel
         <button
           key={k}
           type="button"
-          className={'+−×÷'.includes(k) ? 'op' : k === '=' ? 'ok' : '()C⌫'.includes(k) ? 'fn' : ''}
+          className={'+−×÷'.includes(k) ? 'op' : k === '=' ? 'ok' : k === 'C' ? 'clear' : '()⌫'.includes(k) ? 'fn' : ''}
           onClick={() => onKey(k)}
           aria-label={k === '⌫' ? 'Delete' : k === 'C' ? 'Clear' : k}
         >
@@ -355,9 +359,10 @@ export function CurrencySheet({
 }
 
 export function AccountRowView({ a, right, onClick }: { a: Account; right?: ReactNode; onClick?: () => void }) {
+  const { go } = useApp();
   const Tag = onClick ? 'button' : 'div';
   return (
-    <Tag className="row" onClick={onClick} type={onClick ? 'button' : undefined}>
+    <Tag className="row" onClick={onClick} type={onClick ? 'button' : undefined} {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}>
       <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
       <div className="main">
         <div className="title">{a.name}</div>
@@ -479,25 +484,55 @@ export function CategoryGrid({
   value?: string;
   onPick: (id: string) => void;
 }) {
+  const { profile } = useApp();
+  const [editing, setEditing] = useState<Category | null>(null);
   const list = categories.filter((c) => c.kind === kind && (!c.archived || c.id === value));
   const groups = [...new Set(list.map((c) => c.group))];
+  const newCategory = (group: string): Category => ({
+    id: uid(),
+    profileId: profile.id,
+    kind,
+    name: '',
+    group,
+    order: Math.max(0, ...categories.map((c) => c.order)) + 1,
+    archived: false,
+  });
   return (
     <div>
-      {groups.map((g) => (
+      {groups.map((g, gi) => (
         <div key={g}>
           {kind === 'expense' && <div className="cat-group-name">{g}</div>}
           <div className="cat-grid">
             {list
               .filter((c) => c.group === g)
               .map((c) => (
-                <button key={c.id} type="button" className={`cat ${c.id === value ? 'on' : ''}`} onClick={() => onPick(c.id)}>
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`cat ${c.id === value ? 'on' : ''}`}
+                  onClick={() => onPick(c.id)}
+                  {...holdProps(() => setEditing(c))}
+                >
                   <span className="e">{categoryEmoji(c)}</span>
                   <span className="n">{c.name}</span>
                 </button>
               ))}
+            {gi === groups.length - 1 && (
+              <button type="button" className="cat cat-new" onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : g))}>
+                <span className="e">＋</span>
+                <span className="n">New</span>
+              </button>
+            )}
           </div>
         </div>
       ))}
+      {groups.length === 0 && (
+        <button type="button" className="btn block" onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : 'Discretionary'))}>
+          ＋ New category
+        </button>
+      )}
+      <div className="tiny muted mt">Tip: press and hold a category to edit it.</div>
+      {editing && <CategoryEditor category={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }
