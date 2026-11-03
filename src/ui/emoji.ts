@@ -1,5 +1,12 @@
 // Cute default icons for categories and accounts (can be changed per category).
 import type { AccountType, Category } from '../domain/types';
+import { isPlainIcons } from './skins';
+
+function initials(name: string): string {
+  const words = name.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '•';
+  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
+}
 
 const CATEGORY_EMOJI: Record<string, string> = {
   salary: '💰', 'investing dividend': '📈', 'commission money': '🤝', 'investing income': '📊',
@@ -23,12 +30,14 @@ const GROUP_EMOJI: Record<string, string> = {
 };
 
 export function categoryEmoji(c: Pick<Category, 'name' | 'group' | 'emoji'> | null | undefined): string {
-  if (!c) return '❔';
+  if (!c) return isPlainIcons() ? '?' : '❔';
+  if (isPlainIcons()) return initials(c.name);
   if (c.emoji) return c.emoji;
   return CATEGORY_EMOJI[c.name.trim().toLowerCase()] ?? GROUP_EMOJI[c.group] ?? '🏷️';
 }
 
 export function groupEmoji(group: string): string {
+  if (isPlainIcons()) return '';
   return GROUP_EMOJI[group] ?? '🏷️';
 }
 
@@ -37,7 +46,12 @@ const ACCOUNT_EMOJI: Record<AccountType, string> = {
   insurance: '🛡️', other: '👛',
 };
 
+const ACCOUNT_SHORT: Record<AccountType, string> = {
+  bank: 'BK', cash: 'CA', debit: 'DB', credit: 'CC', topup: 'TU', investment: 'IN', crypto: '₿', units: 'AU', insurance: 'IS', other: 'OT',
+};
+
 export function accountEmoji(type: AccountType): string {
+  if (isPlainIcons()) return ACCOUNT_SHORT[type] ?? '•';
   return ACCOUNT_EMOJI[type] ?? '👛';
 }
 

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AccountPickerButton, AmountField, CategoryGrid, CurrencySheet, Field, NumberInput, Seg, Sheet, ToggleRow, Topbar } from '../components/ui';
+import { AccountPickerButton, AmountField, CategoryGrid, CurrencySheet, Field, NumberInput, Seg, Sheet, ToggleRow, Topbar, Sparkle } from '../components/ui';
 import { computeBill, whoOwes } from '../domain/billSplit';
 import { fmtDate } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
@@ -354,7 +354,7 @@ export function BillEdit({ id }: { id: string }) {
         </div>
 
         <div className="hero">
-          <span className="sparkle">🧮</span>
+          <Sparkle k="bills" />
           <div className="label">Total bill</div>
           <div className="big">{fmtMoney(r.total, cur)}</div>
           <div className="small bold">

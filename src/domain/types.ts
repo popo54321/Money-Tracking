@@ -257,6 +257,8 @@ export interface Settings {
   favouriteCurrencies: string[];
   activeProfileId: string;
   theme: 'system' | 'light' | 'dark';
+  /** look: financial, cute, fantasy, dino or cat */
+  skin?: string;
   lastBackupAt?: number;
   lastAutoBackupAt?: number;
   githubRepo: string;

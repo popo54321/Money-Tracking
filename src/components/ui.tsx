@@ -538,3 +538,18 @@ export function ProgressBar({ value, colour = '' }: { value: number; colour?: st
     </div>
   );
 }
+
+// ---------- theme decorations ----------
+
+/** The little picture in the corner of a top card; nothing in the Financial theme. */
+export function Sparkle({ k, override }: { k: string; override?: string }) {
+  const { skin } = useApp();
+  const e = skin.plain ? '' : override ?? skin.sparkle[k] ?? '';
+  return e ? <span className="sparkle">{e}</span> : null;
+}
+
+/** A screen name that follows the theme (e.g. Accounts / Treasury). */
+export function SkinName({ k }: { k: 'accounts' | 'more' | 'summary' | 'budget' | 'goals' | 'wealth' }) {
+  const { skin } = useApp();
+  return <>{skin.names[k]}</>;
+}

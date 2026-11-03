@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar } from '../components/ui';
+import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle } from '../components/ui';
 import { debtStatus, type Debt, type DebtEvent } from '../domain/debts';
 import { addDays, fmtDate } from '../domain/dates';
 import { convert } from '../domain/fx';
@@ -85,7 +85,7 @@ export function DebtList() {
       <Topbar title="Who owes me 🤝" right={<ProfileSwitch />} />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🦉</span>
+          <Sparkle k="debts" />
           <div className="label">People owe me</div>
           <div className="big">{fmtMoney(totals.owedToMe, currency)}</div>
           <div className="small bold">I owe others {fmtMoney(totals.iOwe, currency)}</div>
@@ -173,7 +173,7 @@ export function DebtDetail({ id }: { id: string }) {
         />
 
         <div className="hero mt">
-          <span className="sparkle">{theyOwe ? '💚' : '💗'}</span>
+          <Sparkle k="debts" override={theyOwe ? '💚' : '💗'} />
           <div className="label">{theyOwe ? 'They owe you now' : 'You owe now'}</div>
           <div className="big">{fmtMoney(s.owed, cur)}</div>
           <div className="stat-row">

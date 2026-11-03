@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AmountField, Field, Seg, Sheet, Topbar } from '../components/ui';
+import { AmountField, Field, Seg, Sheet, Topbar, Sparkle, SkinName } from '../components/ui';
 import { fmtAgo } from '../domain/dates';
 import { BAHT_WEIGHT_GRAMS } from '../domain/fx';
 import { fmtMoney, fmtNumber } from '../domain/money';
@@ -143,10 +143,10 @@ export function Wealth() {
 
   return (
     <>
-      <Topbar title="Wealth preserve 🐉" right={<ProfileSwitch />} />
+      <Topbar title={<SkinName k="wealth" />} right={<ProfileSwitch />} />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🐉</span>
+          <Sparkle k="wealth" />
           <div className="label">BTC + gold worth now</div>
           <div className="big">{fmtMoney(total, currency)}</div>
           <div className="small bold">

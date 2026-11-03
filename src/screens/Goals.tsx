@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
-import { AccountPickerButton, AmountField, CurrencySheet, Field, ProgressBar, Seg, Sheet, ToggleRow, Topbar } from '../components/ui';
+import { AccountPickerButton, AmountField, CurrencySheet, Field, ProgressBar, Seg, Sheet, ToggleRow, Topbar, Sparkle, SkinName } from '../components/ui';
 import { accountValue } from '../domain/balances';
 import { fmtDate, fmtMonth } from '../domain/dates';
 import { goalStatus, type Goal } from '../domain/goals';
@@ -146,10 +146,10 @@ export function Goals() {
 
   return (
     <>
-      <Topbar title="Wishes 🌠" right={<ProfileSwitch />} />
+      <Topbar title={<SkinName k="goals" />} right={<ProfileSwitch />} />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🌠</span>
+          <Sparkle k="goals" />
           <div className="label">Still to save for my wishlist</div>
           <div className="big">{fmtMoney(totalLeft, currency)}</div>
           <div className="small bold">{active.length} {active.length === 1 ? 'thing' : 'things'} on the list</div>

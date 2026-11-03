@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { AccountPickerButton, AmountField, Field, NumberInput, ProgressBar, Sheet, Topbar } from '../components/ui';
+import { AccountPickerButton, AmountField, Field, NumberInput, ProgressBar, Sheet, Topbar, Sparkle, SkinName } from '../components/ui';
 import { phaseTotals, pctTotal, splitRows, surplusRule, transferAmount } from '../domain/budget';
 import { monthKey } from '../domain/dates';
 import { fmtMoney, fmtNumber } from '../domain/money';
@@ -188,7 +188,7 @@ export function Budget() {
   return (
     <>
       <Topbar
-        title="Budget spell 📜"
+        title={<SkinName k="budget" />}
         right={
           <button className={`btn sm ${edit ? 'primary' : ''}`} onClick={() => setEdit(!edit)}>
             {edit ? 'Done' : '✏️ Edit'}
@@ -250,7 +250,7 @@ export function Budget() {
         )}
 
         <div className="hero">
-          <span className="sparkle">{isActive ? '⭐' : '🗂️'}</span>
+          <Sparkle k="budget" override={isActive ? '⭐' : undefined} />
           <div className="label">{phase.name}</div>
           <div className="big">{fmtMoney(totals.total, cur)}</div>
           <div className="small bold">

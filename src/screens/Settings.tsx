@@ -13,6 +13,7 @@ import { APP_VERSION, isNative, openExternal, pickTextFile } from '../services/p
 import { applyWebUpdate, checkWebUpdate, installApk, isNewer, latestRelease, type ReleaseInfo } from '../services/updater';
 import { useApp } from '../state/app';
 import { EMOJI_CHOICES } from '../ui/emoji';
+import { SKINS } from '../ui/skins';
 
 function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
   const { confirm, toast, profile, profiles, setProfile } = useApp();
@@ -140,7 +141,7 @@ function UpdateCard() {
 }
 
 export function Settings() {
-  const { settings, prices, profiles, toast, confirm, profile, setProfile } = useApp();
+  const { settings, prices, profiles, toast, confirm, profile, setProfile, skin } = useApp();
   const [curOpen, setCurOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -272,7 +273,24 @@ export function Settings() {
         </div>
 
         <div className="card">
-          <h2>🎨 Look</h2>
+          <h2>🎨 Theme</h2>
+          <div className="vstack mb">
+            {SKINS.map((t) => (
+              <button
+                key={t.id}
+                className={`row ${skin.id === t.id ? 'on' : ''}`}
+                style={{ border: `2px solid ${skin.id === t.id ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 'var(--radius-sm)' }}
+                onClick={() => set({ skin: t.id })}
+              >
+                <div className="bubble" style={{ fontSize: 20 }}>{t.icon}</div>
+                <div className="main">
+                  <div className="title">{t.label}</div>
+                  <div className="sub">{t.desc}</div>
+                </div>
+                {skin.id === t.id && <div className="end bold">✓</div>}
+              </button>
+            ))}
+          </div>
           <Seg
             value={settings.theme}
             onChange={(v) => set({ theme: v })}
