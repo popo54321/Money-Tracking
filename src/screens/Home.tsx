@@ -11,7 +11,8 @@ import { rateBetween } from '../domain/fx';
 import { summarise } from '../domain/summary';
 import { db } from '../db/db';
 import { refreshPrices } from '../services/prices';
-import { applyWebUpdate, onWebUpdateReady } from '../services/updater';
+import { applyWebUpdate, installApk, latestRelease, onWebUpdateReady } from '../services/updater';
+import { onNativeUpdateState, tryApplyNative, type NativeUpdateState } from '../services/autoUpdate';
 import { isNative } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
@@ -119,7 +120,9 @@ export function Home() {
   const data = useData();
   const needsSetup = useLiveQuery(() => db.kv.get('needsSetup'), []);
   const [webUpdate, setWebUpdate] = useState(false);
+  const [nativeUpdate, setNativeUpdate] = useState<NativeUpdateState>('none');
   useEffect(() => onWebUpdateReady(() => setWebUpdate(true)), []);
+  useEffect(() => onNativeUpdateState(setNativeUpdate), []);
 
   const nw = netWorth(data.accounts, data.balances, rates, currency);
   const m = monthKey(today);
@@ -138,6 +141,7 @@ export function Home() {
       <div className="page">
         <HomeBanner
           webUpdate={webUpdate}
+          nativeUpdate={nativeUpdate}
           noAccounts={data.accounts.length === 0}
           setupDue={!!setupDue}
           backupDays={showBackup ? backupDays : null}
@@ -207,18 +211,37 @@ export function Home() {
 /** Only the most important notice is shown, so the top of Home stays calm. */
 function HomeBanner({
   webUpdate,
+  nativeUpdate,
   noAccounts,
   setupDue,
   backupDays,
 }: {
   webUpdate: boolean;
+  nativeUpdate: NativeUpdateState;
   noAccounts: boolean;
   setupDue: boolean;
   backupDays: number | null;
 }) {
-  const { go } = useApp();
+  const { go, settings, toast } = useApp();
   let b: { cls: string; icon: string; text: string; onClick: () => void } | null = null;
-  if (webUpdate) b = { cls: 'mint', icon: '🎉', text: 'A new version is ready. Tap to update.', onClick: applyWebUpdate };
+  // Updates normally switch in by themselves; these show only if that had to wait.
+  if (webUpdate) b = { cls: 'mint', icon: '🎉', text: 'A new version is ready. Tap to update now.', onClick: applyWebUpdate };
+  else if (nativeUpdate === 'ready')
+    b = { cls: 'mint', icon: '🎉', text: 'A new version is downloaded. Tap to switch now.', onClick: () => tryApplyNative(true) };
+  else if (nativeUpdate === 'needsApk')
+    b = {
+      cls: 'mint',
+      icon: '📲',
+      text: 'A new Android app version is out. Tap to install it (your data stays).',
+      onClick: async () => {
+        toast('⬇️ Downloading…');
+        try {
+          await installApk(await latestRelease(settings.githubRepo), (s) => s && toast(s));
+        } catch (e) {
+          toast(`😿 ${(e as Error).message}`);
+        }
+      },
+    };
   else if (noAccounts)
     b = {
       cls: 'pink',

@@ -2,7 +2,7 @@
 
 A friendly money tracker with six themes for logging day to day on the phone, fully offline, ready to copy into a monthly spreadsheet.
 
-- **Android:** a real app (APK) from this repo's Releases page, with a one-tap update button.
+- **Android:** a real app (APK) from this repo's Releases page. It updates itself.
 - **iPhone:** a web app you add to the Home Screen. Works offline after the first visit.
 
 Everything you type stays on your phone. Nothing is sent anywhere except requests for exchange rates, the BTC price and the Thai gold price.
@@ -17,7 +17,9 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 2. Download `MoneyTracking-x.y.z.apk` and open it.
 3. Android asks to allow installing from your browser or Files app. Allow it once, then tap **Install**.
 
-**Updating:** in the app, go to **More → Settings → Updates → Check for a new version**, then **Download & install**. Your data stays.
+**Updating:** it updates itself. From version 1.3.0 the app downloads new versions from the web app's site and switches to them when nothing is open (just opened, or when you leave the app). No reinstall, and your data stays. Only when the Android part itself changes does a banner ask you to tap **Install** (Android always asks for that). To check by hand: **More → Settings → Updates**.
+
+How it works: each build writes `version.json` (the version, the oldest Android app it runs in, and every file with its size). Raise `config.minNativeVersion` in `package.json` whenever `android/` or a Capacitor plugin changes, so older Android apps install the new APK instead. If new files ever fail to start twice, the app goes back to the files it had and stops trying that build.
 
 ### iPhone
 
@@ -25,7 +27,7 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 2. Tap **Share → Add to Home Screen**.
 3. Always open it from the Home Screen icon. iPhone keeps the Home Screen app's data separate from Safari tabs.
 
-**Updating:** it updates itself. When a new version is ready, a banner says “Tap to update”.
+**Updating:** it updates itself. A new version switches in when the app is opened or left with nothing open, so nothing you are typing is lost.
 
 ---
 

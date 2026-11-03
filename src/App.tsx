@@ -3,6 +3,8 @@ import { AppProvider, useApp } from './state/app';
 import { postDueRecurring } from './db/repo';
 import { refreshPrices } from './services/prices';
 import { autoBackupIfDue } from './services/backup';
+import { appInBackground, checkNativeUpdate, confirmRunningFiles } from './services/autoUpdate';
+import { isNative } from './services/platform';
 import { Home } from './screens/Home';
 import { Accounts } from './screens/Accounts';
 import { AccountDetail } from './screens/AccountDetail';
@@ -117,7 +119,8 @@ function TabBar() {
 
 /** Things to do when the app opens or comes back to the front. */
 function Housekeeping() {
-  const { rates, currency, today, toast } = useApp();
+  const { rates, currency, today, toast, settings } = useApp();
+  const repo = settings.githubRepo;
   const ratesRef = useRef(rates);
   ratesRef.current = rates;
   useEffect(() => {
@@ -131,6 +134,26 @@ function Housekeeping() {
       alive = false;
     };
   }, [today, currency, toast]);
+  // Android: keep app files that started fine, then look for newer ones (they switch in by themselves)
+  useEffect(() => {
+    if (!isNative()) return;
+    let off: (() => void) | undefined;
+    (async () => {
+      await confirmRunningFiles().catch(() => undefined);
+      checkNativeUpdate(repo);
+      const { App } = await import('@capacitor/app');
+      const a = await App.addListener('pause', () => appInBackground(true));
+      const b = await App.addListener('resume', () => {
+        appInBackground(false);
+        checkNativeUpdate(repo);
+      });
+      off = () => {
+        a.remove();
+        b.remove();
+      };
+    })();
+    return () => off?.();
+  }, [repo]);
   useEffect(() => {
     refreshPrices();
     autoBackupIfDue().catch(() => undefined);

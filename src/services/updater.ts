@@ -1,6 +1,10 @@
 // Updates: the Android app downloads the newest APK from GitHub Releases and opens the installer;
 // the web app (iPhone) checks for a newer version of its offline files and reloads.
+import { canApplyNow, onQuietMoment } from './autoUpdate';
 import { APP_VERSION, isNative, openExternal } from './platform';
+import { compareVersions } from './version';
+
+export { compareVersions };
 
 export interface ReleaseInfo {
   version: string;
@@ -11,23 +15,6 @@ export interface ReleaseInfo {
   apkUrl?: string;
   apkName?: string;
   publishedAt?: string;
-}
-
-/** -1 if a < b, 0 if equal, 1 if a > b (compares x.y.z numerically). */
-export function compareVersions(a: string, b: string): number {
-  const pa = a
-    .replace(/^v/, '')
-    .split(/[.+-]/)
-    .map((x) => parseInt(x, 10) || 0);
-  const pb = b
-    .replace(/^v/, '')
-    .split(/[.+-]/)
-    .map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length, 3); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d) return d < 0 ? -1 : 1;
-  }
-  return 0;
 }
 
 export async function latestRelease(repo: string): Promise<ReleaseInfo> {
@@ -97,7 +84,14 @@ export function onWebUpdateReady(fn: () => void): () => void {
 function announce(w: ServiceWorker) {
   waitingWorker = w;
   listeners.forEach((fn) => fn());
+  tryApplyWeb();
 }
+
+/** Switch to the new version by itself when nothing is open (just opened, or the app was left). */
+function tryApplyWeb() {
+  if (waitingWorker && canApplyNow()) applyWebUpdate();
+}
+onQuietMoment(tryApplyWeb);
 
 export async function registerServiceWorker(): Promise<void> {
   if (isNative() || !('serviceWorker' in navigator) || (location.protocol === 'http:' && location.hostname !== 'localhost'))

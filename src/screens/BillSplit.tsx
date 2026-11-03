@@ -383,7 +383,7 @@ function PayersSection({
         ))
       )}
       {b.people.length > 1 && (
-        <button className="btn sm ghost mt" onClick={() => setPaysFor({ who: [] })}>
+        <button className="btn sky block mt" onClick={() => setPaysFor({ who: [] })}>
           ＋ Someone pays for another person
         </button>
       )}
