@@ -84,13 +84,24 @@ export function AccountEdit({ id }: { id?: string }) {
       <Topbar title={existing ? 'Edit account' : 'New account'} />
       <div className="page">
         <Field label="Name">
-          <input value={a.name} placeholder="e.g. Kbank savings" onChange={(e) => set({ name: e.target.value })} autoFocus={!existing} />
+          <input
+            value={a.name}
+            placeholder="e.g. Kbank savings"
+            onChange={(e) => set({ name: e.target.value })}
+            autoFocus={!existing}
+          />
         </Field>
 
         <Field label="Type">
           <div className="chips">
             {ACCOUNT_TYPES.map((t) => (
-              <button key={t.type} type="button" className={`chip ${a.type === t.type ? 'on' : ''}`} onClick={() => pickType(t.type)} disabled={hasEntries && (t.type === 'crypto') !== (a.type === 'crypto')}>
+              <button
+                key={t.type}
+                type="button"
+                className={`chip ${a.type === t.type ? 'on' : ''}`}
+                onClick={() => pickType(t.type)}
+                disabled={hasEntries && (t.type === 'crypto') !== (a.type === 'crypto')}
+              >
                 {accountEmoji(t.type)} {t.label}
               </button>
             ))}
@@ -126,7 +137,12 @@ export function AccountEdit({ id }: { id?: string }) {
             title="🥇 Thai gold, live price (ทองบาทละ)"
             desc="Valued at today’s 96.5% gold bar price per baht-weight"
             on={a.unitPriceSource === 'live-gold'}
-            onChange={(v) => set({ unitPriceSource: v ? 'live-gold' : 'manual', ...(v ? { currency: 'baht-weight', unitPriceCurrency: 'THB' } : {}) })}
+            onChange={(v) =>
+              set({
+                unitPriceSource: v ? 'live-gold' : 'manual',
+                ...(v ? { currency: 'baht-weight', unitPriceCurrency: 'THB' } : {}),
+              })
+            }
           />
         )}
         {a.type === 'units' && a.unitPriceSource !== 'live-gold' && (
@@ -140,7 +156,10 @@ export function AccountEdit({ id }: { id?: string }) {
         )}
 
         {!existing && (
-          <Field label={isCard ? 'Amount owed now' : `Balance now (${a.currency})`} hint="You can change it any time with “Set new balance”.">
+          <Field
+            label={isCard ? 'Amount owed now' : `Balance now (${a.currency})`}
+            hint="You can change it any time with “Set new balance”."
+          >
             <AmountField
               value={isCard ? -a.openingBalance : a.openingBalance}
               onChange={(v) => set({ openingBalance: isCard ? -v : v })}
@@ -154,18 +173,35 @@ export function AccountEdit({ id }: { id?: string }) {
           <div className="card flat">
             <h2>💳 Card details</h2>
             <Field label="Credit limit">
-              <AmountField value={a.creditLimit ?? null} onChange={(v) => set({ creditLimit: v || undefined })} currency={a.currency} />
+              <AmountField
+                value={a.creditLimit ?? null}
+                onChange={(v) => set({ creditLimit: v || undefined })}
+                currency={a.currency}
+              />
             </Field>
             <div className="grid2">
               <Field label="Statement day" hint="Day of month the bill is made">
-                <NumberInput value={a.statementDay ?? null} onChange={(v) => set({ statementDay: v ? Math.min(31, Math.max(1, Math.round(v))) : undefined })} placeholder="e.g. 25" />
+                <NumberInput
+                  value={a.statementDay ?? null}
+                  onChange={(v) => set({ statementDay: v ? Math.min(31, Math.max(1, Math.round(v))) : undefined })}
+                  placeholder="e.g. 25"
+                />
               </Field>
               <Field label="Payment due day" hint="Day of month to pay by">
-                <NumberInput value={a.dueDay ?? null} onChange={(v) => set({ dueDay: v ? Math.min(31, Math.max(1, Math.round(v))) : undefined })} placeholder="e.g. 10" />
+                <NumberInput
+                  value={a.dueDay ?? null}
+                  onChange={(v) => set({ dueDay: v ? Math.min(31, Math.max(1, Math.round(v))) : undefined })}
+                  placeholder="e.g. 10"
+                />
               </Field>
             </div>
             <Field label="Usually paid from" hint="This account keeps the statement amount reserved until it’s paid.">
-              <AccountPickerButton accounts={others} value={a.payFromAccountId} onChange={(v) => set({ payFromAccountId: v })} placeholder="Choose account" />
+              <AccountPickerButton
+                accounts={others}
+                value={a.payFromAccountId}
+                onChange={(v) => set({ payFromAccountId: v })}
+                placeholder="Choose account"
+              />
             </Field>
           </div>
         )}
@@ -175,7 +211,12 @@ export function AccountEdit({ id }: { id?: string }) {
           <Field label="Group" hint="Matches the sections of your year sheet.">
             <div className="chips">
               {[...ACCOUNT_GROUPS, ...(ACCOUNT_GROUPS.includes(a.group) ? [] : [a.group])].map((g) => (
-                <button key={g} type="button" className={`chip lav ${a.group === g ? 'on' : ''}`} onClick={() => set({ group: g })}>
+                <button
+                  key={g}
+                  type="button"
+                  className={`chip lav ${a.group === g ? 'on' : ''}`}
+                  onClick={() => set({ group: g })}
+                >
                   {g}
                 </button>
               ))}
@@ -187,7 +228,12 @@ export function AccountEdit({ id }: { id?: string }) {
           </Field>
           <ToggleRow title="Count in net worth" on={a.includeInNetWorth} onChange={(v) => set({ includeInNetWorth: v })} />
           {existing && (
-            <ToggleRow title="Archived" desc="Hidden from lists, history kept" on={a.archived} onChange={(v) => set({ archived: v })} />
+            <ToggleRow
+              title="Archived"
+              desc="Hidden from lists, history kept"
+              on={a.archived}
+              onChange={(v) => set({ archived: v })}
+            />
           )}
         </div>
 

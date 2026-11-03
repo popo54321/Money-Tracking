@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle } from '../components/ui';
+import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar } from '../components/ui';
 import { computeTrip, entryBase } from '../domain/tripSplit';
 import { rateBetween } from '../domain/fx';
 import { fmtMoney, roundTo } from '../domain/money';
@@ -9,15 +9,6 @@ import { db, uid } from '../db/db';
 import { deleteTrip, saveTrip } from '../db/repo';
 import { copyText } from '../services/platform';
 import { useApp } from '../state/app';
-import { nameColour } from '../ui/emoji';
-
-function Avatar({ name }: { name: string }) {
-  return (
-    <span className="avatar" style={{ background: `var(--${nameColour(name)})`, color: `var(--${nameColour(name)}-ink)` }}>
-      {name.trim().slice(0, 1).toUpperCase() || '?'}
-    </span>
-  );
-}
 
 export function TripList() {
   const { go, profiles, settings, rates } = useApp();
@@ -130,7 +121,13 @@ function EntrySheet({
       <Field label="Split">
         <Seg
           value={e.split}
-          onChange={(v) => setE({ ...e, split: v, sharedBy: v === 'some' ? (sharedBy.length ? sharedBy : trip.members.map((m) => m.id)) : undefined })}
+          onChange={(v) =>
+            setE({
+              ...e,
+              split: v,
+              sharedBy: v === 'some' ? (sharedBy.length ? sharedBy : trip.members.map((m) => m.id)) : undefined,
+            })
+          }
           options={[
             { v: 'all', label: '👯 Everyone' },
             { v: 'some', label: '☑️ Some' },
@@ -143,7 +140,11 @@ function EntrySheet({
           {trip.members.map((m) => {
             const on = sharedBy.includes(m.id);
             return (
-              <button key={m.id} className={`chip mint ${on ? 'on' : ''}`} onClick={() => setE({ ...e, sharedBy: on ? sharedBy.filter((x) => x !== m.id) : [...sharedBy, m.id] })}>
+              <button
+                key={m.id}
+                className={`chip mint ${on ? 'on' : ''}`}
+                onClick={() => setE({ ...e, sharedBy: on ? sharedBy.filter((x) => x !== m.id) : [...sharedBy, m.id] })}
+              >
                 {on ? '✓ ' : ''}
                 {m.name}
               </button>
@@ -164,7 +165,13 @@ function EntrySheet({
           Save
         </button>
       </div>
-      <CurrencySheet open={curOpen} onClose={() => setCurOpen(false)} value={e.currency} onPick={(c) => setE({ ...e, currency: c })} extra={Object.keys(trip.rates)} />
+      <CurrencySheet
+        open={curOpen}
+        onClose={() => setCurOpen(false)}
+        value={e.currency}
+        onPick={(c) => setE({ ...e, currency: c })}
+        extra={Object.keys(trip.rates)}
+      />
     </Sheet>
   );
 }
@@ -237,7 +244,12 @@ export function TripEdit({ id }: { id: string }) {
           ))}
         </div>
         <div className="hstack mb">
-          <input placeholder="Add a traveller" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addMember()} />
+          <input
+            placeholder="Add a traveller"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addMember()}
+          />
           <button className="btn" onClick={addMember}>
             ＋
           </button>
@@ -250,7 +262,9 @@ export function TripEdit({ id }: { id: string }) {
               Change {base}
             </button>
           </div>
-          <div className="tiny muted mb">Fixed for this trip so totals don’t move. Filled from live rates; change them to match your card.</div>
+          <div className="tiny muted mb">
+            Fixed for this trip so totals don’t move. Filled from live rates; change them to match your card.
+          </div>
           {Object.entries(t.rates).map(([c, v]) => (
             <div key={c} className="item-line">
               <span className="bold" style={{ width: 52 }}>
@@ -261,7 +275,11 @@ export function TripEdit({ id }: { id: string }) {
                 <NumberInput className="inline-input" value={v} onChange={(x) => update({ rates: { ...t.rates, [c]: x } })} />
               </div>
               <span className="small">{base}</span>
-              <button className="btn sm ghost" aria-label="Use live rate" onClick={() => update({ rates: { ...t.rates, [c]: liveRate(c) } })}>
+              <button
+                className="btn sm ghost"
+                aria-label="Use live rate"
+                onClick={() => update({ rates: { ...t.rates, [c]: liveRate(c) } })}
+              >
                 ↻
               </button>
               <button
@@ -291,7 +309,11 @@ export function TripEdit({ id }: { id: string }) {
             {t.entries.map((e) => {
               const amt = entryBase(t, e);
               const splitText =
-                e.split === 'none' ? 'personal' : e.split === 'all' ? 'shared by all' : `shared by ${(e.sharedBy ?? []).map(nameOf).join(', ')}`;
+                e.split === 'none'
+                  ? 'personal'
+                  : e.split === 'all'
+                    ? 'shared by all'
+                    : `shared by ${(e.sharedBy ?? []).map(nameOf).join(', ')}`;
               return (
                 <button key={e.id} className="row" onClick={() => setEntry(e)}>
                   <Avatar name={nameOf(e.payerId)} />
@@ -314,7 +336,14 @@ export function TripEdit({ id }: { id: string }) {
           className="btn primary block mb"
           disabled={t.members.length === 0}
           onClick={() =>
-            setEntry({ id: uid(), payerId: t.members[0]?.id ?? '', bill: '', cost: 0, currency: t.entries[t.entries.length - 1]?.currency ?? base, split: 'all' })
+            setEntry({
+              id: uid(),
+              payerId: t.members[0]?.id ?? '',
+              bill: '',
+              cost: 0,
+              currency: t.entries[t.entries.length - 1]?.currency ?? base,
+              split: 'all',
+            })
           }
         >
           ＋ Add bill
@@ -374,7 +403,9 @@ export function TripEdit({ id }: { id: string }) {
                   <td>{m.name}</td>
                   <td>{fmtMoney(m.paidShared, base, { compact: true })}</td>
                   <td>{fmtMoney(m.share, base, { compact: true })}</td>
-                  <td className={m.net > 0.005 ? 'pos' : m.net < -0.005 ? 'neg' : ''}>{fmtMoney(m.net, base, { compact: true, sign: true })}</td>
+                  <td className={m.net > 0.005 ? 'pos' : m.net < -0.005 ? 'neg' : ''}>
+                    {fmtMoney(m.net, base, { compact: true, sign: true })}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -403,7 +434,10 @@ export function TripEdit({ id }: { id: string }) {
         onClose={() => setEntry(null)}
         onSave={(e) => {
           const exists = t.entries.some((x) => x.id === e.id);
-          const rates2 = !e.currency || e.currency === base || t.rates[e.currency] ? t.rates : { ...t.rates, [e.currency]: liveRate(e.currency) };
+          const rates2 =
+            !e.currency || e.currency === base || t.rates[e.currency]
+              ? t.rates
+              : { ...t.rates, [e.currency]: liveRate(e.currency) };
           update({ entries: exists ? t.entries.map((x) => (x.id === e.id ? e : x)) : [...t.entries, e], rates: rates2 });
           setEntry(null);
         }}
@@ -423,10 +457,21 @@ export function TripEdit({ id }: { id: string }) {
                 className="btn danger"
                 onClick={async () => {
                   const used = t.entries.some((e) => e.payerId === member.id);
-                  if (used && !(await confirm({ title: `Remove ${member.name}?`, message: 'Bills they paid will be removed too.', ok: 'Remove', danger: true }))) return;
+                  if (
+                    used &&
+                    !(await confirm({
+                      title: `Remove ${member.name}?`,
+                      message: 'Bills they paid will be removed too.',
+                      ok: 'Remove',
+                      danger: true,
+                    }))
+                  )
+                    return;
                   update({
                     members: t.members.filter((m) => m.id !== member.id),
-                    entries: t.entries.filter((e) => e.payerId !== member.id).map((e) => ({ ...e, sharedBy: e.sharedBy?.filter((x) => x !== member.id) })),
+                    entries: t.entries
+                      .filter((e) => e.payerId !== member.id)
+                      .map((e) => ({ ...e, sharedBy: e.sharedBy?.filter((x) => x !== member.id) })),
                   });
                   setMember(null);
                 }}
@@ -436,7 +481,9 @@ export function TripEdit({ id }: { id: string }) {
               <button
                 className="btn primary"
                 onClick={() => {
-                  update({ members: t.members.map((m) => (m.id === member.id ? { ...member, name: member.name.trim() || m.name } : m)) });
+                  update({
+                    members: t.members.map((m) => (m.id === member.id ? { ...member, name: member.name.trim() || m.name } : m)),
+                  });
                   setMember(null);
                 }}
               >
@@ -446,8 +493,19 @@ export function TripEdit({ id }: { id: string }) {
           </>
         )}
       </Sheet>
-      <CurrencySheet open={rateCur} onClose={() => setRateCur(false)} onPick={(c) => c !== base && update({ rates: { ...t.rates, [c]: liveRate(c) } })} />
-      <CurrencySheet open={payCur} onClose={() => setPayCur(false)} value={pay} onPick={(c) => update({ payBackCurrency: c, rates: c === base || t.rates[c] ? t.rates : { ...t.rates, [c]: liveRate(c) } })} />
+      <CurrencySheet
+        open={rateCur}
+        onClose={() => setRateCur(false)}
+        onPick={(c) => c !== base && update({ rates: { ...t.rates, [c]: liveRate(c) } })}
+      />
+      <CurrencySheet
+        open={payCur}
+        onClose={() => setPayCur(false)}
+        value={pay}
+        onPick={(c) =>
+          update({ payBackCurrency: c, rates: c === base || t.rates[c] ? t.rates : { ...t.rates, [c]: liveRate(c) } })
+        }
+      />
       <CurrencySheet
         open={baseCur}
         onClose={() => setBaseCur(false)}

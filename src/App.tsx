@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, type ComponentType } from 'react';
 import { AppProvider, useApp } from './state/app';
 import { postDueRecurring } from './db/repo';
 import { refreshPrices } from './services/prices';
@@ -12,44 +12,80 @@ import { TxList } from './screens/TxList';
 import { Summary } from './screens/Summary';
 import { More } from './screens/More';
 import { RecurringList, RecurringEdit } from './screens/Recurring';
-import { MonthClose } from './screens/MonthClose';
-import { Budget } from './screens/Budget';
-import { BillList, BillEdit } from './screens/BillSplit';
-import { TripList, TripEdit } from './screens/Trips';
-import { DebtList, DebtDetail } from './screens/Debts';
-import { Goals } from './screens/Goals';
-import { Wealth } from './screens/Wealth';
-import { Settings } from './screens/Settings';
-import { Categories } from './screens/Categories';
-import { Setup } from './screens/Setup';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+// Screens used less often load on first visit (they are still kept for offline use).
+function named<P extends object = object>(load: () => Promise<Record<string, unknown>>, key: string) {
+  return lazy(async () => ({ default: (await load())[key] as ComponentType<P> }));
+}
+const MonthClose = named(() => import('./screens/MonthClose'), 'MonthClose');
+const Budget = named(() => import('./screens/Budget'), 'Budget');
+const BillList = named(() => import('./screens/BillSplit'), 'BillList');
+const BillEdit = named<{ id: string }>(() => import('./screens/BillSplit'), 'BillEdit');
+const TripList = named(() => import('./screens/Trips'), 'TripList');
+const TripEdit = named<{ id: string }>(() => import('./screens/Trips'), 'TripEdit');
+const DebtList = named(() => import('./screens/Debts'), 'DebtList');
+const DebtDetail = named<{ id: string }>(() => import('./screens/Debts'), 'DebtDetail');
+const Goals = named(() => import('./screens/Goals'), 'Goals');
+const Wealth = named(() => import('./screens/Wealth'), 'Wealth');
+const Settings = named(() => import('./screens/Settings'), 'Settings');
+const Categories = named(() => import('./screens/Categories'), 'Categories');
+const Setup = named(() => import('./screens/Setup'), 'Setup');
+
+function Loading() {
+  return <div className="empty">Loading…</div>;
+}
 
 function Screen() {
   const { route, data } = useApp();
-  if (!data) return <div className="empty"><span className="e">🧚</span>Loading…</div>;
+  if (!data) return <Loading />;
   switch (route.name) {
-    case 'home': return <Home />;
-    case 'accounts': return <Accounts />;
-    case 'account': return <AccountDetail id={route.id} />;
-    case 'accountEdit': return <AccountEdit id={route.id} />;
-    case 'entry': return <Entry key={route.id ?? 'new'} route={route} />;
-    case 'txList': return <TxList route={route} />;
-    case 'summary': return <Summary />;
-    case 'more': return <More />;
-    case 'recurring': return <RecurringList />;
-    case 'recurringEdit': return <RecurringEdit id={route.id} />;
-    case 'monthClose': return <MonthClose />;
-    case 'budget': return <Budget />;
-    case 'bills': return <BillList />;
-    case 'bill': return <BillEdit id={route.id} />;
-    case 'trips': return <TripList />;
-    case 'trip': return <TripEdit id={route.id} />;
-    case 'debts': return <DebtList />;
-    case 'debt': return <DebtDetail id={route.id} />;
-    case 'goals': return <Goals />;
-    case 'wealth': return <Wealth />;
-    case 'settings': return <Settings />;
-    case 'categories': return <Categories />;
-    case 'setup': return <Setup />;
+    case 'home':
+      return <Home />;
+    case 'accounts':
+      return <Accounts />;
+    case 'account':
+      return <AccountDetail id={route.id} />;
+    case 'accountEdit':
+      return <AccountEdit id={route.id} />;
+    case 'entry':
+      return <Entry key={route.id ?? 'new'} route={route} />;
+    case 'txList':
+      return <TxList route={route} />;
+    case 'summary':
+      return <Summary />;
+    case 'more':
+      return <More />;
+    case 'recurring':
+      return <RecurringList />;
+    case 'recurringEdit':
+      return <RecurringEdit id={route.id} />;
+    case 'monthClose':
+      return <MonthClose />;
+    case 'budget':
+      return <Budget />;
+    case 'bills':
+      return <BillList />;
+    case 'bill':
+      return <BillEdit id={route.id} />;
+    case 'trips':
+      return <TripList />;
+    case 'trip':
+      return <TripEdit id={route.id} />;
+    case 'debts':
+      return <DebtList />;
+    case 'debt':
+      return <DebtDetail id={route.id} />;
+    case 'goals':
+      return <Goals />;
+    case 'wealth':
+      return <Wealth />;
+    case 'settings':
+      return <Settings />;
+    case 'categories':
+      return <Categories />;
+    case 'setup':
+      return <Setup />;
   }
 }
 
@@ -117,7 +153,11 @@ export default function App() {
     <AppProvider>
       <Housekeeping />
       <div className="app">
-        <Screen />
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <Screen />
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <TabBar />
     </AppProvider>

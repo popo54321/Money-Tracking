@@ -24,7 +24,8 @@ export function AccountLine({ a }: { a: Account }) {
     const st = cardStatus(a, data.txs, today);
     main = st.owedNow > 0 ? `owe ${fmtMoney(st.owedNow, a.currency)}` : fmtMoney(-bal, a.currency);
     mainCls = st.owedNow > 0 ? 'neg' : '';
-    if (st.remaining > 0 && st.dueDate) sub = `${fmtMoney(st.remaining, a.currency)} due ${fmtDate(st.dueDate, false)}${st.overdue ? ' ⚠️' : ''}`;
+    if (st.remaining > 0 && st.dueDate)
+      sub = `${fmtMoney(st.remaining, a.currency)} due ${fmtDate(st.dueDate, false)}${st.overdue ? ' ⚠️' : ''}`;
     else if (st.available !== undefined) sub = `${fmtMoney(st.available, a.currency, { compact: true })} available`;
     second = null;
   } else if (a.type === 'units') {
@@ -34,7 +35,11 @@ export function AccountLine({ a }: { a: Account }) {
     sub = `🔒 ${fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free ${fmtMoney(bal - reserved, a.currency, { compact: true })}`;
   }
   return (
-    <button className="row" onClick={() => go({ name: 'account', id: a.id })} {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}>
+    <button
+      className="row"
+      onClick={() => go({ name: 'account', id: a.id })}
+      {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}
+    >
       <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
       <div className="main">
         <div className="title">{a.name}</div>
@@ -69,7 +74,11 @@ export function Accounts() {
             {groups
               .filter((g) => nw.byGroup.has(g))
               .map((g) => (
-                <span key={g} className="pill" style={{ background: 'color-mix(in srgb, var(--card) 70%, transparent)', color: 'var(--ink)' }}>
+                <span
+                  key={g}
+                  className="pill"
+                  style={{ background: 'color-mix(in srgb, var(--card) 70%, transparent)', color: 'var(--ink)' }}
+                >
                   {g} {fmtMoney(nw.byGroup.get(g) ?? 0, currency, { compact: true })}
                 </span>
               ))}
@@ -83,7 +92,12 @@ export function Accounts() {
         {groups.map((g) => {
           const items = visible.filter((a) => a.group === g);
           if (!items.length) return null;
-          const total = items.reduce((s, a) => s + (a.archived || !a.includeInNetWorth ? 0 : accountValue(a, data.balances.get(a.id) ?? 0, rates, currency) ?? 0), 0);
+          const total = items.reduce(
+            (s, a) =>
+              s +
+              (a.archived || !a.includeInNetWorth ? 0 : (accountValue(a, data.balances.get(a.id) ?? 0, rates, currency) ?? 0)),
+            0,
+          );
           return (
             <div key={g}>
               <div className="section-title">

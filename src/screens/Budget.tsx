@@ -1,6 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { AccountPickerButton, AmountField, Field, NumberInput, ProgressBar, Sheet, Topbar, Sparkle, SkinName } from '../components/ui';
+import {
+  AccountPickerButton,
+  AmountField,
+  Field,
+  NumberInput,
+  ProgressBar,
+  Sheet,
+  Topbar,
+  Sparkle,
+  SkinName,
+} from '../components/ui';
 import { phaseTotals, pctTotal, splitRows, surplusRule, transferAmount } from '../domain/budget';
 import { monthKey } from '../domain/dates';
 import { fmtMoney, fmtNumber } from '../domain/money';
@@ -11,15 +21,33 @@ import { importBudgetFromWorkbook } from '../services/workbookImport';
 import { pickBinaryFile } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
-function RowsEditor({ rows, onChange, base, currency }: { rows: BudgetRow[]; onChange: (r: BudgetRow[]) => void; base: number; currency: string }) {
+function RowsEditor({
+  rows,
+  onChange,
+  base,
+  currency,
+}: {
+  rows: BudgetRow[];
+  onChange: (r: BudgetRow[]) => void;
+  base: number;
+  currency: string;
+}) {
   const total = pctTotal(rows);
   return (
     <>
       {splitRows(base, rows).map(({ row, value }, i) => (
         <div key={row.id} className="item-line">
-          <input className="inline-input grow" value={row.name} onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+          <input
+            className="inline-input grow"
+            value={row.name}
+            onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+          />
           <div style={{ width: 70 }}>
-            <NumberInput className="inline-input" value={Math.round(row.pct * 10000) / 100} onChange={(v) => onChange(rows.map((x, j) => (j === i ? { ...x, pct: v / 100 } : x)))} />
+            <NumberInput
+              className="inline-input"
+              value={Math.round(row.pct * 10000) / 100}
+              onChange={(v) => onChange(rows.map((x, j) => (j === i ? { ...x, pct: v / 100 } : x)))}
+            />
           </div>
           <span className="small">%</span>
           <span className="small bold nowrap" style={{ width: 84, textAlign: 'right' }}>
@@ -34,7 +62,9 @@ function RowsEditor({ rows, onChange, base, currency }: { rows: BudgetRow[]; onC
         <button className="btn sm" onClick={() => onChange([...rows, { id: uid(), name: 'New', pct: 0 }])}>
           ＋ Row
         </button>
-        <span className={`small bold ${Math.abs(total - 1) > 0.0001 ? 'neg' : 'pos'}`}>Total {fmtNumber(total * 100, 2, 0)}%</span>
+        <span className={`small bold ${Math.abs(total - 1) > 0.0001 ? 'neg' : 'pos'}`}>
+          Total {fmtNumber(total * 100, 2, 0)}%
+        </span>
       </div>
     </>
   );
@@ -71,10 +101,21 @@ function TransferSheet({
         </Field>
       </div>
       <Field label="From account (to record it)">
-        <AccountPickerButton accounts={data.accounts} value={x.fromAccountId} onChange={(v) => setX({ ...x, fromAccountId: v })} placeholder="Optional" />
+        <AccountPickerButton
+          accounts={data.accounts}
+          value={x.fromAccountId}
+          onChange={(v) => setX({ ...x, fromAccountId: v })}
+          placeholder="Optional"
+        />
       </Field>
       <Field label="To account">
-        <AccountPickerButton accounts={data.accounts} value={x.toAccountId} onChange={(v) => setX({ ...x, toAccountId: v })} placeholder="Optional" exclude={x.fromAccountId} />
+        <AccountPickerButton
+          accounts={data.accounts}
+          value={x.toAccountId}
+          onChange={(v) => setX({ ...x, toAccountId: v })}
+          placeholder="Optional"
+          exclude={x.fromAccountId}
+        />
       </Field>
       <Field label="Amount = sum of these budget lines" hint="Leave all off to type an amount per phase instead.">
         <div className="chips">
@@ -82,7 +123,9 @@ function TransferSheet({
             <button
               key={c.id}
               className={`chip mint ${linked.includes(c.id) ? 'on' : ''}`}
-              onClick={() => setX({ ...x, categoryIds: linked.includes(c.id) ? linked.filter((i) => i !== c.id) : [...linked, c.id] })}
+              onClick={() =>
+                setX({ ...x, categoryIds: linked.includes(c.id) ? linked.filter((i) => i !== c.id) : [...linked, c.id] })
+              }
             >
               {c.name}
             </button>
@@ -91,11 +134,19 @@ function TransferSheet({
       </Field>
       {linked.length === 0 && (
         <Field label={`Amount in ${plan.phases.find((p) => p.id === phaseId)?.name}`}>
-          <AmountField value={x.amounts[phaseId] ?? null} onChange={(v) => setX({ ...x, amounts: { ...x.amounts, [phaseId]: v } })} currency={plan.currency} />
+          <AmountField
+            value={x.amounts[phaseId] ?? null}
+            onChange={(v) => setX({ ...x, amounts: { ...x.amounts, [phaseId]: v } })}
+            currency={plan.currency}
+          />
         </Field>
       )}
       <Field label="Note">
-        <input value={x.note ?? ''} onChange={(e) => setX({ ...x, note: e.target.value || undefined })} placeholder="e.g. Everything inside" />
+        <input
+          value={x.note ?? ''}
+          onChange={(e) => setX({ ...x, note: e.target.value || undefined })}
+          placeholder="e.g. Everything inside"
+        />
       </Field>
       <div className="btn-row">
         <button className="btn danger" onClick={() => onDelete(x.id)}>
@@ -140,7 +191,7 @@ export function Budget() {
   const totals = phaseTotals(plan, phase.id);
   const cur = plan.currency;
   const ruleAcc = plan.surplus.ruleAccountId ? data.accountById.get(plan.surplus.ruleAccountId) : undefined;
-  const ruleBal = ruleAcc ? data.balances.get(ruleAcc.id) ?? 0 : null;
+  const ruleBal = ruleAcc ? (data.balances.get(ruleAcc.id) ?? 0) : null;
   const rule = surplusRule(plan, ruleBal);
   const month = monthKey(today);
   const done = plan.checklist.month === month ? plan.checklist.done : [];
@@ -161,7 +212,16 @@ export function Budget() {
       const toAcc = data.accountById.get(t.toAccountId);
       if (!fromAcc || !toAcc || fromAcc.currency !== toAcc.currency) continue;
       await saveTx(
-        { profileId: profile.id, date: today, kind: 'transfer', accountId: t.fromAccountId, toAccountId: t.toAccountId, amount: amt, toAmount: amt, note: `Budget: ${t.fromLabel} → ${t.toLabel}` },
+        {
+          profileId: profile.id,
+          date: today,
+          kind: 'transfer',
+          accountId: t.fromAccountId,
+          toAccountId: t.toAccountId,
+          amount: amt,
+          toAmount: amt,
+          note: `Budget: ${t.fromLabel} → ${t.toLabel}`,
+        },
         rates,
         currency,
       );
@@ -175,7 +235,11 @@ export function Budget() {
     if (!f) return;
     try {
       const res = await importBudgetFromWorkbook(f.data, plan);
-      const ok = await confirm({ title: 'Replace the budget plan?', message: `Found ${res.notes.join(', ')} in ${f.name}.`, ok: 'Import' });
+      const ok = await confirm({
+        title: 'Replace the budget plan?',
+        message: `Found ${res.notes.join(', ')} in ${f.name}.`,
+        ok: 'Import',
+      });
       if (!ok) return;
       update(res.plan);
       setPhaseId(res.plan.activePhaseId);
@@ -215,7 +279,11 @@ export function Budget() {
               className="chip"
               onClick={() => {
                 const id = uid();
-                update({ ...plan, phases: [...plan.phases, { id, name: `P${plan.phases.length + 1}: New phase` }], amounts: { ...plan.amounts, [id]: { ...(plan.amounts[phase.id] ?? {}) } } });
+                update({
+                  ...plan,
+                  phases: [...plan.phases, { id, name: `P${plan.phases.length + 1}: New phase` }],
+                  amounts: { ...plan.amounts, [id]: { ...(plan.amounts[phase.id] ?? {}) } },
+                });
                 setPhaseId(id);
               }}
             >
@@ -227,7 +295,12 @@ export function Budget() {
         {edit && (
           <div className="card flat">
             <Field label="Phase name">
-              <input value={phase.name} onChange={(e) => update({ ...plan, phases: plan.phases.map((p) => (p.id === phase.id ? { ...p, name: e.target.value } : p)) })} />
+              <input
+                value={phase.name}
+                onChange={(e) =>
+                  update({ ...plan, phases: plan.phases.map((p) => (p.id === phase.id ? { ...p, name: e.target.value } : p)) })
+                }
+              />
             </Field>
             <div className="btn-row">
               <button
@@ -255,7 +328,9 @@ export function Budget() {
           <div className="big">{fmtMoney(totals.total, cur)}</div>
           <div className="small bold">
             {Math.round(totals.pctOfIncome * 1000) / 10}% of {fmtMoney(plan.monthlyIncome, cur, { compact: true })} income ·{' '}
-            {totals.left >= 0 ? `${fmtMoney(totals.left, cur, { compact: true })} not planned` : `${fmtMoney(-totals.left, cur, { compact: true })} over`}
+            {totals.left >= 0
+              ? `${fmtMoney(totals.left, cur, { compact: true })} not planned`
+              : `${fmtMoney(-totals.left, cur, { compact: true })} over`}
           </div>
           <ProgressBar value={totals.pctOfIncome} colour={totals.left < 0 ? '' : 'mint'} />
           {!isActive && (
@@ -285,8 +360,23 @@ export function Budget() {
                   <td>
                     {edit ? (
                       <div className="hstack">
-                        <input className="inline-input" value={l.name} onChange={(e) => update({ ...plan, categories: plan.categories.map((c) => (c.id === l.categoryId ? { ...c, name: e.target.value } : c)) })} />
-                        <button className="btn sm ghost" aria-label="Remove" onClick={() => update({ ...plan, categories: plan.categories.filter((c) => c.id !== l.categoryId) })}>
+                        <input
+                          className="inline-input"
+                          value={l.name}
+                          onChange={(e) =>
+                            update({
+                              ...plan,
+                              categories: plan.categories.map((c) =>
+                                c.id === l.categoryId ? { ...c, name: e.target.value } : c,
+                              ),
+                            })
+                          }
+                        />
+                        <button
+                          className="btn sm ghost"
+                          aria-label="Remove"
+                          onClick={() => update({ ...plan, categories: plan.categories.filter((c) => c.id !== l.categoryId) })}
+                        >
                           ✕
                         </button>
                       </div>
@@ -299,7 +389,12 @@ export function Budget() {
                       value={l.amount}
                       currency={cur}
                       title={l.name}
-                      onChange={(v) => update({ ...plan, amounts: { ...plan.amounts, [phase.id]: { ...(plan.amounts[phase.id] ?? {}), [l.categoryId]: v } } })}
+                      onChange={(v) =>
+                        update({
+                          ...plan,
+                          amounts: { ...plan.amounts, [phase.id]: { ...(plan.amounts[phase.id] ?? {}), [l.categoryId]: v } },
+                        })
+                      }
                     />
                   </td>
                   <td className="small">{Math.round(l.pct * 1000) / 10}%</td>
@@ -313,7 +408,10 @@ export function Budget() {
             </tbody>
           </table>
           {edit && (
-            <button className="btn sm mt" onClick={() => update({ ...plan, categories: [...plan.categories, { id: uid(), name: 'New line' }] })}>
+            <button
+              className="btn sm mt"
+              onClick={() => update({ ...plan, categories: [...plan.categories, { id: uid(), name: 'New line' }] })}
+            >
               ＋ Budget line
             </button>
           )}
@@ -328,16 +426,27 @@ export function Budget() {
             return (
               <div key={t.id} className="item-line">
                 {isActive && <input type="checkbox" checked={ticked} onChange={() => toggleDone(t.id)} aria-label="Done" />}
-                <button className="grow" style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setTEdit(t)}>
+                <button
+                  className="grow"
+                  style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }}
+                  onClick={() => setTEdit(t)}
+                >
                   <div className="bold small" style={{ textDecoration: ticked ? 'line-through' : 'none' }}>
                     {t.fromLabel} → {t.toLabel}
                   </div>
                   <div className="tiny muted">
-                    {t.categoryIds?.length ? plan.categories.filter((c) => t.categoryIds!.includes(c.id)).map((c) => c.name).join(' + ') : t.note ?? 'Typed amount'}
+                    {t.categoryIds?.length
+                      ? plan.categories
+                          .filter((c) => t.categoryIds!.includes(c.id))
+                          .map((c) => c.name)
+                          .join(' + ')
+                      : (t.note ?? 'Typed amount')}
                     {t.fromAccountId && t.toAccountId ? ' · 🔗 accounts linked' : ''}
                   </div>
                 </button>
-                <span className="bold small nowrap">{amt ? fmtMoney(amt, cur, { compact: true }) : t.note ? '—' : fmtMoney(0, cur)}</span>
+                <span className="bold small nowrap">
+                  {amt ? fmtMoney(amt, cur, { compact: true }) : t.note ? '—' : fmtMoney(0, cur)}
+                </span>
               </div>
             );
           })}
@@ -363,22 +472,44 @@ export function Budget() {
         <div className="card">
           <h2>🎁 Bonus split</h2>
           <Field label="Bonus income">
-            <AmountField value={plan.bonus.income} onChange={(v) => update({ ...plan, bonus: { ...plan.bonus, income: v } })} currency={cur} />
+            <AmountField
+              value={plan.bonus.income}
+              onChange={(v) => update({ ...plan, bonus: { ...plan.bonus, income: v } })}
+              currency={cur}
+            />
           </Field>
-          <RowsEditor rows={plan.bonus.rows} base={plan.bonus.income} currency={cur} onChange={(rows) => update({ ...plan, bonus: { ...plan.bonus, rows } })} />
+          <RowsEditor
+            rows={plan.bonus.rows}
+            base={plan.bonus.income}
+            currency={cur}
+            onChange={(rows) => update({ ...plan, bonus: { ...plan.bonus, rows } })}
+          />
         </div>
 
         <div className="card">
           <h2>🍀 Leftover money rule</h2>
           <Field label="Leftover each month">
-            <AmountField value={plan.surplus.amount} onChange={(v) => update({ ...plan, surplus: { ...plan.surplus, amount: v } })} currency={cur} />
+            <AmountField
+              value={plan.surplus.amount}
+              onChange={(v) => update({ ...plan, surplus: { ...plan.surplus, amount: v } })}
+              currency={cur}
+            />
           </Field>
           <div className="grid2">
             <Field label="Watch account">
-              <AccountPickerButton accounts={data.accounts} value={plan.surplus.ruleAccountId} onChange={(v) => update({ ...plan, surplus: { ...plan.surplus, ruleAccountId: v } })} placeholder="e.g. Emergency" />
+              <AccountPickerButton
+                accounts={data.accounts}
+                value={plan.surplus.ruleAccountId}
+                onChange={(v) => update({ ...plan, surplus: { ...plan.surplus, ruleAccountId: v } })}
+                placeholder="e.g. Emergency"
+              />
             </Field>
             <Field label="Covered at">
-              <AmountField value={plan.surplus.threshold} onChange={(v) => update({ ...plan, surplus: { ...plan.surplus, threshold: v } })} currency={cur} />
+              <AmountField
+                value={plan.surplus.threshold}
+                onChange={(v) => update({ ...plan, surplus: { ...plan.surplus, threshold: v } })}
+                currency={cur}
+              />
             </Field>
           </div>
           <div className={`banner ${rule.covered ? 'mint' : ''}`}>
@@ -390,9 +521,19 @@ export function Budget() {
             </span>
           </div>
           <div className="cat-group-name">While below {fmtMoney(plan.surplus.threshold, cur, { compact: true })}</div>
-          <RowsEditor rows={plan.surplus.belowRows} base={plan.surplus.amount} currency={cur} onChange={(rows) => update({ ...plan, surplus: { ...plan.surplus, belowRows: rows } })} />
+          <RowsEditor
+            rows={plan.surplus.belowRows}
+            base={plan.surplus.amount}
+            currency={cur}
+            onChange={(rows) => update({ ...plan, surplus: { ...plan.surplus, belowRows: rows } })}
+          />
           <div className="cat-group-name">Once covered</div>
-          <RowsEditor rows={plan.surplus.aboveRows} base={plan.surplus.amount} currency={cur} onChange={(rows) => update({ ...plan, surplus: { ...plan.surplus, aboveRows: rows } })} />
+          <RowsEditor
+            rows={plan.surplus.aboveRows}
+            base={plan.surplus.amount}
+            currency={cur}
+            onChange={(rows) => update({ ...plan, surplus: { ...plan.surplus, aboveRows: rows } })}
+          />
         </div>
 
         {!edit && (

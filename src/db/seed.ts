@@ -1,8 +1,7 @@
 // Starting setup for a new user: generic categories, no accounts and no amounts.
 import { todayISO } from '../domain/dates';
-import type { Account, AccountType, BudgetPlan, Category, Profile, Settings } from '../domain/types';
+import type { BudgetPlan, Category, Profile, Settings } from '../domain/types';
 
-export type SeedAcc = [name: string, type: AccountType, group: string, currency?: string];
 import { db, uid } from './db';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -20,8 +19,18 @@ const EXPENSE: [string, string[]][] = [
   [
     'Discretionary',
     [
-      'Groceries', 'Household', 'Transportation', 'Games', 'Books', 'Socialise', 'Gifts', 'Movies', 'Clothes',
-      'Health & Body Care', 'Workout', 'Personal Development',
+      'Groceries',
+      'Household',
+      'Transportation',
+      'Games',
+      'Books',
+      'Socialise',
+      'Gifts',
+      'Movies',
+      'Clothes',
+      'Health & Body Care',
+      'Workout',
+      'Personal Development',
     ],
   ],
   ['Infrequent', ['Tax', 'Travel', 'Large Purchase']],
@@ -40,24 +49,6 @@ export function makeCategories(profileId: string, income: string[], expense: [st
     }
   }
   return out;
-}
-
-export function makeAccounts(profileId: string, list: SeedAcc[]): Account[] {
-  const today = todayISO();
-  return list.map(([name, type, group, currency], i) => ({
-    id: uid(),
-    profileId,
-    name,
-    type,
-    group,
-    currency: currency ?? 'THB',
-    openingBalance: 0,
-    openingDate: today,
-    includeInNetWorth: true,
-    archived: false,
-    order: i,
-    ...(type === 'units' ? { unitPriceCurrency: 'THB', unitPriceSource: 'live-gold' as const } : {}),
-  }));
 }
 
 export function makeBudget(profileId: string): BudgetPlan {
@@ -102,7 +93,12 @@ export async function createProfile(name?: string): Promise<Profile> {
   let n = all.length + 1;
   while (all.some((p) => p.name === `User ${n}`)) n++;
   const order = Math.max(-1, ...all.map((p) => p.order)) + 1;
-  const profile: Profile = { id: all.length === 0 ? 'user-1' : uid(), name: name?.trim() || `User ${n}`, emoji: PROFILE_EMOJI[(n - 1) % PROFILE_EMOJI.length], order };
+  const profile: Profile = {
+    id: all.length === 0 ? 'user-1' : uid(),
+    name: name?.trim() || `User ${n}`,
+    emoji: PROFILE_EMOJI[(n - 1) % PROFILE_EMOJI.length],
+    order,
+  };
   await db.transaction('rw', [db.profiles, db.categories, db.budgets], async () => {
     await db.profiles.add(profile);
     await db.categories.bulkAdd(makeCategories(profile.id, INCOME, EXPENSE));
@@ -113,12 +109,16 @@ export async function createProfile(name?: string): Promise<Profile> {
 
 /** Delete a user and everything that belongs to them. */
 export async function deleteProfile(id: string): Promise<void> {
-  await db.transaction('rw', [db.profiles, db.accounts, db.categories, db.txs, db.recurring, db.budgets, db.debts, db.goals], async () => {
-    for (const t of [db.accounts, db.categories, db.txs, db.recurring, db.budgets, db.debts, db.goals]) {
-      await (t as typeof db.accounts).where('profileId').equals(id).delete();
-    }
-    await db.profiles.delete(id);
-  });
+  await db.transaction(
+    'rw',
+    [db.profiles, db.accounts, db.categories, db.txs, db.recurring, db.budgets, db.debts, db.goals],
+    async () => {
+      for (const t of [db.accounts, db.categories, db.txs, db.recurring, db.budgets, db.debts, db.goals]) {
+        await (t as typeof db.accounts).where('profileId').equals(id).delete();
+      }
+      await db.profiles.delete(id);
+    },
+  );
 }
 
 /** One-time tidy-up for installs from 0.1: BTC and gold accounts get their own Wealth preserve group. */
@@ -128,7 +128,8 @@ export async function migrate(): Promise<void> {
   const accs = await db.accounts.toArray();
   for (const a of accs) {
     const wealth = a.currency === 'BTC' || (a.type === 'units' && a.unitPriceSource === 'live-gold');
-    if (wealth && (a.group === 'Investments' || a.group === 'Assets')) await db.accounts.update(a.id, { group: 'Wealth preserve' });
+    if (wealth && (a.group === 'Investments' || a.group === 'Assets'))
+      await db.accounts.update(a.id, { group: 'Wealth preserve' });
   }
   await db.kv.put({ key: 'migratedWealthGroup', value: true });
 }

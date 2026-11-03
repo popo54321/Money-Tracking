@@ -15,12 +15,6 @@ export function parseISO(s: ISODate): { y: number; m: number; d: number } {
   return { y, m, d };
 }
 
-export function isValidISO(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const { y, m, d } = parseISO(s);
-  return m >= 1 && m <= 12 && d >= 1 && d <= daysInMonth(y, m);
-}
-
 export function todayISO(now: Date = new Date()): ISODate {
   return toISO(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
@@ -87,27 +81,24 @@ export function yearEnd(y: number): ISODate {
   return toISO(y, 12, 31);
 }
 
-export function maxDate(a: ISODate, b: ISODate): ISODate {
-  return a > b ? a : b;
-}
-
-export function minDate(a: ISODate, b: ISODate): ISODate {
-  return a < b ? a : b;
-}
-
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function monthName(m: number, long = false): string {
   return (long ? MONTHS_LONG : MONTHS_SHORT)[m - 1];
-}
-
-export function weekdayName(s: ISODate): string {
-  return WEEKDAYS[new Date(toUTC(s)).getUTCDay()];
 }
 
 /** '3 Nov 2026' */

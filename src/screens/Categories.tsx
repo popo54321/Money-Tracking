@@ -69,7 +69,11 @@ export function Categories() {
                   {items.map((c) => (
                     <div key={c.id} className="row" style={{ opacity: c.archived ? 0.5 : 1 }}>
                       <div className={`bubble ${kind === 'income' ? 'mint' : groupColour(g)}`}>{categoryEmoji(c)}</div>
-                      <button className="main" style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setEdit(c)}>
+                      <button
+                        className="main"
+                        style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }}
+                        onClick={() => setEdit(c)}
+                      >
                         <div className="title">{c.name}</div>
                         <div className="sub">{c.archived ? 'hidden' : 'tap to edit'}</div>
                       </button>
@@ -94,7 +98,15 @@ export function Categories() {
               onClick={() => {
                 const g = newGroup.trim();
                 if (!g) return;
-                setEdit({ id: uid(), profileId: profile.id, kind, name: '', group: g, order: Math.max(0, ...data.categories.map((c) => c.order)) + 1, archived: false });
+                setEdit({
+                  id: uid(),
+                  profileId: profile.id,
+                  kind,
+                  name: '',
+                  group: g,
+                  order: Math.max(0, ...data.categories.map((c) => c.order)) + 1,
+                  archived: false,
+                });
                 setNewGroup('');
               }}
             >

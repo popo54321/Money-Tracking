@@ -1,6 +1,6 @@
 # Money Tracking 🧚
 
-A friendly money tracker with six themes for logging day to day on the phone, fully offline, ready to copy into the monthly workbook.
+A friendly money tracker with six themes for logging day to day on the phone, fully offline, ready to copy into a monthly spreadsheet.
 
 - **Android:** a real app (APK) from this repo's Releases page, with a one-tap update button.
 - **iPhone:** a web app you add to the Home Screen. Works offline after the first visit.
@@ -33,7 +33,7 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 
 | Area | What you get |
 |---|---|
-| **Entries** | Spend / income / move money with a calculator keypad (`120+35×2`), any currency (converted with live rates), categories from the workbook |
+| **Entries** | Spend / income / move money with a phone-style calculator (`(120+80)×2`), any currency (converted with live rates), your own categories |
 | **Accounts** | Bank, cash, debit, credit card, top-up card, investments, BTC, gold, insurance: add, edit, archive, reorder; BTC and gold sit in their own Wealth preserve group |
 | **Set new balance** | Type the new total; choose **just adjust** or **log the difference as income/spending** (for example Interest) |
 | **Credit cards** | Statement day, due day, credit limit, paying account, amount still to pay, **Pay now** |
@@ -41,11 +41,12 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 | **Wealth preserve** | BTC (amount × live price) and Thai gold in baht-weight (ทองบาทละ, live 96.5% bar price), cost, average cost and profit |
 | **Summary** | Income and spending by category and group, per month, year or dates |
 | **Month close** | The numbers in the year sheet's order, tap to copy, or export to Excel / CSV |
-| **Budget plan** | Phases P1–P5, bonus split, leftover-money rule, monthly transfer checklist; **import from the workbook** |
+| **Budget plan** | Any number of phases, bonus split, leftover-money rule, monthly transfer checklist; can **import a Budget Allocation sheet** from an `.xlsx` workbook |
 | **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly, who pays whom |
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price, monthly saving or a linked account, and when you can buy it |
+| **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |
 | **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
 | **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |
 | **Backup** | Save a backup file (Drive, email, Files), restore it, export all entries; Android also keeps a daily copy in `Documents/MoneyTracking` |
@@ -85,9 +86,10 @@ On `main`, the **Android app** workflow builds a signed APK and publishes releas
 ## Developing
 
 ```bash
-npm ci --legacy-peer-deps
+npm ci
 npm run dev        # http://localhost:5173
-npm test           # calculation tests
+npm run check      # type check, formatting check and calculation tests
+npm run format     # tidy the code formatting
 npm run build      # web app in dist/
 npx cap sync android && (cd android && ./gradlew assembleDebug)   # Android APK
 ```
@@ -97,4 +99,6 @@ The code is laid out as follows:
 - `src/domain/`: the maths (balances, repeating dates, credit cards, splits, interest, budget, wealth), all with tests.
 - `src/db/`: storage on the device (IndexedDB).
 - `src/services/`: prices, backup, export, workbook import and updates.
-- `src/screens/` and `src/components/`: the screens.
+- `src/screens/` and `src/components/`: the screens and shared building blocks.
+- `src/styles/`: `themes.css` (colours for every theme), `base.css` (layout), `skins.css` (theme-only touches).
+- `src/ui/`: theme definitions (`skins.ts`), icons and the drawn dino and frog mascots.

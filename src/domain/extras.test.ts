@@ -3,8 +3,19 @@ import { debtStatus, type Debt } from './debts';
 import { goalStatus, type Goal } from './goals';
 
 const debt = (p: Partial<Debt>): Debt => ({
-  id: 'd', profileId: 'popo', person: 'Ann', direction: 'owedToMe', currency: 'THB', interestType: 'none',
-  ratePct: 0, ratePer: 'year', events: [], closed: false, createdAt: 0, updatedAt: 0, ...p,
+  id: 'd',
+  profileId: 'popo',
+  person: 'Ann',
+  direction: 'owedToMe',
+  currency: 'THB',
+  interestType: 'none',
+  ratePct: 0,
+  ratePer: 'year',
+  events: [],
+  closed: false,
+  createdAt: 0,
+  updatedAt: 0,
+  ...p,
 });
 
 describe('who owes me', () => {
@@ -25,7 +36,12 @@ describe('who owes me', () => {
   });
   it('works out simple interest per year on the amount still owed', () => {
     const s = debtStatus(
-      debt({ interestType: 'simple', ratePct: 10, ratePer: 'year', events: [{ id: '1', date: '2025-01-01', type: 'lend', amount: 10000 }] }),
+      debt({
+        interestType: 'simple',
+        ratePct: 10,
+        ratePer: 'year',
+        events: [{ id: '1', date: '2025-01-01', type: 'lend', amount: 10000 }],
+      }),
       '2026-01-01',
     );
     expect(s.interest).toBeCloseTo(1000, 6);
@@ -34,7 +50,9 @@ describe('who owes me', () => {
   it('uses repayments for interest first', () => {
     const s = debtStatus(
       debt({
-        interestType: 'simple', ratePct: 10, ratePer: 'year',
+        interestType: 'simple',
+        ratePct: 10,
+        ratePer: 'year',
         events: [
           { id: '1', date: '2025-01-01', type: 'lend', amount: 10000 },
           { id: '2', date: '2026-01-01', type: 'repay', amount: 1500 },
@@ -47,7 +65,12 @@ describe('who owes me', () => {
   });
   it('compounds monthly interest', () => {
     const s = debtStatus(
-      debt({ interestType: 'compound', ratePct: 1, ratePer: 'month', events: [{ id: '1', date: '2026-01-15', type: 'lend', amount: 10000 }] }),
+      debt({
+        interestType: 'compound',
+        ratePct: 1,
+        ratePer: 'month',
+        events: [{ id: '1', date: '2026-01-15', type: 'lend', amount: 10000 }],
+      }),
       '2026-03-15',
       '2026-04-15',
     );
@@ -60,8 +83,20 @@ describe('who owes me', () => {
 
 describe('saving targets', () => {
   const goal = (p: Partial<Goal>): Goal => ({
-    id: 'g', profileId: 'popo', name: 'Camera', emoji: '📷', price: 30000, currency: 'THB', source: 'manual',
-    saved: 0, monthly: 0, done: false, order: 0, createdAt: 0, updatedAt: 0, ...p,
+    id: 'g',
+    profileId: 'popo',
+    name: 'Camera',
+    emoji: '📷',
+    price: 30000,
+    currency: 'THB',
+    source: 'manual',
+    saved: 0,
+    monthly: 0,
+    done: false,
+    order: 0,
+    createdAt: 0,
+    updatedAt: 0,
+    ...p,
   });
   it('works out progress and when it can be bought', () => {
     const s = goalStatus(goal({ monthly: 5000 }), 12000, '2026-11-03');
@@ -86,23 +121,57 @@ import type { Account, Tx } from './types';
 
 describe('wealth preserve', () => {
   const base: Omit<Account, 'id' | 'name' | 'type' | 'currency'> = {
-    profileId: 'popo', group: 'Investments', openingBalance: 0, openingDate: '2026-01-01',
-    includeInNetWorth: true, archived: false, order: 0,
+    profileId: 'popo',
+    group: 'Investments',
+    openingBalance: 0,
+    openingDate: '2026-01-01',
+    includeInNetWorth: true,
+    archived: false,
+    order: 0,
   };
   const bitkub: Account = { ...base, id: 'bk', name: 'Bitkub', type: 'crypto', currency: 'BTC' };
   const trezor: Account = { ...base, id: 'tz', name: 'Trezor', type: 'crypto', currency: 'BTC' };
   let k = 0;
   const t = (p: Partial<Tx> & Pick<Tx, 'kind' | 'accountId' | 'amount' | 'date' | 'value'>): Tx => ({
-    id: `w${k++}`, profileId: 'popo', valueCurrency: 'THB', createdAt: k, updatedAt: 0, ...p,
+    id: `w${k++}`,
+    profileId: 'popo',
+    valueCurrency: 'THB',
+    createdAt: k,
+    updatedAt: 0,
+    ...p,
   });
   const rates = withBtc({ USD: 1, THB: 33.74 }, 2500000, 'THB', 62550);
 
   it('tracks average cost, moves between wallets and sales', () => {
     const txs = [
-      t({ kind: 'transfer', accountId: 'bank', toAccountId: 'bk', amount: 12500, toAmount: 0.005, value: 12500, date: '2026-02-01' }),
-      t({ kind: 'transfer', accountId: 'bank', toAccountId: 'bk', amount: 12500, toAmount: 0.004, value: 12500, date: '2026-03-01' }),
+      t({
+        kind: 'transfer',
+        accountId: 'bank',
+        toAccountId: 'bk',
+        amount: 12500,
+        toAmount: 0.005,
+        value: 12500,
+        date: '2026-02-01',
+      }),
+      t({
+        kind: 'transfer',
+        accountId: 'bank',
+        toAccountId: 'bk',
+        amount: 12500,
+        toAmount: 0.004,
+        value: 12500,
+        date: '2026-03-01',
+      }),
       t({ kind: 'transfer', accountId: 'bk', toAccountId: 'tz', amount: 0.006, toAmount: 0.006, value: 0, date: '2026-04-01' }),
-      t({ kind: 'transfer', accountId: 'tz', toAccountId: 'bank', amount: 0.003, toAmount: 7000, value: 7000, date: '2026-05-01' }),
+      t({
+        kind: 'transfer',
+        accountId: 'tz',
+        toAccountId: 'bank',
+        amount: 0.003,
+        toAmount: 7000,
+        value: 7000,
+        date: '2026-05-01',
+      }),
     ];
     const s = holdingStatus([bitkub, trezor], txs, rates, 'THB');
     expect(s.units).toBeCloseTo(0.006, 12);
@@ -114,7 +183,16 @@ describe('wealth preserve', () => {
   });
 
   it('values gold at the live Thai price per baht-weight', () => {
-    const gold: Account = { ...base, id: 'g', name: 'Gold', type: 'units', currency: 'baht-weight', unitPriceSource: 'live-gold', openingBalance: 10, costBasis: 454614.2 };
+    const gold: Account = {
+      ...base,
+      id: 'g',
+      name: 'Gold',
+      type: 'units',
+      currency: 'baht-weight',
+      unitPriceSource: 'live-gold',
+      openingBalance: 10,
+      costBasis: 454614.2,
+    };
     expect(accountValue(gold, 10, rates, 'THB')).toBeCloseTo(625500, 4);
     const s = holdingStatus([gold], [], rates, 'THB');
     expect(s.profit).toBeCloseTo(625500 - 454614.2, 4);

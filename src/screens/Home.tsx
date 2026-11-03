@@ -81,9 +81,10 @@ function PriceChips() {
   const { prices, currency, toast } = useApp();
   const [busy, setBusy] = useState(false);
   const usd = currency === 'USD' ? null : rateBetween('USD', currency, { perUsd: prices.perUsd });
-  const btc = prices.btcPrice && prices.btcPriceCurrency
-    ? (rateBetween(prices.btcPriceCurrency, currency, { perUsd: prices.perUsd }) ?? 0) * prices.btcPrice
-    : null;
+  const btc =
+    prices.btcPrice && prices.btcPriceCurrency
+      ? (rateBetween(prices.btcPriceCurrency, currency, { perUsd: prices.perUsd }) ?? 0) * prices.btcPrice
+      : null;
   const updated = prices.btcFetchedAt ?? prices.ratesFetchedAt;
   return (
     <div className="card prices-card">
@@ -93,7 +94,9 @@ function PriceChips() {
         {usd && <span className="pill sky">$1 = {fmtMoney(usd, currency)}</span>}
       </div>
       <div className="between mt">
-        <span className="tiny muted">{updated ? `Prices updated ${fmtAgo(updated)}` : 'Built-in prices until the first update'}</span>
+        <span className="tiny muted">
+          {updated ? `Prices updated ${fmtAgo(updated)}` : 'Built-in prices until the first update'}
+        </span>
         <button
           className="btn sm ghost"
           disabled={busy}
@@ -128,7 +131,11 @@ export function Home() {
 
   return (
     <>
-      <Topbar title={`${skin.greeting} ${profile.name} ${skin.plain ? '' : profile.emoji ?? ''}`} right={<ProfileSwitch />} noBack />
+      <Topbar
+        title={`${skin.greeting} ${profile.name} ${skin.plain ? '' : (profile.emoji ?? '')}`}
+        right={<ProfileSwitch />}
+        noBack
+      />
       <div className="page">
         <HomeBanner
           webUpdate={webUpdate}
@@ -172,49 +179,58 @@ export function Home() {
 
         {soon.length > 0 && (
           <>
-        <div className="section-title">
-          <span>⏰ Coming up</span>
-          <span className="grow" />
-          <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>All ›</button>
-        </div>
-          <div className="list">
-            {soon.map((u) => {
-              const reserveAcc = u.reserveAccountId ? data.accountById.get(u.reserveAccountId) : undefined;
-              return (
-                <button
-                  key={u.key}
-                  className="row"
-                  onClick={() => (u.source === 'card' ? go({ name: 'account', id: u.refId }) : go({ name: 'recurringEdit', id: u.refId }))}
-                >
-                  <div className={`bubble ${u.kind === 'income' ? 'mint' : u.overdue ? 'pink' : 'peach'}`}>
-                    {u.kind === 'income' ? '💰' : u.source === 'card' ? '💳' : '🔔'}
-                  </div>
-                  <div className="main">
-                    <div className="title">{u.label}</div>
-                    <div className="sub">
-                      {fmtDate(u.date, false)} · {u.overdue ? 'overdue!' : relativeDays(today, u.date)}
-                      {reserveAcc ? ` · keep in ${reserveAcc.name}` : ''}
+            <div className="section-title">
+              <span>⏰ Coming up</span>
+              <span className="grow" />
+              <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>
+                All ›
+              </button>
+            </div>
+            <div className="list">
+              {soon.map((u) => {
+                const reserveAcc = u.reserveAccountId ? data.accountById.get(u.reserveAccountId) : undefined;
+                return (
+                  <button
+                    key={u.key}
+                    className="row"
+                    onClick={() =>
+                      u.source === 'card' ? go({ name: 'account', id: u.refId }) : go({ name: 'recurringEdit', id: u.refId })
+                    }
+                  >
+                    <div className={`bubble ${u.kind === 'income' ? 'mint' : u.overdue ? 'pink' : 'peach'}`}>
+                      {u.kind === 'income' ? '💰' : u.source === 'card' ? '💳' : '🔔'}
                     </div>
-                  </div>
-                  <div className="end">
-                    <div className={`amt ${u.kind === 'income' ? 'pos' : ''}`}>{fmtMoney(u.amount, u.currency)}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
+                    <div className="main">
+                      <div className="title">{u.label}</div>
+                      <div className="sub">
+                        {fmtDate(u.date, false)} · {u.overdue ? 'overdue!' : relativeDays(today, u.date)}
+                        {reserveAcc ? ` · keep in ${reserveAcc.name}` : ''}
+                      </div>
+                    </div>
+                    <div className="end">
+                      <div className={`amt ${u.kind === 'income' ? 'pos' : ''}`}>{fmtMoney(u.amount, u.currency)}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </>
         )}
 
         <div className="section-title">
           <span>🧾 Recent</span>
           <span className="grow" />
-          <button className="btn sm ghost" onClick={() => go({ name: 'txList', title: 'All entries' })}>All ›</button>
+          <button className="btn sm ghost" onClick={() => go({ name: 'txList', title: 'All entries' })}>
+            All ›
+          </button>
         </div>
         {data.txs.length === 0 ? (
           <div className="card center">
-            {skin.mascot ? <Mascot kind={skin.mascot} pose="happy" size={72} /> : skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>}
+            {skin.mascot ? (
+              <Mascot kind={skin.mascot} pose="happy" size={72} />
+            ) : (
+              skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>
+            )}
             <div className="bold">No entries yet</div>
             <div className="small muted mb">Tap + to log your first spending.</div>
           </div>
@@ -228,12 +244,29 @@ export function Home() {
 }
 
 /** Only the most important notice is shown, so the top of Home stays calm. */
-function HomeBanner({ webUpdate, noAccounts, setupDue, backupDays }: { webUpdate: boolean; noAccounts: boolean; setupDue: boolean; backupDays: number | null }) {
+function HomeBanner({
+  webUpdate,
+  noAccounts,
+  setupDue,
+  backupDays,
+}: {
+  webUpdate: boolean;
+  noAccounts: boolean;
+  setupDue: boolean;
+  backupDays: number | null;
+}) {
   const { go } = useApp();
   let b: { cls: string; icon: string; text: string; onClick: () => void } | null = null;
   if (webUpdate) b = { cls: 'mint', icon: '🎉', text: 'A new version is ready. Tap to update.', onClick: applyWebUpdate };
-  else if (noAccounts) b = { cls: 'pink', icon: '👛', text: 'Start by adding your first account, card or cash', onClick: () => go({ name: 'accountEdit' }) };
-  else if (setupDue) b = { cls: 'pink', icon: '🌱', text: 'Set your starting balances so totals are right', onClick: () => go({ name: 'setup' }) };
+  else if (noAccounts)
+    b = {
+      cls: 'pink',
+      icon: '👛',
+      text: 'Start by adding your first account, card or cash',
+      onClick: () => go({ name: 'accountEdit' }),
+    };
+  else if (setupDue)
+    b = { cls: 'pink', icon: '🌱', text: 'Set your starting balances so totals are right', onClick: () => go({ name: 'setup' }) };
   else if (backupDays !== null)
     b = {
       cls: '',

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle } from '../components/ui';
+import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar } from '../components/ui';
 import { debtStatus, type Debt, type DebtEvent } from '../domain/debts';
 import { addDays, fmtDate } from '../domain/dates';
 import { convert } from '../domain/fx';
@@ -8,7 +8,6 @@ import { fmtMoney } from '../domain/money';
 import { db, uid } from '../db/db';
 import { deleteDebt, saveDebt } from '../db/repo';
 import { useApp } from '../state/app';
-import { nameColour } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
 
 function interestText(d: Debt): string {
@@ -54,12 +53,14 @@ export function DebtList() {
         <div className="list">
           {items.map((d) => {
             const s = debtStatus(d, today);
-            const c = nameColour(d.person || '?');
             return (
-              <button key={d.id} className="row" onClick={() => go({ name: 'debt', id: d.id })} style={{ opacity: d.closed ? 0.55 : 1 }}>
-                <span className="avatar" style={{ background: `var(--${c})`, color: `var(--${c}-ink)` }}>
-                  {(d.person || '?').slice(0, 1).toUpperCase()}
-                </span>
+              <button
+                key={d.id}
+                className="row"
+                onClick={() => go({ name: 'debt', id: d.id })}
+                style={{ opacity: d.closed ? 0.55 : 1 }}
+              >
+                <Avatar name={d.person || '?'} />
                 <div className="main">
                   <div className="title">
                     {d.person || 'Someone'} {d.closed ? '✅' : ''}
@@ -202,7 +203,12 @@ export function DebtDetail({ id }: { id: string }) {
           <button className="btn" onClick={() => setEv({ id: uid(), date: today, type: 'lend', amount: 0 })}>
             ＋ {theyOwe ? 'Lent more' : 'Borrowed more'}
           </button>
-          <button className="btn mint" onClick={() => setEv({ id: uid(), date: today, type: 'repay', amount: s.owed > 0 ? Math.round(s.owed * 100) / 100 : 0 })}>
+          <button
+            className="btn mint"
+            onClick={() =>
+              setEv({ id: uid(), date: today, type: 'repay', amount: s.owed > 0 ? Math.round(s.owed * 100) / 100 : 0 })
+            }
+          >
             ＋ Paid back
           </button>
         </div>
@@ -304,7 +310,11 @@ export function DebtDetail({ id }: { id: string }) {
               <input type="date" value={ev.date} onChange={(e) => setEv({ ...ev, date: e.target.value || today })} />
             </Field>
             <Field label="Note">
-              <input value={ev.note ?? ''} onChange={(e) => setEv({ ...ev, note: e.target.value || undefined })} placeholder="Optional" />
+              <input
+                value={ev.note ?? ''}
+                onChange={(e) => setEv({ ...ev, note: e.target.value || undefined })}
+                placeholder="Optional"
+              />
             </Field>
             <div className="btn-row">
               {d.events.some((x) => x.id === ev.id) && (

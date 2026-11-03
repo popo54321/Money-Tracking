@@ -18,14 +18,14 @@ export function TxList({ route }: { route: R }) {
     if (route.from && t.date < route.from) return false;
     if (route.to && t.date > route.to) return false;
     if (query) {
-      const cat = t.categoryId ? data.categoryById.get(t.categoryId)?.name ?? '' : '';
+      const cat = t.categoryId ? (data.categoryById.get(t.categoryId)?.name ?? '') : '';
       const acc = data.accountById.get(t.accountId)?.name ?? '';
       const hay = `${t.note ?? ''} ${cat} ${acc} ${t.amount}`.toLowerCase();
       if (!hay.includes(query)) return false;
     }
     return true;
   });
-  const title = route.title ?? (route.categoryId ? data.categoryById.get(route.categoryId)?.name ?? 'Entries' : 'Entries');
+  const title = route.title ?? (route.categoryId ? (data.categoryById.get(route.categoryId)?.name ?? 'Entries') : 'Entries');
   return (
     <>
       <Topbar title={title} />

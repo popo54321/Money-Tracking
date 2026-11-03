@@ -7,13 +7,32 @@ import { entriesCsv, shareEntriesCsv, shareMonthXlsx } from '../services/export'
 import { copyText } from '../services/platform';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupEmoji } from '../ui/emoji';
+import { holdProps } from '../components/hold';
+import { CategoryEditor } from '../components/CategoryEditor';
+import type { Category } from '../domain/types';
 
-function CopyRow({ label, value, dp = 2, cls = '', emoji }: { label: string; value: number | null; dp?: number; cls?: string; emoji?: string }) {
+function CopyRow({
+  label,
+  value,
+  dp = 2,
+  cls = '',
+  emoji,
+  onHold,
+}: {
+  label: string;
+  value: number | null;
+  dp?: number;
+  cls?: string;
+  emoji?: string;
+  /** press and hold to edit what this row is about */
+  onHold?: () => void;
+}) {
   const { toast } = useApp();
   const text = value === null ? '' : String(roundTo(value, dp));
   return (
     <button
       className={`copy-row ${cls}`}
+      {...(onHold ? holdProps(onHold) : {})}
       onClick={async () => {
         if (value === null) return;
         const ok = await copyText(text);
@@ -29,7 +48,7 @@ function CopyRow({ label, value, dp = 2, cls = '', emoji }: { label: string; val
 }
 
 export function MonthClose() {
-  const { currency, rates, today, profile, profiles, toast } = useApp();
+  const { currency, rates, today, profile, profiles, toast, go } = useApp();
   const data = useData();
   const [month, setMonth] = useState(() => {
     // after the 20th, default to this month; otherwise the month just finished
@@ -37,6 +56,7 @@ export function MonthClose() {
     return Number(today.slice(8, 10)) >= 20 ? k : addMonthKey(k, -1);
   });
   const [d, setD] = useState<MonthCloseData | null>(null);
+  const [editing, setEditing] = useState<Category | null>(null);
   useEffect(() => {
     let alive = true;
     buildMonthClose(month, data.accounts, data.categories, data.txs, currency, rates).then((x) => alive && setD(x));
@@ -65,7 +85,9 @@ export function MonthClose() {
         </div>
         <div className="banner sky">
           <span>💡</span>
-          <span className="grow">Same order as your year sheet. Tap a number to copy it, then paste it into Excel.</span>
+          <span className="grow">
+            Same order as your year sheet. Tap a number to copy it, then paste it into Excel. Hold a row to edit it.
+          </span>
         </div>
 
         {!d ? (
@@ -75,7 +97,14 @@ export function MonthClose() {
             <div className="card">
               <h2>💰 Income</h2>
               {d.summary.income.cats.map((c) => (
-                <CopyRow key={c.category?.id ?? 'x'} emoji={categoryEmoji(c.category)} label={c.name} value={c.total} dp={dp} />
+                <CopyRow
+                  key={c.category?.id ?? 'x'}
+                  emoji={categoryEmoji(c.category)}
+                  label={c.name}
+                  value={c.total}
+                  dp={dp}
+                  onHold={c.category ? () => setEditing(c.category) : undefined}
+                />
               ))}
               <CopyRow label="Total Income" value={d.summary.income.total} dp={dp} cls="total" />
             </div>
@@ -88,7 +117,15 @@ export function MonthClose() {
                     {groupEmoji(g.group)} {g.group}
                   </div>
                   {g.cats.map((c) => (
-                    <CopyRow key={c.category?.id ?? 'x'} emoji={categoryEmoji(c.category)} label={c.name} value={c.total} dp={dp} cls="sub" />
+                    <CopyRow
+                      key={c.category?.id ?? 'x'}
+                      emoji={categoryEmoji(c.category)}
+                      label={c.name}
+                      value={c.total}
+                      dp={dp}
+                      cls="sub"
+                      onHold={c.category ? () => setEditing(c.category) : undefined}
+                    />
                   ))}
                   <CopyRow label={`Total ${g.group}`} value={g.total} dp={dp} cls="total" />
                 </div>
@@ -99,7 +136,9 @@ export function MonthClose() {
 
             <div className="card">
               <h2>🏦 Month-end balances</h2>
-              <div className="tiny muted mb">Values in {currency} on {fmtDate(monthEnd(month))}. Other currencies use the rates saved closest to that date.</div>
+              <div className="tiny muted mb">
+                Values in {currency} on {fmtDate(monthEnd(month))}. Other currencies use the rates saved closest to that date.
+              </div>
               {d.groups.map((g) => (
                 <div key={g.group}>
                   <div className="cat-group-name">{g.group}</div>
@@ -114,6 +153,7 @@ export function MonthClose() {
                       value={r.value}
                       dp={dp}
                       cls="sub"
+                      onHold={() => go({ name: 'accountEdit', id: r.account.id })}
                     />
                   ))}
                   <CopyRow label={`Total ${g.group}`} value={g.total} dp={dp} cls="total" />
@@ -129,7 +169,11 @@ export function MonthClose() {
                   <CopyRow key={b.name} label={b.name} value={b.amount} dp={8} cls="sub" />
                 ))}
                 <CopyRow label="Bitcoin amount" value={d.btc.amount} dp={8} cls="total" />
-                <CopyRow label={`BTC price at month end (THB)${d.btc.priceDate ? ` · ${fmtDate(d.btc.priceDate, false)}` : ''}`} value={d.btc.price ?? null} dp={2} />
+                <CopyRow
+                  label={`BTC price at month end (THB)${d.btc.priceDate ? ` · ${fmtDate(d.btc.priceDate, false)}` : ''}`}
+                  value={d.btc.price ?? null}
+                  dp={2}
+                />
                 <CopyRow label="BTC value (THB)" value={d.btc.value ?? null} dp={2} />
                 {d.gold.perAccount.length > 0 && (
                   <>
@@ -167,12 +211,11 @@ export function MonthClose() {
                 📄 CSV
               </button>
             </div>
-            <div className="tiny muted center mt">
-              {monthTxs.length} entries this month · all stored on this phone
-            </div>
+            <div className="tiny muted center mt">{monthTxs.length} entries this month · all stored on this phone</div>
           </>
         )}
       </div>
+      {editing && <CategoryEditor category={editing} onClose={() => setEditing(null)} />}
     </>
   );
 }

@@ -1,6 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
-import { AccountPickerButton, AmountField, CurrencySheet, Field, ProgressBar, Seg, Sheet, ToggleRow, Topbar, Sparkle, SkinName } from '../components/ui';
+import {
+  AccountPickerButton,
+  AmountField,
+  CurrencySheet,
+  Field,
+  ProgressBar,
+  Seg,
+  Sheet,
+  ToggleRow,
+  Topbar,
+  Sparkle,
+  SkinName,
+} from '../components/ui';
 import { accountValue } from '../domain/balances';
 import { fmtDate, fmtMonth } from '../domain/dates';
 import { goalStatus, type Goal } from '../domain/goals';
@@ -22,15 +34,31 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} title="Saving target">
       <div className="hstack mb">
-        <button className="icon-btn" style={{ width: 52, height: 52, fontSize: 28 }} onClick={() => setEmojiOpen(!emojiOpen)} aria-label="Choose emoji">
+        <button
+          className="icon-btn"
+          style={{ width: 52, height: 52, fontSize: 28 }}
+          onClick={() => setEmojiOpen(!emojiOpen)}
+          aria-label="Choose emoji"
+        >
           {g.emoji}
         </button>
-        <input value={g.name} placeholder="What do you want? e.g. New camera" onChange={(e) => setG({ ...g, name: e.target.value })} />
+        <input
+          value={g.name}
+          placeholder="What do you want? e.g. New camera"
+          onChange={(e) => setG({ ...g, name: e.target.value })}
+        />
       </div>
       {emojiOpen && (
         <div className="chips mb">
           {EMOJI_CHOICES.map((e) => (
-            <button key={e} className="chip" onClick={() => { setG({ ...g, emoji: e }); setEmojiOpen(false); }}>
+            <button
+              key={e}
+              className="chip"
+              onClick={() => {
+                setG({ ...g, emoji: e });
+                setEmojiOpen(false);
+              }}
+            >
               {e}
             </button>
           ))}
@@ -66,13 +94,22 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
         </Field>
       )}
       <Field label="I’ll save each month">
-        <AmountField value={g.monthly || null} onChange={(v) => setG({ ...g, monthly: v })} currency={g.currency} placeholder="e.g. 3,000" />
+        <AmountField
+          value={g.monthly || null}
+          onChange={(v) => setG({ ...g, monthly: v })}
+          currency={g.currency}
+          placeholder="e.g. 3,000"
+        />
       </Field>
       <Field label="Want it by (optional)">
         <input type="date" value={g.targetDate ?? ''} onChange={(e) => setG({ ...g, targetDate: e.target.value || undefined })} />
       </Field>
       <Field label="Note">
-        <input value={g.note ?? ''} onChange={(e) => setG({ ...g, note: e.target.value || undefined })} placeholder="Link, shop, colour…" />
+        <input
+          value={g.note ?? ''}
+          onChange={(e) => setG({ ...g, note: e.target.value || undefined })}
+          placeholder="Link, shop, colour…"
+        />
       </Field>
       <ToggleRow title="🎉 Bought it" on={g.done} onChange={(v) => setG({ ...g, done: v })} />
       <div className="btn-row mt">
@@ -98,7 +135,12 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
           Save
         </button>
       </div>
-      <CurrencySheet open={curOpen} onClose={() => setCurOpen(false)} value={g.currency} onPick={(c) => setG({ ...g, currency: c })} />
+      <CurrencySheet
+        open={curOpen}
+        onClose={() => setCurOpen(false)}
+        value={g.currency}
+        onPick={(c) => setG({ ...g, currency: c })}
+      />
     </Sheet>
   );
 }
@@ -152,7 +194,9 @@ export function Goals() {
           <Sparkle k="goals" />
           <div className="label">Still to save for my wishlist</div>
           <div className="big">{fmtMoney(totalLeft, currency)}</div>
-          <div className="small bold">{active.length} {active.length === 1 ? 'thing' : 'things'} on the list</div>
+          <div className="small bold">
+            {active.length} {active.length === 1 ? 'thing' : 'things'} on the list
+          </div>
         </div>
         <button className="btn primary block mb" onClick={create}>
           ＋ Add to wishlist
@@ -169,7 +213,10 @@ export function Goals() {
           const acc = g.source === 'account' && g.accountId ? data.accountById.get(g.accountId) : undefined;
           return (
             <div key={g.id} className="card" style={{ opacity: g.done ? 0.6 : 1 }}>
-              <button style={{ border: 'none', background: 'none', padding: 0, width: '100%', textAlign: 'left' }} onClick={() => setEdit(g)}>
+              <button
+                style={{ border: 'none', background: 'none', padding: 0, width: '100%', textAlign: 'left' }}
+                onClick={() => setEdit(g)}
+              >
                 <div className="hstack">
                   <div className={`bubble ${colour}`} style={{ width: 48, height: 48, fontSize: 26 }}>
                     {g.emoji}
@@ -202,7 +249,13 @@ export function Goals() {
                 )}
               </button>
               {g.source === 'manual' && !g.done && (
-                <button className="btn sm mint mt" onClick={() => { setAddFor(g); setAddAmount(g.monthly || null); }}>
+                <button
+                  className="btn sm mint mt"
+                  onClick={() => {
+                    setAddFor(g);
+                    setAddAmount(g.monthly || null);
+                  }}
+                >
                   ＋ I saved some
                 </button>
               )}

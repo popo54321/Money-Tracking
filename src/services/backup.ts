@@ -89,10 +89,22 @@ export async function autoBackupIfDue(): Promise<string | null> {
   const name = `auto-backup-${todayISO()}.json`;
   let dir = Directory.Documents;
   try {
-    await Filesystem.writeFile({ path: `${AUTO_DIR}/${name}`, data: JSON.stringify(b), directory: dir, encoding: Encoding.UTF8, recursive: true });
+    await Filesystem.writeFile({
+      path: `${AUTO_DIR}/${name}`,
+      data: JSON.stringify(b),
+      directory: dir,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    });
   } catch {
     dir = Directory.External;
-    await Filesystem.writeFile({ path: `${AUTO_DIR}/${name}`, data: JSON.stringify(b), directory: dir, encoding: Encoding.UTF8, recursive: true });
+    await Filesystem.writeFile({
+      path: `${AUTO_DIR}/${name}`,
+      data: JSON.stringify(b),
+      directory: dir,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    });
   }
   try {
     const list = await Filesystem.readdir({ path: AUTO_DIR, directory: dir });

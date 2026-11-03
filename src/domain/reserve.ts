@@ -23,12 +23,7 @@ export interface UpcomingItem {
   overdue?: boolean;
 }
 
-export function upcomingItems(
-  accounts: Account[],
-  recurring: Recurring[],
-  txs: Tx[],
-  today: ISODate,
-): UpcomingItem[] {
+export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: Tx[], today: ISODate): UpcomingItem[] {
   const byId = new Map(accounts.map((a) => [a.id, a]));
   const out: UpcomingItem[] = [];
 

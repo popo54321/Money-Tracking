@@ -1,6 +1,19 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AccountPickerButton, AmountField, CategoryGrid, CurrencySheet, Field, NumberInput, Seg, Sheet, ToggleRow, Topbar, Sparkle } from '../components/ui';
+import {
+  AccountPickerButton,
+  AmountField,
+  CategoryGrid,
+  CurrencySheet,
+  Field,
+  NumberInput,
+  Seg,
+  Sheet,
+  ToggleRow,
+  Topbar,
+  Sparkle,
+  Avatar,
+} from '../components/ui';
 import { computeBill, whoOwes } from '../domain/billSplit';
 import { fmtDate } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
@@ -9,15 +22,6 @@ import { db, uid } from '../db/db';
 import { deleteBill, saveBill, saveTx } from '../db/repo';
 import { copyText } from '../services/platform';
 import { useApp, useData } from '../state/app';
-import { nameColour } from '../ui/emoji';
-
-function Avatar({ name }: { name: string }) {
-  return (
-    <span className="avatar" style={{ background: `var(--${nameColour(name)})`, color: `var(--${nameColour(name)}-ink)` }}>
-      {name.trim().slice(0, 1).toUpperCase() || '?'}
-    </span>
-  );
-}
 
 export function BillList() {
   const { go, profile, today, settings } = useApp();
@@ -82,12 +86,33 @@ export function BillList() {
   );
 }
 
-function ItemLine({ item, currency, onChange, onRemove }: { item: BillItem; currency: string; onChange: (i: BillItem) => void; onRemove: () => void }) {
+function ItemLine({
+  item,
+  currency,
+  onChange,
+  onRemove,
+}: {
+  item: BillItem;
+  currency: string;
+  onChange: (i: BillItem) => void;
+  onRemove: () => void;
+}) {
   return (
     <div className="item-line">
-      <input className="inline-input grow" placeholder="Dish or drink" value={item.name} onChange={(e) => onChange({ ...item, name: e.target.value })} />
+      <input
+        className="inline-input grow"
+        placeholder="Dish or drink"
+        value={item.name}
+        onChange={(e) => onChange({ ...item, name: e.target.value })}
+      />
       <div style={{ width: 120, flex: 'none' }}>
-        <AmountField value={item.price || null} onChange={(v) => onChange({ ...item, price: v })} currency={currency} placeholder="Price" title={item.name || 'Price'} />
+        <AmountField
+          value={item.price || null}
+          onChange={(v) => onChange({ ...item, price: v })}
+          currency={currency}
+          placeholder="Price"
+          title={item.name || 'Price'}
+        />
       </div>
       <button className="btn sm ghost" aria-label="Remove item" onClick={onRemove}>
         ✕
@@ -105,7 +130,9 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
   const [what, setWhat] = useState<'share' | 'full'>('share');
   const dinner = data.categories.find((c) => c.kind === 'expense' && c.name.toLowerCase() === 'dinner')?.id;
   const [categoryId, setCategoryId] = useState<string | undefined>(dinner);
-  const [accountId, setAccountId] = useState<string | undefined>(data.accounts.find((a) => a.type === 'cash' || a.type === 'bank')?.id);
+  const [accountId, setAccountId] = useState<string | undefined>(
+    data.accounts.find((a) => a.type === 'cash' || a.type === 'bank')?.id,
+  );
   const share = r.shares.find((s) => s.personId === me)?.pay ?? 0;
   const amount = what === 'share' ? share : r.total;
   const acc = accountId ? data.accountById.get(accountId) : undefined;
@@ -198,7 +225,9 @@ export function BillEdit({ id }: { id: string }) {
   const removePerson = (pid: string) => {
     update({
       people: b.people.filter((p) => p.id !== pid),
-      items: b.items.filter((i) => i.shared || i.sharedBy[0] !== pid).map((i) => ({ ...i, sharedBy: i.sharedBy.filter((x) => x !== pid) })),
+      items: b.items
+        .filter((i) => i.shared || i.sharedBy[0] !== pid)
+        .map((i) => ({ ...i, sharedBy: i.sharedBy.filter((x) => x !== pid) })),
       paidBy: b.paidBy === pid ? b.people.find((p) => p.id !== pid)?.id : b.paidBy,
     });
   };
@@ -257,7 +286,12 @@ export function BillEdit({ id }: { id: string }) {
           ))}
         </div>
         <div className="hstack mb">
-          <input placeholder="Add a person" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPerson()} />
+          <input
+            placeholder="Add a person"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addPerson()}
+          />
           <button className="btn" onClick={addPerson}>
             ＋
           </button>
@@ -271,7 +305,9 @@ export function BillEdit({ id }: { id: string }) {
             { v: 'even', label: '➗ Split evenly' },
           ]}
         />
-        {b.mode === 'even' && <div className="tiny muted mt">Everyone pays the same share of the food. Items below only make the total.</div>}
+        {b.mode === 'even' && (
+          <div className="tiny muted mt">Everyone pays the same share of the food. Items below only make the total.</div>
+        )}
 
         <div className="section-title">🍜 Own orders</div>
         {b.people.map((p) => {
@@ -281,12 +317,22 @@ export function BillEdit({ id }: { id: string }) {
               <div className="hstack">
                 <Avatar name={p.name} />
                 <span className="bold grow">{p.name}</span>
-                <span className="small muted">{fmtMoney(own.reduce((s, i) => s + (i.price || 0), 0), cur)}</span>
+                <span className="small muted">
+                  {fmtMoney(
+                    own.reduce((s, i) => s + (i.price || 0), 0),
+                    cur,
+                  )}
+                </span>
               </div>
               {own.map((i) => (
                 <ItemLine key={i.id} item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
               ))}
-              <button className="btn sm ghost" onClick={() => update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: [p.id], shared: false }] })}>
+              <button
+                className="btn sm ghost"
+                onClick={() =>
+                  update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: [p.id], shared: false }] })
+                }
+              >
                 ＋ Add order
               </button>
             </div>
@@ -299,7 +345,8 @@ export function BillEdit({ id }: { id: string }) {
             <ItemLine item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
             <div className="between mt">
               <span className="tiny muted">
-                Shared by {i.sharedBy.length || 'everyone'} · {fmtMoney(i.sharedBy.length ? (i.price || 0) / i.sharedBy.length : 0, cur)} each
+                Shared by {i.sharedBy.length || 'everyone'} ·{' '}
+                {fmtMoney(i.sharedBy.length ? (i.price || 0) / i.sharedBy.length : 0, cur)} each
               </span>
               <span className="hstack">
                 <button className="btn sm ghost" onClick={() => setItem({ ...i, sharedBy: b.people.map((p) => p.id) })}>
@@ -314,7 +361,11 @@ export function BillEdit({ id }: { id: string }) {
               {b.people.map((p) => {
                 const on = i.sharedBy.includes(p.id);
                 return (
-                  <button key={p.id} className={`chip mint ${on ? 'on' : ''}`} onClick={() => setItem({ ...i, sharedBy: on ? i.sharedBy.filter((x) => x !== p.id) : [...i.sharedBy, p.id] })}>
+                  <button
+                    key={p.id}
+                    className={`chip mint ${on ? 'on' : ''}`}
+                    onClick={() => setItem({ ...i, sharedBy: on ? i.sharedBy.filter((x) => x !== p.id) : [...i.sharedBy, p.id] })}
+                  >
                     {on ? '✓ ' : ''}
                     {p.name}
                   </button>
@@ -323,7 +374,12 @@ export function BillEdit({ id }: { id: string }) {
             </div>
           </div>
         ))}
-        <button className="btn block mb" onClick={() => update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: b.people.map((p) => p.id), shared: true }] })}>
+        <button
+          className="btn block mb"
+          onClick={() =>
+            update({ items: [...b.items, { id: uid(), name: '', price: 0, sharedBy: b.people.map((p) => p.id), shared: true }] })
+          }
+        >
           ＋ Shared item (drinks, dishes for the table…)
         </button>
 
@@ -348,9 +404,16 @@ export function BillEdit({ id }: { id: string }) {
               <NumberInput value={b.vatPct} onChange={(v) => update({ vatPct: v })} />
             </Field>
           </div>
-          <ToggleRow title="VAT on top of service charge" desc="Usual in Thailand" on={b.vatOnService} onChange={(v) => update({ vatOnService: v })} />
+          <ToggleRow
+            title="VAT on top of service charge"
+            desc="Usual in Thailand"
+            on={b.vatOnService}
+            onChange={(v) => update({ vatOnService: v })}
+          />
           <ToggleRow title="Round to whole numbers" on={b.roundWhole} onChange={(v) => update({ roundWhole: v })} />
-          <div className="tiny muted">Tap a person above and turn on “Treat to service & VAT” to have the others cover their share.</div>
+          <div className="tiny muted">
+            Tap a person above and turn on “Treat to service & VAT” to have the others cover their share.
+          </div>
         </div>
 
         <div className="hero">
@@ -386,7 +449,9 @@ export function BillEdit({ id }: { id: string }) {
           ))}
         </div>
         {r.roundingDiff !== 0 && (
-          <div className="tiny muted mb">Rounding: shares add up to {fmtMoney(r.roundingDiff, cur, { sign: true })} versus the bill.</div>
+          <div className="tiny muted mb">
+            Rounding: shares add up to {fmtMoney(r.roundingDiff, cur, { sign: true })} versus the bill.
+          </div>
         )}
 
         <Field label="Who paid the bill?">
@@ -452,7 +517,11 @@ export function BillEdit({ id }: { id: string }) {
               <button
                 className="btn primary"
                 onClick={() => {
-                  update({ people: b.people.map((p) => (p.id === personEdit.id ? { ...personEdit, name: personEdit.name.trim() || p.name } : p)) });
+                  update({
+                    people: b.people.map((p) =>
+                      p.id === personEdit.id ? { ...personEdit, name: personEdit.name.trim() || p.name } : p,
+                    ),
+                  });
                   setPersonEdit(null);
                 }}
               >

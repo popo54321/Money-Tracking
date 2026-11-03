@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { AccountPickerButton, AmountField, CategoryGrid, Field, NumberInput, Seg, ToggleRow, Topbar, Sparkle } from '../components/ui';
+import {
+  AccountPickerButton,
+  AmountField,
+  CategoryGrid,
+  Field,
+  NumberInput,
+  Seg,
+  ToggleRow,
+  Topbar,
+  Sparkle,
+} from '../components/ui';
 import { fmtDate, relativeDays } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { describeSchedule, dueToPost, monthlyEquivalent, nextUnposted } from '../domain/recurring';
@@ -19,7 +29,10 @@ export function RecurringList() {
   });
   const monthlyOut = data.recurring
     .filter((r) => r.active && r.kind === 'expense')
-    .reduce((s, r) => s + (data.accountById.get(r.accountId)?.currency === currency ? monthlyEquivalent(r.amount, r.freq, r.every) : 0), 0);
+    .reduce(
+      (s, r) => s + (data.accountById.get(r.accountId)?.currency === currency ? monthlyEquivalent(r.amount, r.freq, r.every) : 0),
+      0,
+    );
   const reservedTotal = [...data.reserved.entries()].reduce(
     (s, [id, v]) => s + (data.accountById.get(id)?.currency === currency ? v : 0),
     0,
@@ -40,9 +53,7 @@ export function RecurringList() {
           <Sparkle k="recurring" />
           <div className="label">Fixed spending, per month</div>
           <div className="big">{fmtMoney(monthlyOut, currency)}</div>
-          <div className="small">
-            🔒 Keeping {fmtMoney(reservedTotal, currency)} ready for the next payments
-          </div>
+          <div className="small">🔒 Keeping {fmtMoney(reservedTotal, currency)} ready for the next payments</div>
         </div>
         {list.length === 0 ? (
           <div className="card center">
@@ -60,7 +71,12 @@ export function RecurringList() {
               const acc = data.accountById.get(r.accountId);
               const cat = r.categoryId ? data.categoryById.get(r.categoryId) : undefined;
               return (
-                <button key={r.id} className="row" onClick={() => go({ name: 'recurringEdit', id: r.id })} style={{ opacity: r.active ? 1 : 0.55 }}>
+                <button
+                  key={r.id}
+                  className="row"
+                  onClick={() => go({ name: 'recurringEdit', id: r.id })}
+                  style={{ opacity: r.active ? 1 : 0.55 }}
+                >
                   <div className={`bubble ${r.kind === 'income' ? 'mint' : r.kind === 'transfer' ? 'lav' : 'peach'}`}>
                     {r.kind === 'transfer' ? '🔄' : categoryEmoji(cat)}
                   </div>
@@ -68,13 +84,22 @@ export function RecurringList() {
                     <div className="title">{r.name}</div>
                     <div className="sub">
                       {describeSchedule(r.freq, r.every)} · {acc?.name ?? '?'}
-                      {!r.active ? ' · paused' : next ? ` · next ${fmtDate(next, false)} (${relativeDays(today, next)})` : ' · finished'}
+                      {!r.active
+                        ? ' · paused'
+                        : next
+                          ? ` · next ${fmtDate(next, false)} (${relativeDays(today, next)})`
+                          : ' · finished'}
                     </div>
                   </div>
                   <div className="end">
-                    <div className={`amt ${r.kind === 'income' ? 'pos' : ''}`}>{fmtMoney(r.amount, acc?.currency ?? currency)}</div>
+                    <div className={`amt ${r.kind === 'income' ? 'pos' : ''}`}>
+                      {fmtMoney(r.amount, acc?.currency ?? currency)}
+                    </div>
                     {r.freq !== 'month' && r.kind === 'expense' && (
-                      <div className="amt2">≈ {fmtMoney(monthlyEquivalent(r.amount, r.freq, r.every), acc?.currency ?? currency, { compact: true })}/month</div>
+                      <div className="amt2">
+                        ≈ {fmtMoney(monthlyEquivalent(r.amount, r.freq, r.every), acc?.currency ?? currency, { compact: true })}
+                        /month
+                      </div>
                     )}
                   </div>
                 </button>
@@ -91,7 +116,8 @@ export function RecurringEdit({ id }: { id?: string }) {
   const { profile, today, back, toast, confirm, rates, currency } = useApp();
   const data = useData();
   const existing = id ? data.recurring.find((r) => r.id === id) : undefined;
-  const firstAccount = data.accounts.find((a) => !a.archived && (a.type === 'bank' || a.type === 'cash'))?.id ?? data.accounts[0]?.id ?? '';
+  const firstAccount =
+    data.accounts.find((a) => !a.archived && (a.type === 'bank' || a.type === 'cash'))?.id ?? data.accounts[0]?.id ?? '';
   const [r, setR] = useState<Recurring>(
     () =>
       existing ?? {
@@ -141,7 +167,8 @@ export function RecurringEdit({ id }: { id?: string }) {
       ...r,
       lastPosted,
       name,
-      toAmount: r.kind === 'transfer' ? (toAcc && toAcc.currency !== acc.currency ? r.toAmount ?? r.amount : r.amount) : undefined,
+      toAmount:
+        r.kind === 'transfer' ? (toAcc && toAcc.currency !== acc.currency ? (r.toAmount ?? r.amount) : r.amount) : undefined,
       reserve: r.kind === 'income' ? false : r.reserve,
     });
     toast(existing ? '✨ Saved' : '🔁 Repeating entry added');
@@ -173,18 +200,32 @@ export function RecurringEdit({ id }: { id?: string }) {
         </Field>
         {r.kind === 'transfer' && (
           <Field label="To">
-            <AccountPickerButton accounts={data.accounts} value={r.toAccountId} onChange={(v) => set({ toAccountId: v })} exclude={r.accountId} />
+            <AccountPickerButton
+              accounts={data.accounts}
+              value={r.toAccountId}
+              onChange={(v) => set({ toAccountId: v })}
+              exclude={r.accountId}
+            />
           </Field>
         )}
         {r.kind === 'transfer' && r.toAccountId && data.accountById.get(r.toAccountId)?.currency !== acc?.currency && (
           <Field label={`Arrives as (${data.accountById.get(r.toAccountId)?.currency})`}>
-            <AmountField value={r.toAmount ?? null} onChange={(v) => set({ toAmount: v })} currency={data.accountById.get(r.toAccountId)?.currency ?? ''} />
+            <AmountField
+              value={r.toAmount ?? null}
+              onChange={(v) => set({ toAmount: v })}
+              currency={data.accountById.get(r.toAccountId)?.currency ?? ''}
+            />
           </Field>
         )}
         {r.kind !== 'transfer' && (
           <>
             <div className="section-title">🏷️ Category</div>
-            <CategoryGrid categories={data.categories} kind={r.kind} value={r.categoryId} onPick={(v) => set({ categoryId: v })} />
+            <CategoryGrid
+              categories={data.categories}
+              kind={r.kind}
+              value={r.categoryId}
+              onPick={(v) => set({ categoryId: v })}
+            />
             <div className="spacer" />
           </>
         )}
@@ -212,14 +253,26 @@ export function RecurringEdit({ id }: { id?: string }) {
         <div className="small muted mb">
           {describeSchedule(r.freq, r.every)}
           {next ? ` · next ${fmtDate(next)}` : ' · no more dates'}
-          {r.kind === 'expense' && r.amount ? ` · ≈ ${fmtMoney(monthlyEquivalent(r.amount, r.freq, r.every), acc?.currency ?? currency)} a month` : ''}
+          {r.kind === 'expense' && r.amount
+            ? ` · ≈ ${fmtMoney(monthlyEquivalent(r.amount, r.freq, r.every), acc?.currency ?? currency)} a month`
+            : ''}
         </div>
         <Field label="Note">
           <input value={r.note ?? ''} onChange={(e) => set({ note: e.target.value || undefined })} placeholder="Optional" />
         </Field>
-        <ToggleRow title="Record automatically on the day" desc="Otherwise it just reminds you" on={r.autoPost} onChange={(v) => set({ autoPost: v })} />
+        <ToggleRow
+          title="Record automatically on the day"
+          desc="Otherwise it just reminds you"
+          on={r.autoPost}
+          onChange={(v) => set({ autoPost: v })}
+        />
         {r.kind !== 'income' && (
-          <ToggleRow title="🔒 Keep the next payment ready" desc="Shown as reserved in the paying account" on={r.reserve} onChange={(v) => set({ reserve: v })} />
+          <ToggleRow
+            title="🔒 Keep the next payment ready"
+            desc="Shown as reserved in the paying account"
+            on={r.reserve}
+            onChange={(v) => set({ reserve: v })}
+          />
         )}
         {existing && <ToggleRow title="Active" on={r.active} onChange={(v) => set({ active: v })} />}
 

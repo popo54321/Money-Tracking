@@ -5,7 +5,7 @@ import { COMMON_CURRENCIES } from '../domain/fx';
 import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
 import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
-import { accountColour, accountEmoji, categoryEmoji } from '../ui/emoji';
+import { accountColour, accountEmoji, categoryEmoji, nameColour } from '../ui/emoji';
 import { Mascot } from '../ui/Mascot';
 import { uid } from '../db/db';
 import { CategoryEditor } from './CategoryEditor';
@@ -24,15 +24,6 @@ export function Topbar({ title, right, noBack }: { title: ReactNode; right?: Rea
       )}
       <h1>{title}</h1>
       {right}
-    </div>
-  );
-}
-
-export function Empty({ emoji, children }: { emoji: string; children: ReactNode }) {
-  return (
-    <div className="empty">
-      <span className="e">{emoji}</span>
-      {children}
     </div>
   );
 }
@@ -60,7 +51,17 @@ export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boo
   );
 }
 
-export function ToggleRow({ title, desc, on, onChange }: { title: ReactNode; desc?: ReactNode; on: boolean; onChange: (v: boolean) => void }) {
+export function ToggleRow({
+  title,
+  desc,
+  on,
+  onChange,
+}: {
+  title: ReactNode;
+  desc?: ReactNode;
+  on: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <div className="toggle-row">
       <div className="grow">
@@ -99,14 +100,36 @@ export function Seg<T extends string>({
   );
 }
 
-export function Money({ v, cur, sign, cls, compact }: { v: number | null | undefined; cur: string; sign?: boolean; cls?: boolean; compact?: boolean }) {
+export function Money({
+  v,
+  cur,
+  sign,
+  cls,
+  compact,
+}: {
+  v: number | null | undefined;
+  cur: string;
+  sign?: boolean;
+  cls?: boolean;
+  compact?: boolean;
+}) {
   const c = cls && v ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '';
   return <span className={c}>{fmtMoney(v, cur, { sign, compact })}</span>;
 }
 
 // ---------- sheets ----------
 
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode }) {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: ReactNode;
+  children: ReactNode;
+}) {
   const { pushOverlay } = useApp();
   useEffect(() => {
     if (!open) return;
@@ -180,7 +203,8 @@ export function Keypad({ onKey, okLabel }: { onKey: (k: string) => void; okLabel
   );
 }
 
-function fmtExpr(expr: string): string {
+/** Show a typed sum with thousands separators, e.g. 1250+300 → 1,250+300. */
+export function fmtExpr(expr: string): string {
   return expr.replace(/\d+(\.\d*)?/g, (m) => {
     const [i, d] = m.split('.');
     const grouped = i.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -222,11 +246,7 @@ export function CalcSheet({
       <div className="amount-display transfer">
         <div className="expr">{calc.showResult ? fmtExpr(calc.expr) : ' '}</div>
         <div className="val">
-          {calc.expr === ''
-            ? fmtMoney(0, currency)
-            : calc.value === null
-              ? fmtExpr(calc.expr)
-              : fmtMoney(calc.value, currency)}
+          {calc.expr === '' ? fmtMoney(0, currency) : calc.value === null ? fmtExpr(calc.expr) : fmtMoney(calc.value, currency)}
         </div>
       </div>
       <Keypad onKey={(k) => (k === '=' && !calc.showResult ? finish() : calc.press(k))} okLabel={calc.showResult ? '=' : '✓'} />
@@ -331,7 +351,12 @@ export function CurrencySheet({
   const { prices, settings } = useApp();
   const [q, setQ] = useState('');
   const all = useMemo(() => {
-    const set = new Set<string>([...settings.favouriteCurrencies, ...COMMON_CURRENCIES, ...extra, ...Object.keys(prices.perUsd).sort()]);
+    const set = new Set<string>([
+      ...settings.favouriteCurrencies,
+      ...COMMON_CURRENCIES,
+      ...extra,
+      ...Object.keys(prices.perUsd).sort(),
+    ]);
     set.delete('BTC');
     return [...set];
   }, [prices.perUsd, settings.favouriteCurrencies, extra]);
@@ -362,7 +387,12 @@ export function AccountRowView({ a, right, onClick }: { a: Account; right?: Reac
   const { go } = useApp();
   const Tag = onClick ? 'button' : 'div';
   return (
-    <Tag className="row" onClick={onClick} type={onClick ? 'button' : undefined} {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}>
+    <Tag
+      className="row"
+      onClick={onClick}
+      type={onClick ? 'button' : undefined}
+      {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}
+    >
       <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
       <div className="main">
         <div className="title">{a.name}</div>
@@ -518,7 +548,11 @@ export function CategoryGrid({
                 </button>
               ))}
             {gi === groups.length - 1 && (
-              <button type="button" className="cat cat-new" onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : g))}>
+              <button
+                type="button"
+                className="cat cat-new"
+                onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : g))}
+              >
                 <span className="e">＋</span>
                 <span className="n">New</span>
               </button>
@@ -527,43 +561,17 @@ export function CategoryGrid({
         </div>
       ))}
       {groups.length === 0 && (
-        <button type="button" className="btn block" onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : 'Discretionary'))}>
+        <button
+          type="button"
+          className="btn block"
+          onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : 'Discretionary'))}
+        >
           ＋ New category
         </button>
       )}
       <div className="tiny muted mt">Tip: press and hold a category to edit it.</div>
       {editing && <CategoryEditor category={editing} onClose={() => setEditing(null)} />}
     </div>
-  );
-}
-
-export function CategorySheet({
-  open,
-  onClose,
-  categories,
-  kind,
-  value,
-  onPick,
-}: {
-  open: boolean;
-  onClose: () => void;
-  categories: Category[];
-  kind: CategoryKind;
-  value?: string;
-  onPick: (id: string) => void;
-}) {
-  return (
-    <Sheet open={open} onClose={onClose} title={kind === 'income' ? 'Income category' : 'Spending category'}>
-      <CategoryGrid
-        categories={categories}
-        kind={kind}
-        value={value}
-        onPick={(id) => {
-          onPick(id);
-          onClose();
-        }}
-      />
-    </Sheet>
   );
 }
 
@@ -580,8 +588,13 @@ export function ProgressBar({ value, colour = '' }: { value: number; colour?: st
 /** The little picture in the corner of a top card; nothing in the Financial theme. */
 export function Sparkle({ k, override }: { k: string; override?: string }) {
   const { skin } = useApp();
-  if (skin.mascot) return <span className="sparkle mascot"><Mascot kind={skin.mascot} pose={skin.poses?.[k] ?? 'happy'} size={46} /></span>;
-  const e = skin.plain ? '' : override ?? skin.sparkle[k] ?? '';
+  if (skin.mascot)
+    return (
+      <span className="sparkle mascot">
+        <Mascot kind={skin.mascot} pose={skin.poses?.[k] ?? 'happy'} size={46} />
+      </span>
+    );
+  const e = skin.plain ? '' : (override ?? skin.sparkle[k] ?? '');
   return e ? <span className="sparkle">{e}</span> : null;
 }
 
@@ -589,4 +602,14 @@ export function Sparkle({ k, override }: { k: string; override?: string }) {
 export function SkinName({ k }: { k: 'accounts' | 'more' | 'summary' | 'budget' | 'goals' | 'wealth' }) {
   const { skin } = useApp();
   return <>{skin.names[k]}</>;
+}
+
+/** A round initial in a pastel colour that stays the same for each name. */
+export function Avatar({ name }: { name: string }) {
+  const c = nameColour(name || '?');
+  return (
+    <span className="avatar" style={{ background: `var(--${c})`, color: `var(--${c}-ink)` }}>
+      {name.trim().slice(0, 1).toUpperCase() || '?'}
+    </span>
+  );
 }

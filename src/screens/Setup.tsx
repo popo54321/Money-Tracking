@@ -25,7 +25,8 @@ export function Setup() {
         <div className="banner sky">
           <span>🌱</span>
           <span className="grow">
-            Type what each account has today. For credit cards, type what you owe. BTC accounts take the BTC amount. Hide the ones you don’t use.
+            Type what each account has today. For credit cards, type what you owe. BTC accounts take the BTC amount. Hide the ones
+            you don’t use.
           </span>
         </div>
         <div className="list">

@@ -16,8 +16,23 @@ export function entriesCsv(txs: Tx[], accounts: Account[], categories: Category[
   const cat = new Map(categories.map((c) => [c.id, c]));
   const prof = new Map(profiles.map((p) => [p.id, p.name]));
   const header = [
-    'Date', 'Profile', 'Type', 'Account', 'Amount', 'Currency', 'To account', 'Amount received', 'To currency',
-    'Category', 'Group', 'Value', 'Value currency', 'Note', 'Typed amount', 'Typed currency', 'Repeating',
+    'Date',
+    'Profile',
+    'Type',
+    'Account',
+    'Amount',
+    'Currency',
+    'To account',
+    'Amount received',
+    'To currency',
+    'Category',
+    'Group',
+    'Value',
+    'Value currency',
+    'Note',
+    'Typed amount',
+    'Typed currency',
+    'Repeating',
   ];
   const rows = [...txs]
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt))
@@ -27,10 +42,23 @@ export function entriesCsv(txs: Tx[], accounts: Account[], categories: Category[
       const c = t.categoryId ? cat.get(t.categoryId) : undefined;
       const kind = { income: 'Income', expense: 'Expense', transfer: 'Transfer', adjust: 'Balance adjustment' }[t.kind];
       return [
-        t.date, prof.get(t.profileId) ?? t.profileId, kind, a?.name ?? '?', t.amount, a?.currency ?? '',
-        to?.name ?? '', t.kind === 'transfer' ? t.toAmount ?? t.amount : '', to?.currency ?? '',
-        c?.name ?? '', c?.group ?? '', roundTo(t.value, decimalsFor(t.valueCurrency)), t.valueCurrency, t.note ?? '',
-        t.origAmount ?? '', t.origCurrency ?? '', t.recurringId ? 'yes' : '',
+        t.date,
+        prof.get(t.profileId) ?? t.profileId,
+        kind,
+        a?.name ?? '?',
+        t.amount,
+        a?.currency ?? '',
+        to?.name ?? '',
+        t.kind === 'transfer' ? (t.toAmount ?? t.amount) : '',
+        to?.currency ?? '',
+        c?.name ?? '',
+        c?.group ?? '',
+        roundTo(t.value, decimalsFor(t.valueCurrency)),
+        t.valueCurrency,
+        t.note ?? '',
+        t.origAmount ?? '',
+        t.origCurrency ?? '',
+        t.recurringId ? 'yes' : '',
       ];
     });
   return '﻿' + [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
@@ -70,7 +98,12 @@ export async function shareMonthXlsx(
   for (const g of d.groups) {
     aoa.push([g.group.toUpperCase(), null]);
     for (const r of g.rows) {
-      aoa.push([r.account.name, r.balance === null ? null : roundTo(r.balance, decimalsFor(r.account.currency)), r.account.currency, r2(r.value)]);
+      aoa.push([
+        r.account.name,
+        r.balance === null ? null : roundTo(r.balance, decimalsFor(r.account.currency)),
+        r.account.currency,
+        r2(r.value),
+      ]);
     }
     aoa.push([`Total ${g.group}`, null, null, r2(g.total)]);
   }
@@ -96,9 +129,9 @@ export async function shareMonthXlsx(
       Account: acc.get(t.accountId)?.name ?? '',
       Amount: t.amount,
       Currency: acc.get(t.accountId)?.currency ?? '',
-      'To account': t.toAccountId ? acc.get(t.toAccountId)?.name ?? '' : '',
-      Category: t.categoryId ? cat.get(t.categoryId)?.name ?? '' : '',
-      Group: t.categoryId ? cat.get(t.categoryId)?.group ?? '' : '',
+      'To account': t.toAccountId ? (acc.get(t.toAccountId)?.name ?? '') : '',
+      Category: t.categoryId ? (cat.get(t.categoryId)?.name ?? '') : '',
+      Group: t.categoryId ? (cat.get(t.categoryId)?.group ?? '') : '',
       [`Value (${t.valueCurrency})`]: r2(t.value),
       Note: t.note ?? '',
     }));

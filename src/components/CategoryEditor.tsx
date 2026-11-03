@@ -19,7 +19,12 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
   return (
     <Sheet open onClose={onClose} title={exists ? 'Edit category' : 'New category'}>
       <Field label="Name">
-        <input value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} placeholder="e.g. Coffee" autoFocus={!exists} />
+        <input
+          value={c.name}
+          onChange={(e) => setC({ ...c, name: e.target.value })}
+          placeholder="e.g. Coffee"
+          autoFocus={!exists}
+        />
       </Field>
       {!skin.plain && (
         <Field label="Emoji">
@@ -44,7 +49,12 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
         </Field>
       )}
       {exists && (
-        <ToggleRow title="Hide" desc="Keeps old entries, hides it when adding new ones" on={c.archived} onChange={(v) => setC({ ...c, archived: v })} />
+        <ToggleRow
+          title="Hide"
+          desc="Keeps old entries, hides it when adding new ones"
+          on={c.archived}
+          onChange={(v) => setC({ ...c, archived: v })}
+        />
       )}
       <div className="btn-row mt">
         {exists && (

@@ -75,7 +75,12 @@ async function fetchGold(): Promise<{ buy: number; sell: number; source: string;
     if (!lastPaxgThb) throw new Error('No gold price source answered');
     const mid = lastPaxgThb * GOLD_OZ_PER_BAHT;
     // Thai shops buy about 0.2 % under and sell about 0.2 % over the middle price
-    return { buy: Math.round((mid * 0.998) / 50) * 50, sell: Math.round((mid * 1.002) / 50) * 50, source: 'estimate from world gold price', estimate: true };
+    return {
+      buy: Math.round((mid * 0.998) / 50) * 50,
+      sell: Math.round((mid * 1.002) / 50) * 50,
+      source: 'estimate from world gold price',
+      estimate: true,
+    };
   }
 }
 
@@ -122,7 +127,13 @@ export function refreshPrices(force = false): Promise<{ ok: boolean; error?: str
       }
       await setPriceCache(next);
       if (next.ratesFetchedAt || next.btcFetchedAt || next.goldFetchedAt) {
-        await db.prices.put({ date: todayISO(), btcThb: next.btcPrice, btcUsd: next.btcUsd, goldThb: next.goldBuyThb, perUsd: next.perUsd });
+        await db.prices.put({
+          date: todayISO(),
+          btcThb: next.btcPrice,
+          btcUsd: next.btcUsd,
+          goldThb: next.goldBuyThb,
+          perUsd: next.perUsd,
+        });
       }
       return errors.length ? { ok: false, error: errors.join('; ') } : { ok: true };
     } catch (e) {
@@ -132,12 +143,4 @@ export function refreshPrices(force = false): Promise<{ ok: boolean; error?: str
     }
   })();
   return inFlight;
-}
-
-/** BTC price on or before a date (for month-end figures), falling back to the latest known. */
-export async function btcPriceOn(date: string): Promise<{ thb?: number; usd?: number; date?: string }> {
-  const snap = await db.prices.where('date').belowOrEqual(date).last();
-  if (snap) return { thb: snap.btcThb, usd: snap.btcUsd, date: snap.date };
-  const cache = await getPriceCache();
-  return { thb: cache.btcPriceCurrency === 'THB' ? cache.btcPrice : undefined, usd: cache.btcUsd };
 }

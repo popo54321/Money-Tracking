@@ -1,7 +1,7 @@
 {
   "name": "money-tracking",
   "private": true,
-  "version": "0.5.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "android:sync": "npm run build && npx cap sync android"
+    "android:sync": "npm run build && npx cap sync android",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,js}\" \"*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,js}\" \"*.ts\"",
+    "check": "npm run typecheck && npm run format:check && npm test"
   },
   "dependencies": {
     "@capacitor-community/file-opener": "8.0.1",
@@ -33,6 +36,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "fake-indexeddb": "6.2.5",
+    "prettier": "3.9.8",
     "typescript": "6.0.3",
     "vite": "8.3.4",
     "vitest": "5.0.5"

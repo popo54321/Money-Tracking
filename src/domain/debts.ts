@@ -56,7 +56,9 @@ function dailyRate(d: Pick<Debt, 'ratePct' | 'ratePer'>): number {
  * Repayments clear interest first, then the amount lent.
  */
 export function debtStatus(debt: Debt, asOf: ISODate, projectTo?: ISODate): DebtStatus {
-  const events = [...debt.events].filter((e) => e.amount > 0).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.type === 'lend' ? -1 : 1));
+  const events = [...debt.events]
+    .filter((e) => e.amount > 0)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.type === 'lend' ? -1 : 1));
   const st: DebtStatus = { principal: 0, interest: 0, owed: 0, totalLent: 0, totalRepaid: 0, totalInterest: 0 };
   if (events.length === 0) return st;
   const start = events[0].date;

@@ -1,7 +1,7 @@
 // Travel split for any number of people, following the Trip Split sheet:
 // each bill has a payer, a cost in any currency (converted at the trip's fixed rates),
 // and is either personal, shared by everyone, or shared by the people ticked.
-import { roundTo, sum } from './money';
+import { roundTo } from './money';
 import type { TripEntry, TripMember } from './types';
 
 export interface TripInput {
@@ -103,8 +103,14 @@ export function computeTrip(input: TripInput): TripResult {
 /** Fewest payments to square everyone up: the biggest debtor pays the biggest creditor first. */
 export function settle(members: { id: string; name: string; net: number }[]): Omit<Settlement, 'payBack'>[] {
   const eps = 0.005;
-  const cred = members.filter((m) => m.net > eps).map((m) => ({ ...m, left: m.net })).sort((a, b) => b.left - a.left);
-  const debt = members.filter((m) => m.net < -eps).map((m) => ({ ...m, left: -m.net })).sort((a, b) => b.left - a.left);
+  const cred = members
+    .filter((m) => m.net > eps)
+    .map((m) => ({ ...m, left: m.net }))
+    .sort((a, b) => b.left - a.left);
+  const debt = members
+    .filter((m) => m.net < -eps)
+    .map((m) => ({ ...m, left: -m.net }))
+    .sort((a, b) => b.left - a.left);
   const out: Omit<Settlement, 'payBack'>[] = [];
   let i = 0;
   let j = 0;
@@ -119,8 +125,4 @@ export function settle(members: { id: string; name: string; net: number }[]): Om
     if (cred[j].left <= eps) j++;
   }
   return out;
-}
-
-export function tripTotalCheck(result: TripResult): number {
-  return roundTo(sum(result.members.map((m) => m.net)), 6);
 }
