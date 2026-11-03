@@ -338,6 +338,92 @@ describe('bill split with several payers', () => {
   });
 });
 
+describe('bill split: even food, drinks for some, paying for someone', () => {
+  const ten = Array.from({ length: 10 }, (_, i) => ({ id: `p${i}`, name: `P${i}` }));
+  it('10 split the food evenly but only the 5 who drank share the drinks', () => {
+    const r = computeBill({
+      people: ten,
+      items: [
+        { id: 'f1', name: 'Food', price: 2000, sharedBy: [], shared: false },
+        // an own order left over from "By what they had" is pooled too
+        { id: 'f2', name: 'Fried rice', price: 1000, sharedBy: ['p9'], shared: false },
+        { id: 'd', name: 'Beer', price: 1000, sharedBy: ['p0', 'p1', 'p2', 'p3', 'p4'], shared: true },
+      ],
+      servicePct: 0,
+      vatPct: 0,
+      vatOnService: true,
+      mode: 'even',
+      currency: 'THB',
+    });
+    expect(r.shares.map((s) => s.pay)).toEqual([500, 500, 500, 500, 500, 300, 300, 300, 300, 300]);
+    expect(r.warnings).toEqual([]);
+  });
+  it('service charge and VAT still follow what each person had', () => {
+    const r = computeBill({
+      people: ten.slice(0, 2),
+      items: [
+        { id: 'f', name: 'Food', price: 200, sharedBy: [], shared: false },
+        { id: 'd', name: 'Wine', price: 200, sharedBy: ['p0'], shared: true },
+      ],
+      servicePct: 10,
+      vatPct: 0,
+      vatOnService: true,
+      mode: 'even',
+      currency: 'THB',
+    });
+    expect(r.shares.map((s) => s.pay)).toEqual([330, 110]);
+  });
+  it('6 friends + a wife: the husband pays for his wife, she owes nothing', () => {
+    const people = [...['A', 'B', 'C', 'D', 'E', 'H'].map((n) => ({ id: n, name: n })), { id: 'W', name: 'Wife', paidById: 'H' }];
+    const r = computeBill({
+      people,
+      items: [{ id: 'x', name: 'Dinner', price: 7000, sharedBy: [], shared: false }],
+      servicePct: 0,
+      vatPct: 0,
+      vatOnService: true,
+      mode: 'even',
+      currency: 'THB',
+    });
+    const h = r.shares.find((s) => s.personId === 'H')!;
+    const w = r.shares.find((s) => s.personId === 'W')!;
+    expect(h.own).toBe(1000);
+    expect(h.pay).toBe(2000);
+    expect(h.paysFor).toEqual(['Wife']);
+    expect(w.pay).toBe(0);
+    expect(w.paidBy).toBe('H');
+    expect(sum(r.shares.map((s) => s.pay))).toBe(7000);
+    const plan = settleBill(r, undefined, 'A', 'THB');
+    expect(plan.transfers.find((t) => t.fromId === 'H')?.amount).toBe(2000);
+    expect(plan.transfers.some((t) => t.fromId === 'W')).toBe(false);
+    expect(whoOwes(r, 'A').map((o) => o.fromId)).toEqual(['B', 'C', 'D', 'E', 'H']);
+  });
+  it('follows a chain of "pays for", and ignores people set to pay for each other', () => {
+    const base = { items: [{ id: 'x', name: 'Food', price: 300, sharedBy: [], shared: false }] };
+    const opts = { servicePct: 0, vatPct: 0, vatOnService: true, mode: 'even' as const, currency: 'THB' };
+    const chain = computeBill({
+      ...base,
+      ...opts,
+      people: [
+        { id: 'a', name: 'A' },
+        { id: 'b', name: 'B', paidById: 'a' },
+        { id: 'c', name: 'C', paidById: 'b' },
+      ],
+    });
+    expect(chain.shares.map((s) => s.pay)).toEqual([300, 0, 0]);
+    const loop = computeBill({
+      ...base,
+      ...opts,
+      people: [
+        { id: 'a', name: 'A', paidById: 'b' },
+        { id: 'b', name: 'B', paidById: 'a' },
+        { id: 'c', name: 'C' },
+      ],
+    });
+    expect(loop.shares.map((s) => s.pay)).toEqual([100, 100, 100]);
+    expect(loop.warnings.length).toBe(1);
+  });
+});
+
 describe('travel split', () => {
   const members = [
     { id: 'popo', name: 'Popo' },

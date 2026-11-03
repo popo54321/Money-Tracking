@@ -206,6 +206,19 @@ export async function saveCategory(c: Category): Promise<void> {
   await db.categories.put(c);
 }
 
+/** Saves a new order for accounts or categories: `ids` from first to last. */
+export async function reorderRows(table: 'accounts' | 'categories', ids: string[]): Promise<void> {
+  const t = table === 'accounts' ? db.accounts : db.categories;
+  await db.transaction('rw', t, async () => {
+    for (let i = 0; i < ids.length; i++) await t.update(ids[i], { order: i });
+  });
+}
+
+/** Saves the order of the big headings for one person. */
+export async function saveGroupOrder(profileId: string, which: 'account' | 'category', order: string[]): Promise<void> {
+  await db.profiles.update(profileId, which === 'account' ? { accountGroupOrder: order } : { categoryGroupOrder: order });
+}
+
 export async function categoryInUse(id: string): Promise<boolean> {
   const n = await db.txs.filter((t) => t.categoryId === id).count();
   const r = await db.recurring.filter((x) => x.categoryId === id).count();

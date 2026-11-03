@@ -1,6 +1,7 @@
 // Restaurant bill split: own items, shared items (split between only the people ticked),
 // service charge and VAT in proportion to what each person had, people who are treated
-// to the charges, an even-split mode, and rounding that always adds up to the bill.
+// to the charges, an even-split mode (food shared by all, drinks etc. still by who had them),
+// one person paying for others (e.g. for his wife), and rounding that always adds up to the bill.
 import { allocate, decimalsFor, roundTo, sum } from './money';
 import { settle } from './tripSplit';
 import type { BillItem, BillPayment, BillPerson } from './types';
@@ -26,9 +27,15 @@ export interface PersonShare {
   vat: number;
   /** exact share before rounding */
   exact: number;
-  /** rounded amount to pay */
+  /** their own share, rounded */
+  own: number;
+  /** what they pay: their own share plus the people they pay for (0 when someone pays for them) */
   pay: number;
   exempt: boolean;
+  /** name of the person who pays for them */
+  paidBy?: string;
+  /** names of the people they pay for */
+  paysFor: string[];
 }
 
 export interface BillResult {
@@ -61,18 +68,17 @@ export function computeBill(input: BillInput): BillResult {
   const ids = new Set(people.map((p) => p.id));
   const food = new Map<string, number>(people.map((p) => [p.id, 0]));
 
-  if (input.mode === 'even') {
-    for (const p of people) food.set(p.id, subtotal / people.length);
-  } else {
-    for (const it of items) {
-      let who = it.sharedBy.filter((id) => ids.has(id));
-      if (who.length === 0) {
-        if (it.price) warnings.push(`"${it.name || 'Item'}" has nobody ticked, so it is split between everyone.`);
-        who = people.map((p) => p.id);
-      }
-      const each = (it.price || 0) / who.length;
-      for (const id of who) food.set(id, food.get(id)! + each);
+  const everyone = people.map((p) => p.id);
+  for (const it of items) {
+    let who = it.sharedBy.filter((id) => ids.has(id));
+    // Split evenly: all the food goes to everyone; only shared items (drinks for some…) keep their people.
+    if (input.mode === 'even' && !it.shared) who = everyone;
+    if (who.length === 0) {
+      if (it.price && it.shared) warnings.push(`"${it.name || 'Item'}" has nobody ticked, so it is split between everyone.`);
+      who = everyone;
     }
+    const each = (it.price || 0) / who.length;
+    for (const id of who) food.set(id, food.get(id)! + each);
   }
 
   // Service charge and VAT are shared by the people who are not exempt, in proportion to their food.
@@ -90,7 +96,18 @@ export function computeBill(input: BillInput): BillResult {
     if (payerIds.has(p.id)) w = payerFood > 0 ? f / payerFood : 1 / payers.length;
     const sv = service * w;
     const vt = vat * w;
-    return { personId: p.id, name: p.name, food: f, service: sv, vat: vt, exact: f + sv + vt, pay: 0, exempt: !!p.exemptCharges };
+    return {
+      personId: p.id,
+      name: p.name,
+      food: f,
+      service: sv,
+      vat: vt,
+      exact: f + sv + vt,
+      own: 0,
+      pay: 0,
+      exempt: !!p.exemptCharges,
+      paysFor: [],
+    };
   });
 
   const roundDp = input.roundWhole ? 0 : dp;
@@ -99,10 +116,44 @@ export function computeBill(input: BillInput): BillResult {
     shares.map((x) => x.exact),
     roundDp,
   );
-  shares.forEach((x, i) => (x.pay = pays[i]));
+  shares.forEach((x, i) => (x.own = x.pay = pays[i]));
   const roundingDiff = roundTo(sum(pays) - total, dp);
 
+  // Someone paying for others takes on their whole share (food, service charge and VAT).
+  const byId = new Map(shares.map((x) => [x.personId, x]));
+  let loop = false;
+  for (const x of shares) {
+    const target = payerFor(people, x.personId);
+    if (target === null) loop = true;
+    if (!target) continue;
+    const t = byId.get(target)!;
+    t.pay = roundTo(t.pay + x.own, dp);
+    x.pay = roundTo(x.pay - x.own, dp);
+    x.paidBy = t.name;
+    t.paysFor.push(x.name);
+  }
+  if (loop) warnings.push('Some people are set to pay for each other, so they each pay their own share.');
+
   return { subtotal, service, vat, total, shares, roundingDiff, warnings };
+}
+
+/**
+ * Who finally pays for this person: follows "paid by" (A pays for B, B pays for C → A pays for C).
+ * undefined = pays for themselves; null = a loop (they pay for each other), so nobody takes over.
+ */
+export function payerFor(people: BillPerson[], id: string): string | undefined | null {
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const seen = new Set([id]);
+  let cur = id;
+  let target: string | undefined;
+  for (;;) {
+    const next = byId.get(cur)?.paidById;
+    if (!next || !byId.has(next)) return target;
+    if (seen.has(next)) return null;
+    seen.add(next);
+    target = next;
+    cur = next;
+  }
 }
 
 export interface Owing {
