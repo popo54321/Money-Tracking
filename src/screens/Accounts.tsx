@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Topbar } from '../components/ui';
+import { Topbar, Sparkle, SkinName } from '../components/ui';
 import { accountValue, netWorth } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
 import { fmtDate } from '../domain/dates';
@@ -58,10 +58,10 @@ export function Accounts() {
 
   return (
     <>
-      <Topbar title="Treasury 💎" right={<ProfileSwitch />} noBack />
+      <Topbar title={<SkinName k="accounts" />} right={<ProfileSwitch />} noBack />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">👑</span>
+          <Sparkle k="accounts" />
           <div className="label">Total (net worth)</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
           <div className="chips">

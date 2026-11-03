@@ -18,6 +18,7 @@ import type { Account, Category, PriceCache, Profile, Recurring, Settings, Tx } 
 import { db } from '../db/db';
 import { FALLBACK_PRICES, updateSettings } from '../db/repo';
 import { DEFAULT_SETTINGS } from '../db/seed';
+import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
 
 // ---------- navigation ----------
 
@@ -72,6 +73,7 @@ interface ConfirmOpts {
 
 interface AppCtx {
   settings: Settings;
+  skin: SkinDef;
   prices: PriceCache;
   rates: RateTable;
   currency: string;
@@ -253,16 +255,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // theme
+  const skin = getSkin(settings.skin);
+  setPlainIcons(skin.plain);
   useEffect(() => {
     const root = document.documentElement;
     if (settings.theme === 'system') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', settings.theme);
-  }, [settings.theme]);
+    root.setAttribute('data-skin', skin.id);
+  }, [settings.theme, skin.id]);
 
   if (!profiles || !profile) return <div className="empty"><span className="e">🌸</span>Loading…</div>;
 
   const value: AppCtx = {
     settings,
+    skin,
     prices,
     rates,
     currency: settings.defaultCurrency,

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { Sheet, Topbar } from '../components/ui';
+import { Sheet, Topbar, Sparkle } from '../components/ui';
 import { TxGroups } from '../components/TxRow';
 import { netWorth } from '../domain/balances';
 import { fmtAgo, fmtDate, monthEnd, monthKey, monthStart, relativeDays } from '../domain/dates';
@@ -81,7 +81,7 @@ function PriceChips() {
   return (
     <div className="card">
       <div className="between">
-        <h2 style={{ margin: 0 }}>🔮 Live prices</h2>
+        <h2 style={{ margin: 0 }}>✨ Live prices</h2>
         <button
           className="btn sm sky"
           disabled={busy}
@@ -109,7 +109,7 @@ function PriceChips() {
 }
 
 export function Home() {
-  const { profile, currency, rates, go, today, settings } = useApp();
+  const { profile, currency, rates, go, today, settings, skin } = useApp();
   const data = useData();
   const needsSetup = useLiveQuery(() => db.kv.get('needsSetup'), []);
   const [webUpdate, setWebUpdate] = useState(false);
@@ -125,7 +125,7 @@ export function Home() {
 
   return (
     <>
-      <Topbar title={`Hi ${profile.name} ${profile.emoji ?? ''}`} right={<ProfileSwitch />} noBack />
+      <Topbar title={`${skin.greeting} ${profile.name} ${skin.plain ? '' : profile.emoji ?? ''}`} right={<ProfileSwitch />} noBack />
       <div className="page">
         {webUpdate && (
           <button className="banner mint" style={{ width: '100%', border: 'none' }} onClick={applyWebUpdate}>
@@ -158,7 +158,7 @@ export function Home() {
         )}
 
         <div className="hero">
-          <span className="sparkle">🧚</span>
+          <Sparkle k="home" />
           <div className="label">Net worth</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
           <div className="stat-row">
@@ -179,7 +179,7 @@ export function Home() {
         </div>
 
         <div className="section-title">
-          <span>🕰️ Coming up</span>
+          <span>⏰ Coming up</span>
           <span className="grow" />
           <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>All ›</button>
         </div>
@@ -217,15 +217,15 @@ export function Home() {
         <PriceChips />
 
         <div className="section-title">
-          <span>📜 Recent</span>
+          <span>🧾 Recent</span>
           <span className="grow" />
           <button className="btn sm ghost" onClick={() => go({ name: 'txList', title: 'All entries' })}>All ›</button>
         </div>
         {data.txs.length === 0 ? (
           <div className="card center">
-            <div style={{ fontSize: 40 }}>🧚‍♀️</div>
+            {skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>}
             <div className="bold">No entries yet</div>
-            <div className="small muted mb">Tap the glowing + to log your first spending.</div>
+            <div className="small muted mb">Tap + to log your first spending.</div>
           </div>
         ) : (
           <TxGroups txs={data.txs} limit={12} />

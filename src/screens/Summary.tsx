@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ProgressBar, Seg, Topbar } from '../components/ui';
+import { ProgressBar, Seg, Topbar, Sparkle, SkinName } from '../components/ui';
 import { addMonthKey, fmtMonth, monthEnd, monthKey, monthStart, yearEnd, yearStart } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { summarise, type CatLine } from '../domain/summary';
@@ -54,7 +54,7 @@ export function Summary() {
 
   return (
     <>
-      <Topbar title="Summary 🔮" right={<ProfileSwitch />} noBack />
+      <Topbar title={<SkinName k="summary" />} right={<ProfileSwitch />} noBack />
       <div className="page">
         <Seg
           value={mode}
@@ -85,7 +85,7 @@ export function Summary() {
         )}
 
         <div className="hero">
-          <span className="sparkle">🦄</span>
+          <Sparkle k="summary" />
           <div className="label">Left over</div>
           <div className="big">{fmtMoney(s.surplus, currency)}</div>
           <div className="stat-row">

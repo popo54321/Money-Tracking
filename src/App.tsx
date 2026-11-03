@@ -54,7 +54,7 @@ function Screen() {
 }
 
 function TabBar() {
-  const { route, tab, go, stackDepth } = useApp();
+  const { route, tab, go, stackDepth, skin } = useApp();
   const root = stackDepth === 1 ? route.name : null;
   if (route.name === 'entry') return null;
   const t = (name: 'home' | 'accounts' | 'summary' | 'more', emoji: string, label: string) => (
@@ -66,13 +66,13 @@ function TabBar() {
   return (
     <nav className="tabbar">
       <div className="tabbar-inner">
-        {t('home', '🏰', 'Home')}
-        {t('accounts', '💎', 'Accounts')}
+        {t('home', skin.tabs.home, 'Home')}
+        {t('accounts', skin.tabs.accounts, 'Accounts')}
         <button className="tab-add" aria-label="Add entry" onClick={() => go({ name: 'entry', kind: 'expense' })}>
           +
         </button>
-        {t('summary', '🔮', 'Summary')}
-        {t('more', '🍄', 'More')}
+        {t('summary', skin.tabs.summary, 'Summary')}
+        {t('more', skin.tabs.more, 'More')}
       </div>
     </nav>
   );

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar } from '../components/ui';
+import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle } from '../components/ui';
 import { computeTrip, entryBase } from '../domain/tripSplit';
 import { rateBetween } from '../domain/fx';
 import { fmtMoney, roundTo } from '../domain/money';
@@ -328,7 +328,7 @@ export function TripEdit({ id }: { id: string }) {
         )}
 
         <div className="hero">
-          <span className="sparkle">🤝</span>
+          <Sparkle k="trips" />
           <div className="label">Settle up</div>
           {r.settlements.length === 0 ? (
             <div className="big" style={{ fontSize: 24 }}>

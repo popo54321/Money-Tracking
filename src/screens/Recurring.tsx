@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AccountPickerButton, AmountField, CategoryGrid, Field, NumberInput, Seg, ToggleRow, Topbar } from '../components/ui';
+import { AccountPickerButton, AmountField, CategoryGrid, Field, NumberInput, Seg, ToggleRow, Topbar, Sparkle } from '../components/ui';
 import { fmtDate, relativeDays } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { describeSchedule, dueToPost, monthlyEquivalent, nextUnposted } from '../domain/recurring';
@@ -37,7 +37,7 @@ export function RecurringList() {
       />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🌙</span>
+          <Sparkle k="recurring" />
           <div className="label">Fixed spending, per month</div>
           <div className="big">{fmtMoney(monthlyOut, currency)}</div>
           <div className="small">
