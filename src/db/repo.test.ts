@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
-import { postDueRecurring, recordOwed, saveNewEntry, setAccountBalance, type TxDraft } from './repo';
+import { postDueRecurring, postOccurrence, recordOwed, saveNewEntry, setAccountBalance, type TxDraft } from './repo';
 import { balanceOf } from '../domain/balances';
 import type { Account } from '../domain/types';
 
@@ -63,6 +63,15 @@ describe('repeating entries that start in the future', () => {
     expect((await db.recurring.toArray())[0].lastPosted).toBe('2026-11-03');
     expect(await postDueRecurring(rates, 'THB', '2026-12-02')).toBe(0);
     expect(await postDueRecurring(rates, 'THB', '2026-12-03')).toBe(1);
+  });
+
+  it('"Record now" on a future payment records it today and not again on the day', async () => {
+    await saveNewEntry(draft('2026-11-20'), monthly, rates, 'THB', '2026-11-03');
+    const [r] = await db.recurring.toArray();
+    await postOccurrence(r, '2026-11-20', rates, 'THB', '2026-11-03');
+    expect((await db.txs.toArray()).map((t) => t.date)).toEqual(['2026-11-03']);
+    expect(await postDueRecurring(rates, 'THB', '2026-11-20')).toBe(0);
+    expect(await db.txs.count()).toBe(1);
   });
 
   it('a plain entry is saved as it is', async () => {

@@ -21,10 +21,13 @@ import type { BillItem, BillPayment, BillPerson, BillSplit } from '../domain/typ
 import { db, uid } from '../db/db';
 import { deleteBill, recordOwed, saveBill, saveTx, type OwedItem } from '../db/repo';
 import { copyText } from '../services/platform';
+import { holdProps } from '../components/hold';
+import { QuickActions } from '../components/QuickActions';
 import { useApp, useData } from '../state/app';
 
 export function BillList() {
-  const { go, profile, today, settings } = useApp();
+  const { go, profile, today, settings, confirm, toast } = useApp();
+  const [quick, setQuick] = useState<BillSplit | null>(null);
   const bills = useLiveQuery(() => db.bills.orderBy('updatedAt').reverse().toArray(), []);
   const create = async () => {
     const me: BillPerson = { id: uid(), name: profile.name };
@@ -65,7 +68,12 @@ export function BillList() {
             {bills.map((b) => {
               const r = computeBill(b);
               return (
-                <button key={b.id} className="row" onClick={() => go({ name: 'bill', id: b.id })}>
+                <button
+                  key={b.id}
+                  className="row"
+                  onClick={() => go({ name: 'bill', id: b.id })}
+                  {...holdProps(() => setQuick(b))}
+                >
                   <div className="bubble peach">🍽️</div>
                   <div className="main">
                     <div className="title">{b.title}</div>
@@ -82,6 +90,40 @@ export function BillList() {
           </div>
         )}
       </div>
+      {quick && (
+        <QuickActions
+          title={quick.title || 'Bill'}
+          onClose={() => setQuick(null)}
+          actions={[
+            { label: '✏️ Open', tone: 'plain', run: () => go({ name: 'bill', id: quick.id }) },
+            {
+              label: '📄 Duplicate for today',
+              tone: 'mint',
+              run: async () => {
+                const copy: BillSplit = {
+                  ...quick,
+                  id: uid(),
+                  title: `${quick.title} (copy)`,
+                  date: today,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                };
+                await saveBill(copy);
+                go({ name: 'bill', id: copy.id });
+              },
+            },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: `Delete ${quick.title || 'this bill'}?`, ok: 'Delete', danger: true }))) return;
+                await deleteBill(quick.id);
+                toast('🗑️ Deleted');
+              },
+            },
+          ]}
+        />
+      )}
     </>
   );
 }

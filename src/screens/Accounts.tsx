@@ -9,9 +9,11 @@ import { useApp, useData } from '../state/app';
 import { accountColour, accountEmoji } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
 import { holdProps } from '../components/hold';
+import { QuickActions } from '../components/QuickActions';
 
 export function AccountLine({ a }: { a: Account }) {
   const { go, rates, currency, today } = useApp();
+  const [quick, setQuick] = useState(false);
   const data = useData();
   const bal = data.balances.get(a.id) ?? 0;
   const value = accountValue(a, bal, rates, currency);
@@ -34,22 +36,52 @@ export function AccountLine({ a }: { a: Account }) {
   } else if (reserved > 0) {
     sub = `🔒 ${fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free ${fmtMoney(bal - reserved, a.currency, { compact: true })}`;
   }
+  const isCard = a.type === 'credit';
   return (
-    <button
-      className="row"
-      onClick={() => go({ name: 'account', id: a.id })}
-      {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}
-    >
-      <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
-      <div className="main">
-        <div className="title">{a.name}</div>
-        <div className="sub">{sub}</div>
-      </div>
-      <div className="end">
-        <div className={`amt ${mainCls}`}>{main}</div>
-        {second && <div className="amt2">{second}</div>}
-      </div>
-    </button>
+    <>
+      <button className="row" onClick={() => go({ name: 'account', id: a.id })} {...holdProps(() => setQuick(true))}>
+        <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
+        <div className="main">
+          <div className="title">{a.name}</div>
+          <div className="sub">{sub}</div>
+        </div>
+        <div className="end">
+          <div className={`amt ${mainCls}`}>{main}</div>
+          {second && <div className="amt2">{second}</div>}
+        </div>
+      </button>
+      {quick && (
+        <QuickActions
+          title={a.name}
+          onClose={() => setQuick(false)}
+          actions={[
+            {
+              label: isCard ? '💸 Spend on this card' : '💸 Spend from it',
+              tone: 'pink',
+              run: () => go({ name: 'entry', kind: 'expense', accountId: a.id }),
+            },
+            ...(isCard
+              ? [
+                  {
+                    label: '💳 Pay the card',
+                    tone: 'mint' as const,
+                    run: () => go({ name: 'entry', kind: 'transfer', accountId: a.payFromAccountId, toAccountId: a.id }),
+                  },
+                ]
+              : [
+                  {
+                    label: '💰 Add income',
+                    tone: 'mint' as const,
+                    run: () => go({ name: 'entry', kind: 'income', accountId: a.id }),
+                  },
+                ]),
+            { label: '🔄 Move money', tone: 'sky', run: () => go({ name: 'entry', kind: 'transfer', accountId: a.id }) },
+            { label: '📖 Open', tone: 'plain', run: () => go({ name: 'account', id: a.id }) },
+            { label: '✏️ Edit account', tone: 'plain', run: () => go({ name: 'accountEdit', id: a.id }) },
+          ]}
+        />
+      )}
+    </>
   );
 }
 

@@ -22,6 +22,8 @@ import { deleteGoal, saveGoal } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { EMOJI_CHOICES } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
+import { holdProps } from '../components/hold';
+import { QuickActions } from '../components/QuickActions';
 
 const COLOURS = ['pink', 'mint', 'lav', 'peach', 'butter', 'sky'];
 
@@ -146,7 +148,8 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
 }
 
 export function Goals() {
-  const { profile, today, rates, currency, toast } = useApp();
+  const { profile, today, rates, currency, toast, confirm } = useApp();
+  const [quick, setQuick] = useState<Goal | null>(null);
   const data = useData();
   const goals = useLiveQuery(() => db.goals.where('profileId').equals(profile.id).toArray(), [profile.id]);
   const [edit, setEdit] = useState<Goal | null>(null);
@@ -216,6 +219,7 @@ export function Goals() {
               <button
                 style={{ border: 'none', background: 'none', padding: 0, width: '100%', textAlign: 'left' }}
                 onClick={() => setEdit(g)}
+                {...holdProps(() => setQuick(g))}
               >
                 <div className="hstack">
                   <div className={`bubble ${colour}`} style={{ width: 48, height: 48, fontSize: 26 }}>
@@ -284,6 +288,44 @@ export function Goals() {
           </>
         )}
       </Sheet>
+      {quick && (
+        <QuickActions
+          title={quick.name}
+          onClose={() => setQuick(null)}
+          actions={[
+            ...(quick.source === 'manual' && !quick.done
+              ? [
+                  {
+                    label: '🐷 I saved some',
+                    tone: 'mint' as const,
+                    run: () => {
+                      setAddFor(quick);
+                      setAddAmount(quick.monthly || null);
+                    },
+                  },
+                ]
+              : []),
+            {
+              label: quick.done ? '↩️ Not bought yet' : '🎉 Mark as bought',
+              tone: 'sky',
+              run: async () => {
+                await saveGoal({ ...quick, done: !quick.done });
+                toast(quick.done ? '↩️ Back on the list' : '🎉 Bought!');
+              },
+            },
+            { label: '✏️ Edit', tone: 'plain', run: () => setEdit(quick) },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: `Delete ${quick.name}?`, ok: 'Delete', danger: true }))) return;
+                await deleteGoal(quick.id);
+                toast('🗑️ Deleted');
+              },
+            },
+          ]}
+        />
+      )}
     </>
   );
 }

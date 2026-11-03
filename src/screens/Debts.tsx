@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar } from '../components/ui';
+import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar, CalcSheet } from '../components/ui';
 import { debtStatus, type Debt, type DebtEvent } from '../domain/debts';
 import { addDays, fmtDate } from '../domain/dates';
 import { convert } from '../domain/fx';
@@ -9,6 +9,8 @@ import { db, uid } from '../db/db';
 import { deleteDebt, saveDebt } from '../db/repo';
 import { useApp } from '../state/app';
 import { ProfileSwitch } from './Home';
+import { holdProps } from '../components/hold';
+import { QuickActions } from '../components/QuickActions';
 
 function interestText(d: Debt): string {
   if (d.interestType === 'none' || !d.ratePct) return 'no interest';
@@ -16,7 +18,14 @@ function interestText(d: Debt): string {
 }
 
 export function DebtList() {
-  const { profile, go, today, currency, rates } = useApp();
+  const { profile, go, today, currency, rates, confirm, toast } = useApp();
+  const [quick, setQuick] = useState<Debt | null>(null);
+  const [amountFor, setAmountFor] = useState<{ debt: Debt; type: DebtEvent['type'] } | null>(null);
+  const addEvent = async (debt: Debt, type: DebtEvent['type'], amount: number) => {
+    if (!amount) return;
+    await saveDebt({ ...debt, events: [...debt.events, { id: uid(), date: today, type, amount }] });
+    toast(type === 'repay' ? `💰 ${fmtMoney(amount, debt.currency)} paid back` : `💸 ${fmtMoney(amount, debt.currency)} added`);
+  };
   const debts = useLiveQuery(() => db.debts.where('profileId').equals(profile.id).toArray(), [profile.id]);
   const [showClosed, setShowClosed] = useState(false);
   const create = async (direction: Debt['direction']) => {
@@ -58,6 +67,7 @@ export function DebtList() {
                 key={d.id}
                 className="row"
                 onClick={() => go({ name: 'debt', id: d.id })}
+                {...holdProps(() => setQuick(d))}
                 style={{ opacity: d.closed ? 0.55 : 1 }}
               >
                 <Avatar name={d.person || '?'} />
@@ -114,6 +124,52 @@ export function DebtList() {
         )}
         <div className="tiny muted center mt">Just a record: it doesn’t change your account balances.</div>
       </div>
+      {quick && (
+        <QuickActions
+          title={quick.person || 'Someone'}
+          onClose={() => setQuick(null)}
+          actions={[
+            { label: '💰 Add repayment', tone: 'mint', run: () => setAmountFor({ debt: quick, type: 'repay' }) },
+            {
+              label: quick.direction === 'owedToMe' ? '💸 Lent more' : '💸 Borrowed more',
+              run: () => setAmountFor({ debt: quick, type: 'lend' }),
+            },
+            {
+              label: quick.closed ? '↩️ Reopen' : '✅ Mark as settled',
+              tone: 'sky',
+              run: async () => {
+                await saveDebt({ ...quick, closed: !quick.closed });
+                toast(quick.closed ? '↩️ Reopened' : '✅ Settled');
+              },
+            },
+            { label: '✏️ Open', tone: 'plain', run: () => go({ name: 'debt', id: quick.id }) },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: `Delete ${quick.person || 'this record'}?`, ok: 'Delete', danger: true }))) return;
+                await deleteDebt(quick.id);
+                toast('🗑️ Deleted');
+              },
+            },
+          ]}
+        />
+      )}
+      {amountFor && (
+        <CalcSheet
+          open
+          onClose={() => setAmountFor(null)}
+          title={
+            amountFor.type === 'repay'
+              ? `${amountFor.debt.person} paid back`
+              : amountFor.debt.direction === 'owedToMe'
+                ? `Lent ${amountFor.debt.person} more`
+                : `Borrowed more from ${amountFor.debt.person}`
+          }
+          currency={amountFor.debt.currency}
+          onDone={(v) => addEvent(amountFor.debt, amountFor.type, v)}
+        />
+      )}
     </>
   );
 }
@@ -123,6 +179,7 @@ export function DebtDetail({ id }: { id: string }) {
   const stored = useLiveQuery(() => db.debts.get(id), [id]);
   const [d, setD] = useState<Debt | null>(null);
   const [ev, setEv] = useState<DebtEvent | null>(null);
+  const [quickEv, setQuickEv] = useState<DebtEvent | null>(null);
   const [curOpen, setCurOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
@@ -219,7 +276,7 @@ export function DebtDetail({ id }: { id: string }) {
         ) : (
           <div className="list">
             {events.map((e) => (
-              <button key={e.id} className="row" onClick={() => setEv(e)}>
+              <button key={e.id} className="row" onClick={() => setEv(e)} {...holdProps(() => setQuickEv(e))}>
                 <div className={`bubble ${e.type === 'lend' ? 'peach' : 'mint'}`}>{e.type === 'lend' ? '💸' : '💰'}</div>
                 <div className="main">
                   <div className="title">{e.type === 'lend' ? (theyOwe ? 'Lent' : 'Borrowed') : 'Paid back'}</div>
@@ -345,6 +402,23 @@ export function DebtDetail({ id }: { id: string }) {
         )}
       </Sheet>
       <CurrencySheet open={curOpen} onClose={() => setCurOpen(false)} value={cur} onPick={(c) => update({ currency: c })} />
+      {quickEv && (
+        <QuickActions
+          title={`${quickEv.type === 'repay' ? 'Paid back' : 'Lent'} · ${fmtMoney(quickEv.amount, d.currency)}`}
+          onClose={() => setQuickEv(null)}
+          actions={[
+            { label: '✏️ Edit', tone: 'plain', run: () => setEv(quickEv) },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: 'Delete this line?', ok: 'Delete', danger: true }))) return;
+                update({ events: d.events.filter((x) => x.id !== quickEv.id) });
+              },
+            },
+          ]}
+        />
+      )}
     </>
   );
 }

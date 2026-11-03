@@ -19,6 +19,8 @@ import { db, uid } from '../db/db';
 import { getOrCreateBudget, saveBudget, saveTx } from '../db/repo';
 import { importBudgetFromWorkbook } from '../services/workbookImport';
 import { pickBinaryFile } from '../services/platform';
+import { holdProps } from '../components/hold';
+import { QuickActions } from '../components/QuickActions';
 import { useApp, useData } from '../state/app';
 
 function RowsEditor({
@@ -168,6 +170,8 @@ export function Budget() {
   const [phaseId, setPhaseId] = useState<string>('');
   const [edit, setEdit] = useState(false);
   const [tEdit, setTEdit] = useState<BudgetTransfer | null>(null);
+  const [quickT, setQuickT] = useState<BudgetTransfer | null>(null);
+  const [quickPhase, setQuickPhase] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (stored === undefined) {
@@ -269,7 +273,12 @@ export function Budget() {
         )}
         <div className="chips scroll mb">
           {plan.phases.map((p) => (
-            <button key={p.id} className={`chip ${p.id === phase.id ? 'on' : ''}`} onClick={() => setPhaseId(p.id)}>
+            <button
+              key={p.id}
+              className={`chip ${p.id === phase.id ? 'on' : ''}`}
+              onClick={() => setPhaseId(p.id)}
+              {...holdProps(() => setQuickPhase(p))}
+            >
               {p.id === plan.activePhaseId ? '⭐ ' : ''}
               {p.name}
             </button>
@@ -430,6 +439,7 @@ export function Budget() {
                   className="grow"
                   style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }}
                   onClick={() => setTEdit(t)}
+                  {...holdProps(() => setQuickT(t))}
                 >
                   <div className="bold small" style={{ textDecoration: ticked ? 'line-through' : 'none' }}>
                     {t.fromLabel} → {t.toLabel}
@@ -556,6 +566,75 @@ export function Budget() {
           setTEdit(null);
         }}
       />
+      {quickT && (
+        <QuickActions
+          title={`${quickT.fromLabel} → ${quickT.toLabel}`}
+          onClose={() => setQuickT(null)}
+          actions={[
+            ...(isActive
+              ? [
+                  {
+                    label: done.includes(quickT.id) ? '↩️ Not done yet' : '✅ Done this month',
+                    tone: 'mint' as const,
+                    run: () => toggleDone(quickT.id),
+                  },
+                ]
+              : []),
+            { label: '✏️ Edit', tone: 'plain', run: () => setTEdit(quickT) },
+            {
+              label: '🗑️ Delete',
+              tone: 'danger',
+              run: async () => {
+                if (!(await confirm({ title: 'Delete this transfer?', ok: 'Delete', danger: true }))) return;
+                update({ ...plan, transfers: plan.transfers.filter((x) => x.id !== quickT.id) });
+              },
+            },
+          ]}
+        />
+      )}
+      {quickPhase && (
+        <QuickActions
+          title={quickPhase.name}
+          onClose={() => setQuickPhase(null)}
+          actions={[
+            ...(quickPhase.id !== plan.activePhaseId
+              ? [
+                  {
+                    label: '⭐ Make this my current phase',
+                    tone: 'mint' as const,
+                    run: () => update({ ...plan, activePhaseId: quickPhase.id }),
+                  },
+                ]
+              : []),
+            {
+              label: '✏️ Rename or edit',
+              tone: 'plain',
+              run: () => {
+                setPhaseId(quickPhase.id);
+                setEdit(true);
+              },
+            },
+            ...(plan.phases.length > 1
+              ? [
+                  {
+                    label: '🗑️ Delete phase',
+                    tone: 'danger' as const,
+                    run: async () => {
+                      if (!(await confirm({ title: `Delete ${quickPhase.name}?`, ok: 'Delete', danger: true }))) return;
+                      const phases = plan.phases.filter((x) => x.id !== quickPhase.id);
+                      update({
+                        ...plan,
+                        phases,
+                        activePhaseId: plan.activePhaseId === quickPhase.id ? phases[0].id : plan.activePhaseId,
+                      });
+                      setPhaseId(phases[0].id);
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
     </>
   );
 }

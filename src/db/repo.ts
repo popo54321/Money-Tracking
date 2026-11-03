@@ -294,7 +294,7 @@ export async function postDueRecurring(rates: RateTable, defaultCurrency: string
     const dates = dueToPost(r, r.lastPosted, today);
     if (dates.length === 0) continue;
     for (const d of dates) {
-      await postOccurrence(r, d, rates, defaultCurrency);
+      await postOccurrence(r, d, rates, defaultCurrency, today);
       posted++;
     }
   }
@@ -302,7 +302,13 @@ export async function postDueRecurring(rates: RateTable, defaultCurrency: string
 }
 
 /** Record one occurrence now (also used by "Record now" for manual repeating entries). */
-export async function postOccurrence(r: Recurring, date: ISODate, rates: RateTable, defaultCurrency: string): Promise<void> {
+export async function postOccurrence(
+  r: Recurring,
+  date: ISODate,
+  rates: RateTable,
+  defaultCurrency: string,
+  today = todayISO(),
+): Promise<void> {
   const id = `rec-${r.id}-${date}`;
   const exists = await db.txs.get(id);
   if (!exists) {
@@ -310,7 +316,8 @@ export async function postOccurrence(r: Recurring, date: ISODate, rates: RateTab
       {
         id,
         profileId: r.profileId,
-        date,
+        // recording a future payment early ("Record now") counts it from today
+        date: date > today ? today : date,
         kind: r.kind,
         accountId: r.accountId,
         amount: r.amount,
