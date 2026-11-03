@@ -17,7 +17,7 @@ export type AccountType =
 
 export const ACCOUNT_TYPES: { type: AccountType; label: string; defaultGroup: string }[] = [
   { type: 'bank', label: 'Bank account', defaultGroup: 'Bank' },
-  { type: 'cash', label: 'Cash', defaultGroup: 'Bank' },
+  { type: 'cash', label: 'Cash', defaultGroup: 'Cash' },
   { type: 'debit', label: 'Debit card', defaultGroup: 'Bank' },
   { type: 'credit', label: 'Credit card', defaultGroup: 'Credit' },
   { type: 'topup', label: 'Top-up card', defaultGroup: 'Bank' },
@@ -28,8 +28,8 @@ export const ACCOUNT_TYPES: { type: AccountType; label: string; defaultGroup: st
   { type: 'other', label: 'Other', defaultGroup: 'Assets' },
 ];
 
-/** Groups in the same order as the year sheets, plus credit cards. */
-export const ACCOUNT_GROUPS = ['Bank', 'Wealth preserve', 'Investments', 'Assets', 'Insurance', 'Business', 'Credit'];
+/** Groups in the same order as the year sheets, plus cash and credit cards. */
+export const ACCOUNT_GROUPS = ['Bank', 'Cash', 'Wealth preserve', 'Investments', 'Assets', 'Insurance', 'Business', 'Credit'];
 
 export interface Account {
   id: string;

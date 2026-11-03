@@ -124,3 +124,30 @@ describe('adding unpaid bill shares to Who owes me', () => {
     expect(debts[0].events.map((e) => e.amount)).toEqual([300, 200]);
   });
 });
+
+describe('cash gets its own group', () => {
+  it('moves cash out of Bank once, and leaves bank accounts alone', async () => {
+    const { migrate } = await import('./seed');
+    const base = {
+      profileId: 'p',
+      currency: 'THB',
+      openingBalance: 0,
+      openingDate: '2026-11-01',
+      includeInNetWorth: true,
+      archived: false,
+      order: 0,
+    };
+    await db.kv.delete('migratedCashGroup');
+    await db.accounts.bulkPut([
+      { ...base, id: 'm1', name: 'Cash', type: 'bank', group: 'Bank' },
+      { ...base, id: 'm2', name: 'Wallet', type: 'cash', group: 'Bank' },
+      { ...base, id: 'm3', name: 'Kbank', type: 'bank', group: 'Bank' },
+    ] as Account[]);
+    await migrate();
+    expect((await db.accounts.bulkGet(['m1', 'm2', 'm3'])).map((a) => a!.group)).toEqual(['Cash', 'Cash', 'Bank']);
+    // a later move back to Bank by the user is kept
+    await db.accounts.update('m2', { group: 'Bank' });
+    await migrate();
+    expect((await db.accounts.get('m2'))!.group).toBe('Bank');
+  });
+});
