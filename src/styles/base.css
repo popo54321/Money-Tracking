@@ -1290,3 +1290,40 @@ textarea,
 .row.ghost .bubble {
   filter: saturate(0.6);
 }
+
+/* note box: earlier notes drop up above it (the phone keyboard covers the space below) */
+.note-input {
+  position: relative;
+}
+.suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--card);
+  border: 1.5px solid var(--deco-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  z-index: 10;
+}
+.suggest button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+.suggest button:last-child {
+  border-bottom: none;
+}
+.suggest button:active {
+  background: var(--bg2);
+}
