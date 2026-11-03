@@ -8,7 +8,7 @@ import { accountEmoji } from '../ui/emoji';
 export function Setup() {
   const { profile, back, toast, go } = useApp();
   const data = useData();
-  const withEntries = new Set(data.txs.flatMap((t) => [t.accountId, t.toAccountId ?? '']));
+  const withEntries = new Set(data.allTxs.flatMap((t) => [t.accountId, t.toAccountId ?? '']));
   const list = data.accounts.filter((a) => !withEntries.has(a.id));
 
   const finish = async () => {

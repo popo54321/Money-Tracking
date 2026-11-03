@@ -4,6 +4,7 @@ import { unitValue, balanceOf } from '../domain/balances';
 import type { RateTable } from '../domain/fx';
 import { dueToPost } from '../domain/recurring';
 import type {
+  Freq,
   Account,
   BillSplit,
   BudgetPlan,
@@ -139,7 +140,8 @@ export async function setAccountBalance(opts: {
   const txs = await db.txs.where('accountId').equals(account.id).toArray();
   const incoming = await db.txs.where('toAccountId').equals(account.id).toArray();
   const all = [...txs, ...incoming.filter((t) => t.accountId !== account.id)];
-  const current = balanceOf(account, all);
+  // entries dated after the chosen day haven't happened yet, so they don't count
+  const current = balanceOf(account, all, opts.date);
   const delta = opts.newBalance - current;
   if (Math.abs(delta) < 1e-12) return;
   if (opts.mode === 'opening') {
@@ -215,6 +217,59 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 // ---------- repeating entries ----------
+
+export interface RepeatOptions {
+  name: string;
+  freq: Freq;
+  every: number;
+  autoPost: boolean;
+  reserve: boolean;
+}
+
+/**
+ * Save a new entry, optionally as the first of a repeating series.
+ * A series whose first date is in the future is only scheduled: nothing is recorded until that day,
+ * when postDueRecurring records it like any other occurrence.
+ */
+export async function saveNewEntry(
+  draft: TxDraft,
+  repeat: RepeatOptions | null,
+  rates: RateTable,
+  defaultCurrency: string,
+  today = todayISO(),
+): Promise<'saved' | 'scheduled'> {
+  if (!repeat || draft.kind === 'adjust') {
+    await saveTx(draft, rates, defaultCurrency);
+    return 'saved';
+  }
+  const kind = draft.kind;
+  const r: Recurring = {
+    id: uid(),
+    profileId: draft.profileId,
+    name: repeat.name,
+    kind,
+    amount: draft.amount,
+    accountId: draft.accountId,
+    toAccountId: kind === 'transfer' ? draft.toAccountId : undefined,
+    toAmount: kind === 'transfer' ? (draft.toAmount ?? draft.amount) : undefined,
+    categoryId: draft.categoryId,
+    note: draft.note?.trim() || undefined,
+    freq: repeat.freq,
+    every: Math.max(1, Math.floor(repeat.every || 1)),
+    startDate: draft.date,
+    autoPost: repeat.autoPost,
+    reserve: kind !== 'income' && repeat.reserve,
+    active: true,
+    createdAt: Date.now(),
+  };
+  if (draft.date > today) {
+    await saveRecurring(r);
+    return 'scheduled';
+  }
+  await saveTx({ ...draft, recurringId: r.id }, rates, defaultCurrency);
+  await saveRecurring({ ...r, lastPosted: draft.date });
+  return 'saved';
+}
 
 export async function saveRecurring(r: Recurring): Promise<void> {
   await db.recurring.put(r);

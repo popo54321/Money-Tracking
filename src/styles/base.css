@@ -1240,3 +1240,12 @@ button,
   box-shadow: none;
   color: var(--muted);
 }
+
+/* scheduled: faded placeholders that become normal entries on their day */
+.row.ghost {
+  opacity: 0.55;
+  background: repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--line) 35%, transparent) 10px 11px);
+}
+.row.ghost .bubble {
+  filter: saturate(0.6);
+}

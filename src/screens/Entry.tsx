@@ -17,9 +17,10 @@ import { unitValue } from '../domain/balances';
 import { convert } from '../domain/fx';
 import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
 import { describeSchedule } from '../domain/recurring';
-import type { Freq, Recurring, TxKind } from '../domain/types';
-import { db, uid } from '../db/db';
-import { deleteTx, saveRecurring, saveTx } from '../db/repo';
+import { fmtDate } from '../domain/dates';
+import type { Freq, TxKind } from '../domain/types';
+import { db } from '../db/db';
+import { deleteTx, saveNewEntry, saveTx } from '../db/repo';
 import { useApp, useData, type Route } from '../state/app';
 
 type EntryRoute = Extract<Route, { name: 'entry' }>;
@@ -45,7 +46,7 @@ function writeLast(profileId: string, kind: string, id: string) {
 export function Entry({ route }: { route: EntryRoute }) {
   const { profile, rates, currency, today, back, toast, confirm } = useApp();
   const data = useData();
-  const existing = route.id ? data.txs.find((t) => t.id === route.id) : undefined;
+  const existing = route.id ? data.allTxs.find((t) => t.id === route.id) : undefined;
   const usable = data.accounts.filter((a) => !a.archived || a.id === existing?.accountId || a.id === existing?.toAccountId);
 
   const initialKind: Exclude<TxKind, 'adjust'> =
@@ -140,51 +141,42 @@ export function Entry({ route }: { route: EntryRoute }) {
       toast(`No exchange rate for ${typedCurrency}. Type the amount charged.`);
       return;
     }
-    const recurringId = repeat && !existing && kind !== 'adjust' ? uid() : undefined;
-    await saveTx(
-      {
-        id: existing?.id,
-        profileId: profile.id,
-        date,
-        kind,
-        accountId: acc.id,
-        amount: kind === 'adjust' ? (existing && existing.amount < 0 ? -Math.abs(amount) : amount) : charged,
-        toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
-        toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
-        categoryId,
-        note,
-        origAmount: foreign ? amount : undefined,
-        origCurrency: foreign ? typedCurrency : undefined,
-        recurringId,
-      },
-      rates,
-      currency,
-    );
-    if (recurringId && kind !== 'adjust') {
-      const cat = categoryId ? data.categoryById.get(categoryId) : undefined;
-      const r: Recurring = {
-        id: recurringId,
-        profileId: profile.id,
-        name: note.trim() || cat?.name || (kind === 'transfer' ? `${acc.name} → ${toAcc?.name}` : 'Repeating'),
-        kind,
-        amount: charged,
-        accountId: acc.id,
-        toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
-        toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
-        categoryId,
-        note: note.trim() || undefined,
-        freq,
-        every: Math.max(1, every),
-        startDate: date,
-        lastPosted: date,
-        autoPost,
-        reserve: kind !== 'income' && reserve,
-        active: true,
-        createdAt: Date.now(),
-      };
-      await saveRecurring(r);
-    }
+    const draft = {
+      id: existing?.id,
+      profileId: profile.id,
+      date,
+      kind,
+      accountId: acc.id,
+      amount: kind === 'adjust' ? (existing && existing.amount < 0 ? -Math.abs(amount) : amount) : charged,
+      toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
+      toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
+      categoryId,
+      note,
+      origAmount: foreign ? amount : undefined,
+      origCurrency: foreign ? typedCurrency : undefined,
+    };
+    const repeatOpts =
+      repeat && !existing && kind !== 'adjust'
+        ? {
+            name:
+              note.trim() ||
+              data.categoryById.get(categoryId ?? '')?.name ||
+              (kind === 'transfer' ? `${acc.name} → ${toAcc?.name}` : 'Repeating'),
+            freq,
+            every,
+            autoPost,
+            reserve,
+          }
+        : null;
+    const outcome = existing
+      ? (await saveTx(draft, rates, currency), 'saved')
+      : await saveNewEntry(draft, repeatOpts, rates, currency, today);
     if (kind !== 'adjust') writeLast(profile.id, kind, acc.id);
+    if (outcome === 'scheduled') {
+      toast(`📅 Scheduled for ${fmtDate(date)}. It's recorded on the day.`);
+      back();
+      return;
+    }
     toast(existing ? '✨ Saved' : kind === 'income' ? '💰 Income saved' : kind === 'transfer' ? '🔄 Move saved' : '🌸 Saved');
     back();
   };
