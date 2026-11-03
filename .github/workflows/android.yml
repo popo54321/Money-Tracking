@@ -1,0 +1,98 @@
+name: Android app
+
+# Builds the APK on every push. When the signing-key secrets are set and package.json has a new
+# version, it also publishes a GitHub Release with the APK, which the app's Update button installs.
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Test
+        run: npm test
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Copy it into the Android project
+        run: npx cap sync android
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Signing key
+        env:
+          KEY_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "HAS_KEY=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not set. Building a test APK only; no release is published (see README → Android signing key)."
+            echo "HAS_KEY=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          if [ "$HAS_KEY" = "true" ]; then
+            ./gradlew --no-daemon assembleRelease
+          else
+            ./gradlew --no-daemon assembleDebug
+          fi
+
+      - name: Name the APK
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if [ "$HAS_KEY" = "true" ]; then SRC=android/app/build/outputs/apk/release/app-release.apk; else SRC=android/app/build/outputs/apk/debug/app-debug.apk; fi
+          cp "$SRC" "MoneyTracking-$VERSION.apk"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "MoneyTracking-$VERSION.apk" | grep -E "SHA-256|DN" || true
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: MoneyTracking-${{ env.VERSION }}
+          path: MoneyTracking-${{ env.VERSION }}.apk
+          retention-days: 14
+
+      - name: Publish release
+        if: env.HAS_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists. Raise the version in package.json to publish a new one."
+          else
+            gh release create "v$VERSION" "MoneyTracking-$VERSION.apk" \
+              --target "$GITHUB_SHA" \
+              --title "Money Tracking $VERSION" \
+              --notes "Install on Android: download MoneyTracking-$VERSION.apk below and open it. Already installed? Use Settings → Updates in the app. Your data stays on your phone."
+          fi

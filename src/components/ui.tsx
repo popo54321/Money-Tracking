@@ -1,0 +1,540 @@
+// Small building blocks used across screens.
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { evaluate, hasOperator } from '../domain/calculator';
+import { COMMON_CURRENCIES } from '../domain/fx';
+import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
+import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
+import { useApp } from '../state/app';
+import { accountColour, accountEmoji, categoryEmoji } from '../ui/emoji';
+
+// ---------- layout ----------
+
+export function Topbar({ title, right, noBack }: { title: ReactNode; right?: ReactNode; noBack?: boolean }) {
+  const { back, stackDepth } = useApp();
+  return (
+    <div className="topbar">
+      {!noBack && stackDepth > 1 && (
+        <button className="icon-btn" aria-label="Back" onClick={back}>
+          ‹
+        </button>
+      )}
+      <h1>{title}</h1>
+      {right}
+    </div>
+  );
+}
+
+export function Empty({ emoji, children }: { emoji: string; children: ReactNode }) {
+  return (
+    <div className="empty">
+      <span className="e">{emoji}</span>
+      {children}
+    </div>
+  );
+}
+
+export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="field">
+      <div className="label">{label}</div>
+      {children}
+      {hint && <div className="hint">{hint}</div>}
+    </div>
+  );
+}
+
+export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={`switch ${on ? 'on' : ''}`}
+      onClick={() => onChange(!on)}
+    />
+  );
+}
+
+export function ToggleRow({ title, desc, on, onChange }: { title: ReactNode; desc?: ReactNode; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="toggle-row">
+      <div className="grow">
+        <div>{title}</div>
+        {desc && <div className="small muted">{desc}</div>}
+      </div>
+      <Switch on={on} onChange={onChange} label={typeof title === 'string' ? title : undefined} />
+    </div>
+  );
+}
+
+export function Seg<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { v: T; label: ReactNode; cls?: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="seg" role="tablist">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          role="tab"
+          aria-selected={value === o.v}
+          className={`${value === o.v ? 'on' : ''} ${o.cls ?? ''}`}
+          onClick={() => onChange(o.v)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Money({ v, cur, sign, cls, compact }: { v: number | null | undefined; cur: string; sign?: boolean; cls?: boolean; compact?: boolean }) {
+  const c = cls && v ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '';
+  return <span className={c}>{fmtMoney(v, cur, { sign, compact })}</span>;
+}
+
+// ---------- sheets ----------
+
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode }) {
+  const { pushOverlay } = useApp();
+  useEffect(() => {
+    if (!open) return;
+    const pop = pushOverlay(onClose);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      pop();
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose, pushOverlay]);
+  if (!open) return null;
+  return (
+    <div className="backdrop" onClick={onClose}>
+      <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <div className="grab" />
+        {title && <h3>{title}</h3>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ---------- calculator ----------
+
+const KEYS = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '.', '0', '⌫', '+', '(', ')', 'C', '='];
+
+export function useCalc(initial = '') {
+  const [expr, setExpr] = useState(initial);
+  const value = useMemo(() => evaluate(expr), [expr]);
+  const press = (k: string) => {
+    if (k === 'C') return setExpr('');
+    if (k === '⌫') return setExpr((e) => e.slice(0, -1));
+    if (k === '=') {
+      const v = evaluate(expr);
+      if (v !== null) setExpr(String(roundTo(v, 8)));
+      return;
+    }
+    setExpr((e) => {
+      const last = e.slice(-1);
+      const isOp = (c: string) => '+−×÷'.includes(c);
+      if (isOp(k) && isOp(last)) return e.slice(0, -1) + k;
+      if (isOp(k) && e === '' && k !== '−') return e;
+      if (k === '.') {
+        const lastNum = e.split(/[+−×÷()]/).pop() ?? '';
+        if (lastNum.includes('.')) return e;
+        if (lastNum === '') return e + '0.';
+      }
+      return e + k;
+    });
+  };
+  return { expr, setExpr, value, press, showResult: hasOperator(expr) };
+}
+
+export function Keypad({ onKey, okLabel }: { onKey: (k: string) => void; okLabel?: string }) {
+  return (
+    <div className="keypad">
+      {KEYS.map((k) => (
+        <button
+          key={k}
+          type="button"
+          className={'+−×÷'.includes(k) ? 'op' : k === '=' ? 'ok' : '()C⌫'.includes(k) ? 'fn' : ''}
+          onClick={() => onKey(k)}
+          aria-label={k === '⌫' ? 'Delete' : k === 'C' ? 'Clear' : k}
+        >
+          {k === '=' && okLabel ? okLabel : k}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function fmtExpr(expr: string): string {
+  return expr.replace(/\d+(\.\d*)?/g, (m) => {
+    const [i, d] = m.split('.');
+    const grouped = i.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return d !== undefined ? `${grouped}.${d}` : grouped;
+  });
+}
+
+export function CalcSheet({
+  open,
+  onClose,
+  title,
+  initial,
+  currency,
+  allowNegative,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  initial?: number | null;
+  currency: string;
+  allowNegative?: boolean;
+  onDone: (v: number) => void;
+}) {
+  const calc = useCalc('');
+  useEffect(() => {
+    if (open) calc.setExpr(initial ? String(roundTo(initial, decimalsFor(currency))) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  const finish = () => {
+    const v = calc.expr === '' ? 0 : calc.value;
+    if (v === null) return;
+    if (!allowNegative && v < 0) return;
+    onDone(v);
+    onClose();
+  };
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      <div className="amount-display transfer">
+        <div className="expr">{calc.showResult ? fmtExpr(calc.expr) : ' '}</div>
+        <div className="val">
+          {calc.expr === ''
+            ? fmtMoney(0, currency)
+            : calc.value === null
+              ? fmtExpr(calc.expr)
+              : fmtMoney(calc.value, currency)}
+        </div>
+      </div>
+      <Keypad onKey={(k) => (k === '=' && !calc.showResult ? finish() : calc.press(k))} okLabel={calc.showResult ? '=' : '✓'} />
+      <button className="btn primary block" onClick={finish} disabled={calc.expr !== '' && calc.value === null}>
+        Done
+      </button>
+    </Sheet>
+  );
+}
+
+/** A tappable amount that opens the calculator. */
+export function AmountField({
+  value,
+  onChange,
+  currency,
+  placeholder = 'Tap to enter',
+  title = 'Amount',
+  allowNegative,
+}: {
+  value: number | null | undefined;
+  onChange: (v: number) => void;
+  currency: string;
+  placeholder?: string;
+  title?: ReactNode;
+  allowNegative?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const empty = value === null || value === undefined;
+  return (
+    <>
+      <button type="button" className={`amount-field ${empty ? 'empty' : ''}`} onClick={() => setOpen(true)}>
+        <span>{empty ? placeholder : fmtNumber(value, decimalsFor(currency), 0)}</span>
+        <span className="cur">{currency} 🧮</span>
+      </button>
+      <CalcSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={title}
+        initial={value}
+        currency={currency}
+        allowNegative={allowNegative}
+        onDone={onChange}
+      />
+    </>
+  );
+}
+
+/** A plain number input for percentages, rates and similar small numbers. */
+export function NumberInput({
+  value,
+  onChange,
+  placeholder,
+  step = 'any',
+  className = '',
+}: {
+  value: number | null | undefined;
+  onChange: (v: number) => void;
+  placeholder?: string;
+  step?: string;
+  className?: string;
+}) {
+  const [text, setText] = useState(value === null || value === undefined ? '' : String(value));
+  useEffect(() => {
+    const parsed = Number(text);
+    if (value !== undefined && value !== null && parsed !== value) setText(String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <input
+      className={className}
+      inputMode="decimal"
+      type="text"
+      step={step}
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => {
+        const t = e.target.value.replace(',', '.');
+        setText(t);
+        const v = evaluate(t);
+        if (v !== null) onChange(v);
+        else if (t === '') onChange(0);
+      }}
+    />
+  );
+}
+
+// ---------- pickers ----------
+
+export function CurrencySheet({
+  open,
+  onClose,
+  value,
+  onPick,
+  extra = [],
+}: {
+  open: boolean;
+  onClose: () => void;
+  value?: string;
+  onPick: (c: string) => void;
+  extra?: string[];
+}) {
+  const { prices, settings } = useApp();
+  const [q, setQ] = useState('');
+  const all = useMemo(() => {
+    const set = new Set<string>([...settings.favouriteCurrencies, ...COMMON_CURRENCIES, ...extra, ...Object.keys(prices.perUsd).sort()]);
+    set.delete('BTC');
+    return [...set];
+  }, [prices.perUsd, settings.favouriteCurrencies, extra]);
+  const list = all.filter((c) => c.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <Sheet open={open} onClose={onClose} title="Currency">
+      <input placeholder="Search, e.g. JPY" value={q} onChange={(e) => setQ(e.target.value)} className="mb" />
+      <div className="chips">
+        {list.map((c) => (
+          <button
+            key={c}
+            className={`chip ${c === value ? 'on' : ''}`}
+            onClick={() => {
+              onPick(c);
+              onClose();
+              setQ('');
+            }}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+export function AccountRowView({ a, right, onClick }: { a: Account; right?: ReactNode; onClick?: () => void }) {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag className="row" onClick={onClick} type={onClick ? 'button' : undefined}>
+      <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
+      <div className="main">
+        <div className="title">{a.name}</div>
+        <div className="sub">
+          {a.group} · {a.currency}
+        </div>
+      </div>
+      {right && <div className="end">{right}</div>}
+    </Tag>
+  );
+}
+
+export function AccountSheet({
+  open,
+  onClose,
+  accounts,
+  value,
+  onPick,
+  title = 'Choose account',
+  exclude,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accounts: Account[];
+  value?: string;
+  onPick: (id: string) => void;
+  title?: string;
+  exclude?: string;
+}) {
+  const { data } = useApp();
+  const list = accounts.filter((a) => !a.archived && a.id !== exclude);
+  const groups = [...ACCOUNT_GROUPS, ...new Set(list.map((a) => a.group))].filter((g, i, arr) => arr.indexOf(g) === i);
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      {groups.map((g) => {
+        const items = list.filter((a) => a.group === g);
+        if (!items.length) return null;
+        return (
+          <div key={g}>
+            <div className="cat-group-name">{g}</div>
+            <div className="list">
+              {items.map((a) => (
+                <AccountRowView
+                  key={a.id}
+                  a={a}
+                  onClick={() => {
+                    onPick(a.id);
+                    onClose();
+                  }}
+                  right={
+                    <>
+                      <div className="amt">{fmtMoney(data?.balances.get(a.id) ?? 0, a.currency)}</div>
+                      {a.id === value && <div className="amt2">✓ selected</div>}
+                    </>
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </Sheet>
+  );
+}
+
+export function AccountPickerButton({
+  accounts,
+  value,
+  onChange,
+  placeholder = 'Choose account',
+  title,
+  exclude,
+}: {
+  accounts: Account[];
+  value?: string;
+  onChange: (id: string) => void;
+  placeholder?: string;
+  title?: string;
+  exclude?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const a = accounts.find((x) => x.id === value);
+  return (
+    <>
+      <button type="button" className={`amount-field ${a ? '' : 'empty'}`} onClick={() => setOpen(true)}>
+        <span className="hstack" style={{ minWidth: 0 }}>
+          {a ? (
+            <>
+              <span>{accountEmoji(a.type)}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+            </>
+          ) : (
+            placeholder
+          )}
+        </span>
+        <span className="cur">{a ? a.currency : ''} ▾</span>
+      </button>
+      <AccountSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        accounts={accounts}
+        value={value}
+        onPick={onChange}
+        title={title}
+        exclude={exclude}
+      />
+    </>
+  );
+}
+
+export function CategoryGrid({
+  categories,
+  kind,
+  value,
+  onPick,
+}: {
+  categories: Category[];
+  kind: CategoryKind;
+  value?: string;
+  onPick: (id: string) => void;
+}) {
+  const list = categories.filter((c) => c.kind === kind && (!c.archived || c.id === value));
+  const groups = [...new Set(list.map((c) => c.group))];
+  return (
+    <div>
+      {groups.map((g) => (
+        <div key={g}>
+          {kind === 'expense' && <div className="cat-group-name">{g}</div>}
+          <div className="cat-grid">
+            {list
+              .filter((c) => c.group === g)
+              .map((c) => (
+                <button key={c.id} type="button" className={`cat ${c.id === value ? 'on' : ''}`} onClick={() => onPick(c.id)}>
+                  <span className="e">{categoryEmoji(c)}</span>
+                  <span className="n">{c.name}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function CategorySheet({
+  open,
+  onClose,
+  categories,
+  kind,
+  value,
+  onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  categories: Category[];
+  kind: CategoryKind;
+  value?: string;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <Sheet open={open} onClose={onClose} title={kind === 'income' ? 'Income category' : 'Spending category'}>
+      <CategoryGrid
+        categories={categories}
+        kind={kind}
+        value={value}
+        onPick={(id) => {
+          onPick(id);
+          onClose();
+        }}
+      />
+    </Sheet>
+  );
+}
+
+export function ProgressBar({ value, colour = '' }: { value: number; colour?: string }) {
+  return (
+    <div className={`bar ${colour}`}>
+      <div style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
+    </div>
+  );
+}

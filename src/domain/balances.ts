@@ -1,0 +1,92 @@
+// Account balances worked out from the opening balance plus every entry.
+import type { ISODate } from './dates';
+import { convert, GOLD_CODE, type RateTable } from './fx';
+import type { Account, Tx } from './types';
+
+/** How much `tx` changes the balance of `accountId`, in that account's currency. */
+export function txDelta(tx: Tx, accountId: string): number {
+  let d = 0;
+  if (tx.accountId === accountId) {
+    switch (tx.kind) {
+      case 'income':
+        d += tx.amount;
+        break;
+      case 'expense':
+      case 'transfer':
+        d -= tx.amount;
+        break;
+      case 'adjust':
+        d += tx.amount;
+        break;
+    }
+  }
+  if (tx.kind === 'transfer' && tx.toAccountId === accountId) d += tx.toAmount ?? tx.amount;
+  return d;
+}
+
+export function balanceOf(account: Account, txs: Tx[], asOf?: ISODate): number {
+  let b = account.openingBalance;
+  for (const t of txs) {
+    if (asOf && t.date > asOf) continue;
+    if (t.accountId === account.id || t.toAccountId === account.id) b += txDelta(t, account.id);
+  }
+  return b;
+}
+
+/** Balances of all accounts in one pass. */
+export function balancesByAccount(accounts: Account[], txs: Tx[], asOf?: ISODate): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const a of accounts) m.set(a.id, a.openingBalance);
+  for (const t of txs) {
+    if (asOf && t.date > asOf) continue;
+    if (m.has(t.accountId)) m.set(t.accountId, m.get(t.accountId)! + txDelta(t, t.accountId));
+    if (t.kind === 'transfer' && t.toAccountId && t.toAccountId !== t.accountId && m.has(t.toAccountId)) {
+      m.set(t.toAccountId, m.get(t.toAccountId)! + txDelta(t, t.toAccountId));
+    }
+  }
+  return m;
+}
+
+/**
+ * Value of an account balance in `target` currency.
+ * BTC uses the live BTC rate; gold/units use the price typed in on the account.
+ */
+export function accountValue(account: Account, balance: number, rates: RateTable, target: string): number | null {
+  if (account.type === 'units') {
+    if (account.unitPriceSource === 'live-gold') {
+      const live = convert(balance, GOLD_CODE, target, rates);
+      if (live !== null) return live;
+    }
+    if (!account.unitPrice) return null;
+    return convert(balance * account.unitPrice, account.unitPriceCurrency || target, target, rates);
+  }
+  return convert(balance, account.currency, target, rates);
+}
+
+/** Value of one unit of the account's currency in `target`, used to stamp entries. */
+export function unitValue(account: Account, rates: RateTable, target: string): number | null {
+  return accountValue(account, 1, rates, target);
+}
+
+export interface NetWorth {
+  total: number;
+  missing: string[];
+  byGroup: Map<string, number>;
+}
+
+export function netWorth(accounts: Account[], balances: Map<string, number>, rates: RateTable, target: string): NetWorth {
+  let total = 0;
+  const missing: string[] = [];
+  const byGroup = new Map<string, number>();
+  for (const a of accounts) {
+    if (a.archived || !a.includeInNetWorth) continue;
+    const v = accountValue(a, balances.get(a.id) ?? 0, rates, target);
+    if (v === null) {
+      if ((balances.get(a.id) ?? 0) !== 0) missing.push(a.name);
+      continue;
+    }
+    total += v;
+    byGroup.set(a.group, (byGroup.get(a.group) ?? 0) + v);
+  }
+  return { total, missing, byGroup };
+}
