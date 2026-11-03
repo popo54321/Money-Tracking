@@ -38,8 +38,6 @@
   --tab-on-bg: var(--pink);
   --tab-on-ink: var(--pink-ink);
   --pattern: none;
-  --hero-deco: '';
-  --tile-deco: '';
   --shadow: 0 6px 18px rgba(196, 140, 190, 0.18);
   --shadow-sm: 0 2px 8px rgba(196, 140, 190, 0.16);
   --income: var(--mint-ink);
@@ -132,8 +130,6 @@
     radial-gradient(2px 2px at 61% 33%, var(--deco-border) 50%, transparent 51%),
     radial-gradient(1.4px 1.4px at 31% 52%, var(--star) 50%, transparent 51%),
     radial-gradient(1.8px 1.8px at 88% 64%, var(--deco-border) 50%, transparent 51%);
-  --hero-deco: '✦ ✧ ✦';
-  --tile-deco: '✧';
 }
 @media (prefers-color-scheme: dark) {
   :root[data-skin='fantasy']:not([data-theme='light']) {
@@ -204,8 +200,6 @@
   --pattern:
     radial-gradient(5px 5px at 20% 30%, var(--star) 50%, transparent 52%),
     radial-gradient(3px 3px at 70% 70%, var(--star) 50%, transparent 52%);
-  --hero-deco: '🌿 🦶 🌿';
-  --tile-deco: '🦶';
   --shadow: 0 6px 18px rgba(110, 170, 110, 0.18);
   --shadow-sm: 0 2px 8px rgba(110, 170, 110, 0.16);
 }
@@ -300,8 +294,6 @@
   --pattern:
     radial-gradient(4px 4px at 25% 25%, var(--star) 50%, transparent 52%),
     radial-gradient(4px 4px at 75% 65%, var(--star) 50%, transparent 52%);
-  --hero-deco: '🐾 🐾 🐾';
-  --tile-deco: '🐾';
   --shadow: 0 6px 18px rgba(210, 150, 120, 0.18);
   --shadow-sm: 0 2px 8px rgba(210, 150, 120, 0.16);
 }
@@ -394,8 +386,6 @@
   --tab-on-bg: var(--lav);
   --tab-on-ink: var(--lav-ink);
   --pattern: none;
-  --hero-deco: '';
-  --tile-deco: '';
   --radius: 10px;
   --radius-sm: 8px;
   --shadow: 0 6px 18px rgba(20, 33, 61, 0.18);
@@ -520,8 +510,6 @@
   --add-bg: linear-gradient(135deg, #a5df7e, #6dbb47);
   --tab-on-bg: var(--mint);
   --tab-on-ink: var(--mint-ink);
-  --hero-deco: '🪷 · 🍃 · 🪷';
-  --tile-deco: '💧';
   --shadow: 0 6px 18px rgba(120, 170, 90, 0.18);
   --shadow-sm: 0 2px 8px rgba(120, 170, 90, 0.16);
 }
