@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AmountField, CategoryGrid, Field, Sheet, Topbar } from '../components/ui';
-import { TxGroups } from '../components/TxRow';
+import { ScheduledList, TxGroups } from '../components/TxRow';
 import { accountValue } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
 import { fmtAgo, fmtDate, relativeDays } from '../domain/dates';
@@ -23,7 +23,7 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
   const [mode, setMode] = useState<'adjust' | 'log' | 'opening'>('adjust');
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [date, setDate] = useState(today);
-  const hasEntries = data.txs.some((t) => t.accountId === account.id || t.toAccountId === account.id);
+  const hasEntries = data.allTxs.some((t) => t.accountId === account.id || t.toAccountId === account.id);
 
   const newBalance = value === null ? null : isCard ? -value : value;
   const delta = newBalance === null ? 0 : newBalance - current;
@@ -329,6 +329,8 @@ export function AccountDetail({ id }: { id: string }) {
             ))}
           </div>
         )}
+
+        <ScheduledList accountId={a.id} days={62} />
 
         <div className="section-title">🧾 Entries</div>
         {txs.length === 0 ? (

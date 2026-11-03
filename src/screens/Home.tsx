@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
 import { holdProps } from '../components/hold';
 import { Sheet, Topbar, Sparkle } from '../components/ui';
-import { TxGroups } from '../components/TxRow';
+import { ScheduledList, TxGroups } from '../components/TxRow';
 import { netWorth } from '../domain/balances';
-import { fmtAgo, fmtDate, monthEnd, monthKey, monthStart, relativeDays } from '../domain/dates';
+import { fmtAgo, monthEnd, monthKey, monthStart } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { rateBetween } from '../domain/fx';
 import { summarise } from '../domain/summary';
@@ -127,7 +127,6 @@ export function Home() {
   const setupDue = (needsSetup?.value as Record<string, boolean> | undefined)?.[profile.id];
   const backupDays = settings.lastBackupAt ? (Date.now() - settings.lastBackupAt) / 86400000 : Infinity;
   const showBackup = data.txs.length >= 5 && backupDays > (isNative() ? 14 : 7);
-  const soon = data.upcoming.filter((u) => u.daysAway <= 31).slice(0, 4);
 
   return (
     <>
@@ -177,45 +176,7 @@ export function Home() {
           </button>
         </div>
 
-        {soon.length > 0 && (
-          <>
-            <div className="section-title">
-              <span>⏰ Coming up</span>
-              <span className="grow" />
-              <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>
-                All ›
-              </button>
-            </div>
-            <div className="list">
-              {soon.map((u) => {
-                const reserveAcc = u.reserveAccountId ? data.accountById.get(u.reserveAccountId) : undefined;
-                return (
-                  <button
-                    key={u.key}
-                    className="row"
-                    onClick={() =>
-                      u.source === 'card' ? go({ name: 'account', id: u.refId }) : go({ name: 'recurringEdit', id: u.refId })
-                    }
-                  >
-                    <div className={`bubble ${u.kind === 'income' ? 'mint' : u.overdue ? 'pink' : 'peach'}`}>
-                      {u.kind === 'income' ? '💰' : u.source === 'card' ? '💳' : '🔔'}
-                    </div>
-                    <div className="main">
-                      <div className="title">{u.label}</div>
-                      <div className="sub">
-                        {fmtDate(u.date, false)} · {u.overdue ? 'overdue!' : relativeDays(today, u.date)}
-                        {reserveAcc ? ` · keep in ${reserveAcc.name}` : ''}
-                      </div>
-                    </div>
-                    <div className="end">
-                      <div className={`amt ${u.kind === 'income' ? 'pos' : ''}`}>{fmtMoney(u.amount, u.currency)}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
+        <ScheduledList limit={5} />
 
         <div className="section-title">
           <span>🧾 Recent</span>

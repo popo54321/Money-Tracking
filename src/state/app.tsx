@@ -54,7 +54,12 @@ export const TAB_ROOTS = ['home', 'accounts', 'summary', 'more'] as const;
 export interface ProfileData {
   accounts: Account[];
   categories: Category[];
+  /** entries up to and including today: these count in balances and totals */
   txs: Tx[];
+  /** entries dated in the future: shown faded as scheduled, counted from their day */
+  scheduled: Tx[];
+  /** every entry, for looking one up by id */
+  allTxs: Tx[];
   recurring: Recurring[];
   balances: Map<string, number>;
   upcoming: UpcomingItem[];
@@ -158,13 +163,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!accounts || !categories || !txs || !recurring) return null;
     const accs = accounts.slice().sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     const cats = categories.slice().sort((a, b) => a.order - b.order);
-    const balances = balancesByAccount(accs, txs);
-    const upcoming = upcomingItems(accs, recurring, txs, today);
+    const actual = txs.filter((t) => t.date <= today);
+    const scheduled = txs.filter((t) => t.date > today).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const balances = balancesByAccount(accs, actual);
+    const upcoming = upcomingItems(accs, recurring, actual, today);
     const reserved = reservedByAccount(upcoming, accs);
     return {
       accounts: accs,
       categories: cats,
-      txs,
+      txs: actual,
+      scheduled,
+      allTxs: txs,
       recurring,
       balances,
       upcoming,

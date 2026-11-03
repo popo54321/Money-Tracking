@@ -29,7 +29,7 @@ export function AccountEdit({ id }: { id?: string }) {
   const [curOpen, setCurOpen] = useState(false);
   const set = (patch: Partial<Account>) => setA((x) => ({ ...x, ...patch }));
   const isCard = a.type === 'credit';
-  const hasEntries = !!existing && data.txs.some((t) => t.accountId === a.id || t.toAccountId === a.id);
+  const hasEntries = !!existing && data.allTxs.some((t) => t.accountId === a.id || t.toAccountId === a.id);
 
   const pickType = (t: AccountType) => {
     const def = ACCOUNT_TYPES.find((x) => x.type === t)!;

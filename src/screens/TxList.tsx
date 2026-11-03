@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Topbar } from '../components/ui';
-import { TxGroups } from '../components/TxRow';
+import { ScheduledList, TxGroups } from '../components/TxRow';
 import { fmtDate } from '../domain/dates';
 import { useData, type Route } from '../state/app';
 
@@ -37,6 +37,7 @@ export function TxList({ route }: { route: R }) {
         )}
         <input placeholder="🔍 Search notes, categories, amounts" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="small muted mt">{list.length} entries</div>
+        {!query && !route.categoryId && !route.from && <ScheduledList accountId={route.accountId} days={62} />}
         <TxGroups txs={list} limit={limit} />
         {list.length > limit && (
           <button className="btn block" onClick={() => setLimit(limit + 300)}>
