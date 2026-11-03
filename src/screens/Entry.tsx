@@ -18,8 +18,10 @@ import { convert } from '../domain/fx';
 import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
 import { describeSchedule } from '../domain/recurring';
 import { fmtDate } from '../domain/dates';
+import { noteSuggestions, type NoteSuggestion } from '../domain/notes';
 import type { Freq, TxKind } from '../domain/types';
 import { db } from '../db/db';
+import { categoryEmoji } from '../ui/emoji';
 import { deleteTx, saveNewEntry, saveTx } from '../db/repo';
 import { useApp, useData, type Route } from '../state/app';
 
@@ -82,6 +84,24 @@ export function Entry({ route }: { route: EntryRoute }) {
   const [every, setEvery] = useState(1);
   const [autoPost, setAutoPost] = useState(true);
   const [reserve, setReserve] = useState(true);
+
+  // notes typed before (car park, coffee…): tap one to fill the note, category, account and amount
+  const suggestions = useMemo(
+    () => (kind === 'adjust' ? [] : noteSuggestions(data.allTxs, kind, note, note.trim() ? 6 : 8)),
+    [data.allTxs, kind, note],
+  );
+  const pickSuggestion = (sg: NoteSuggestion) => {
+    const t = sg.last;
+    setNote(sg.note);
+    if (t.categoryId && data.categoryById.has(t.categoryId)) setCategoryId(t.categoryId);
+    const a = data.accountById.get(t.accountId);
+    if (a && !a.archived && !route.accountId) {
+      setAccountId(a.id);
+      setTypedCurrency(t.origCurrency ?? a.currency);
+    }
+    if (t.toAccountId && data.accountById.has(t.toAccountId)) setToAccountId(t.toAccountId);
+    if (calc.value === null) calc.setExpr(String(roundTo(t.origAmount ?? t.amount, 8)));
+  };
 
   const amount = calc.value;
   const accCur = acc?.currency ?? currency;
@@ -320,6 +340,23 @@ export function Entry({ route }: { route: EntryRoute }) {
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
           </Field>
         </div>
+        {suggestions.length > 0 && (
+          <div className="mb">
+            <div className="tiny muted mb">{note.trim() ? 'Used before' : 'Quick picks from your notes'}</div>
+            <div className="chips">
+              {suggestions.map((sg) => {
+                const c = sg.last.categoryId ? data.categoryById.get(sg.last.categoryId) : undefined;
+                const a = data.accountById.get(sg.last.accountId);
+                return (
+                  <button key={sg.note} type="button" className="chip" onClick={() => pickSuggestion(sg)}>
+                    {c ? `${categoryEmoji(c)} ` : ''}
+                    {sg.note} · {fmtMoney(sg.last.origAmount ?? sg.last.amount, sg.last.origCurrency ?? a?.currency ?? currency)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {!existing && kind !== 'adjust' && (
           <div className="card flat">

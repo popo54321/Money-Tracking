@@ -50,6 +50,7 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Saving targets** | Wishlist with price, monthly saving or a linked account, and when you can buy it |
 | **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |
 | **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
+| **Remembered notes** | Notes you typed before (car park, coffee…) come up as you type, or as quick picks; one tap fills the note, category, account and amount |
 | **Arrange** | Move whole groups (e.g. Credit or Fixed to the top) and items inside them: Categories page, and Accounts → Arrange |
 | **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |
 | **Backup** | Save a backup file (Drive, email, Files), restore it, export all entries; Android also keeps a daily copy in `Documents/MoneyTracking` |

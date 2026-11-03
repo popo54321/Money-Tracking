@@ -123,6 +123,13 @@ export async function deleteProfile(id: string): Promise<void> {
 
 /** One-time tidy-up for installs from 0.1: BTC and gold accounts get their own Wealth preserve group. */
 export async function migrate(): Promise<void> {
+  // cash has its own group, apart from bank accounts
+  if (!(await db.kv.get('migratedCashGroup'))) {
+    for (const a of await db.accounts.toArray())
+      if (a.group === 'Bank' && (a.type === 'cash' || a.name.trim().toLowerCase() === 'cash'))
+        await db.accounts.update(a.id, { group: 'Cash' });
+    await db.kv.put({ key: 'migratedCashGroup', value: true });
+  }
   const done = await db.kv.get('migratedWealthGroup');
   if (done) return;
   const accs = await db.accounts.toArray();
