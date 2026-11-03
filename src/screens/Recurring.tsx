@@ -223,9 +223,11 @@ export function RecurringEdit({ id }: { id?: string }) {
         )}
         {existing && <ToggleRow title="Active" on={r.active} onChange={(v) => set({ active: v })} />}
 
-        <button className="btn primary block mt" onClick={save}>
-          {existing ? 'Save' : 'Add repeating entry'}
-        </button>
+        <div className="save-bar">
+          <button className="btn primary block" onClick={save}>
+            {existing ? 'Save' : 'Add repeating entry'}
+          </button>
+        </div>
 
         {existing && next && (
           <div className="btn-row mt">

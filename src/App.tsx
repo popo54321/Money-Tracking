@@ -56,7 +56,8 @@ function Screen() {
 function TabBar() {
   const { route, tab, go, stackDepth, skin } = useApp();
   const root = stackDepth === 1 ? route.name : null;
-  if (route.name === 'entry') return null;
+  // forms keep their Save button at the bottom instead of the tab bar
+  if (route.name === 'entry' || route.name === 'accountEdit' || route.name === 'recurringEdit') return null;
   const t = (name: 'home' | 'accounts' | 'summary' | 'more', emoji: string, label: string) => (
     <button className={`tab ${root === name ? 'on' : ''}`} onClick={() => tab(name)} aria-label={label}>
       <span className="ti">{emoji}</span>

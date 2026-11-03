@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
+import { Mascot } from '../ui/Mascot';
 import { Sheet, Topbar, Sparkle } from '../components/ui';
 import { TxGroups } from '../components/TxRow';
 import { netWorth } from '../domain/balances';
@@ -79,30 +80,26 @@ function PriceChips() {
     : null;
   const updated = prices.btcFetchedAt ?? prices.ratesFetchedAt;
   return (
-    <div className="card">
-      <div className="between">
-        <h2 style={{ margin: 0 }}>✨ Live prices</h2>
+    <div className="card prices-card">
+      <div className="chips">
+        <span className="pill butter">BTC {fmtMoney(btc, currency, { dp: 0 })}</span>
+        {prices.goldBuyThb && <span className="pill peach">ทอง {fmtMoney(prices.goldBuyThb, 'THB', { dp: 0 })}</span>}
+        {usd && <span className="pill sky">$1 = {fmtMoney(usd, currency)}</span>}
+      </div>
+      <div className="between mt">
+        <span className="tiny muted">{updated ? `Prices updated ${fmtAgo(updated)}` : 'Built-in prices until the first update'}</span>
         <button
-          className="btn sm sky"
+          className="btn sm ghost"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
             const r = await refreshPrices(true);
             setBusy(false);
-            toast(r.ok ? '🌈 Prices updated' : r.error === 'offline' ? '📴 Offline, using saved prices' : `😿 ${r.error}`);
+            toast(r.ok ? '✅ Prices updated' : r.error === 'offline' ? '📴 Offline, using saved prices' : `⚠️ ${r.error}`);
           }}
         >
-          {busy ? '…' : '↻ Refresh'}
+          {busy ? '…' : '↻ Update'}
         </button>
-      </div>
-      <div className="chips mt">
-        <span className="pill butter">🪙 1 BTC = {fmtMoney(btc, currency, { dp: 0 })}</span>
-        {prices.goldBuyThb && <span className="pill peach">🥇 ทอง 1 บาท = {fmtMoney(prices.goldBuyThb, 'THB', { dp: 0 })}</span>}
-        {usd && <span className="pill sky">$1 = {fmtMoney(usd, currency)}</span>}
-      </div>
-      <div className="tiny muted mt">
-        {updated ? `Updated ${fmtAgo(updated)}` : 'Using built-in prices from 3 Nov 2026 until the first update'}
-        {' · works offline with the last saved prices'}
       </div>
     </div>
   );
@@ -121,41 +118,18 @@ export function Home() {
   const setupDue = (needsSetup?.value as Record<string, boolean> | undefined)?.[profile.id];
   const backupDays = settings.lastBackupAt ? (Date.now() - settings.lastBackupAt) / 86400000 : Infinity;
   const showBackup = data.txs.length >= 5 && backupDays > (isNative() ? 14 : 7);
-  const soon = data.upcoming.filter((u) => u.daysAway <= 31).slice(0, 6);
+  const soon = data.upcoming.filter((u) => u.daysAway <= 31).slice(0, 4);
 
   return (
     <>
       <Topbar title={`${skin.greeting} ${profile.name} ${skin.plain ? '' : profile.emoji ?? ''}`} right={<ProfileSwitch />} noBack />
       <div className="page">
-        {webUpdate && (
-          <button className="banner mint" style={{ width: '100%', border: 'none' }} onClick={applyWebUpdate}>
-            <span>🎉</span>
-            <span className="grow">A new version is ready. Tap to update.</span>
-          </button>
-        )}
-        {data.accounts.length === 0 && (
-          <button className="banner pink" style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={() => go({ name: 'accountEdit' })}>
-            <span>🪄</span>
-            <span className="grow">Add your first account, card or purse to begin</span>
-            <span>›</span>
-          </button>
-        )}
-        {setupDue && data.accounts.length > 0 && (
-          <button className="banner pink" style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={() => go({ name: 'setup' })}>
-            <span>🌱</span>
-            <span className="grow">Set your starting balances so totals are right</span>
-            <span>›</span>
-          </button>
-        )}
-        {showBackup && (
-          <button className="banner" style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={() => go({ name: 'settings' })}>
-            <span>💾</span>
-            <span className="grow">
-              {Number.isFinite(backupDays) ? `Last backup ${Math.floor(backupDays)} days ago.` : 'No backup yet.'} Save one to Drive or Files.
-            </span>
-            <span>›</span>
-          </button>
-        )}
+        <HomeBanner
+          webUpdate={webUpdate}
+          noAccounts={data.accounts.length === 0}
+          setupDue={!!setupDue}
+          backupDays={showBackup ? backupDays : null}
+        />
 
         <div className="hero">
           <Sparkle k="home" />
@@ -178,14 +152,25 @@ export function Home() {
           {nw.missing.length > 0 && <div className="tiny mt">Not counted (no price): {nw.missing.join(', ')}</div>}
         </div>
 
+        <div className="quick-actions">
+          <button className="btn pink" onClick={() => go({ name: 'entry', kind: 'expense' })}>
+            − Spend
+          </button>
+          <button className="btn mint" onClick={() => go({ name: 'entry', kind: 'income' })}>
+            + Income
+          </button>
+          <button className="btn" onClick={() => go({ name: 'entry', kind: 'transfer' })}>
+            ⇄ Move
+          </button>
+        </div>
+
+        {soon.length > 0 && (
+          <>
         <div className="section-title">
           <span>⏰ Coming up</span>
           <span className="grow" />
           <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>All ›</button>
         </div>
-        {soon.length === 0 ? (
-          <div className="card small muted">Nothing due in the next month. Add bills and subscriptions under More → Repeating.</div>
-        ) : (
           <div className="list">
             {soon.map((u) => {
               const reserveAcc = u.reserveAccountId ? data.accountById.get(u.reserveAccountId) : undefined;
@@ -212,9 +197,9 @@ export function Home() {
               );
             })}
           </div>
-        )}
 
-        <PriceChips />
+          </>
+        )}
 
         <div className="section-title">
           <span>🧾 Recent</span>
@@ -223,15 +208,39 @@ export function Home() {
         </div>
         {data.txs.length === 0 ? (
           <div className="card center">
-            {skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>}
+            {skin.mascot ? <Mascot kind={skin.mascot} pose="happy" size={72} /> : skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>}
             <div className="bold">No entries yet</div>
             <div className="small muted mb">Tap + to log your first spending.</div>
           </div>
         ) : (
-          <TxGroups txs={data.txs} limit={12} />
+          <TxGroups txs={data.txs} limit={8} />
         )}
-        <div className="center tiny muted mt">{currency} is your main currency · change it in Settings</div>
+        <PriceChips />
       </div>
     </>
+  );
+}
+
+/** Only the most important notice is shown, so the top of Home stays calm. */
+function HomeBanner({ webUpdate, noAccounts, setupDue, backupDays }: { webUpdate: boolean; noAccounts: boolean; setupDue: boolean; backupDays: number | null }) {
+  const { go } = useApp();
+  let b: { cls: string; icon: string; text: string; onClick: () => void } | null = null;
+  if (webUpdate) b = { cls: 'mint', icon: '🎉', text: 'A new version is ready. Tap to update.', onClick: applyWebUpdate };
+  else if (noAccounts) b = { cls: 'pink', icon: '👛', text: 'Start by adding your first account, card or cash', onClick: () => go({ name: 'accountEdit' }) };
+  else if (setupDue) b = { cls: 'pink', icon: '🌱', text: 'Set your starting balances so totals are right', onClick: () => go({ name: 'setup' }) };
+  else if (backupDays !== null)
+    b = {
+      cls: '',
+      icon: '💾',
+      text: `${Number.isFinite(backupDays) ? `Last backup ${Math.floor(backupDays)} days ago.` : 'No backup yet.'} Save one to Drive or Files.`,
+      onClick: () => go({ name: 'settings' }),
+    };
+  if (!b) return null;
+  return (
+    <button className={`banner ${b.cls}`} style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={b.onClick}>
+      <span>{b.icon}</span>
+      <span className="grow">{b.text}</span>
+      <span>›</span>
+    </button>
   );
 }

@@ -1,6 +1,6 @@
 # Money Tracking 🧚
 
-A fairy-tale, pastel money tracker for logging day to day on the phone, fully offline, ready to copy into the monthly workbook.
+A friendly money tracker with six themes for logging day to day on the phone, fully offline, ready to copy into the monthly workbook.
 
 - **Android:** a real app (APK) from this repo's Releases page, with a one-tap update button.
 - **iPhone:** a web app you add to the Home Screen. Works offline after the first visit.
@@ -46,6 +46,7 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price, monthly saving or a linked account, and when you can buy it |
+| **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
 | **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |
 | **Backup** | Save a backup file (Drive, email, Files), restore it, export all entries; Android also keeps a daily copy in `Documents/MoneyTracking` |
 

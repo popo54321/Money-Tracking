@@ -97,16 +97,6 @@ export function AccountEdit({ id }: { id?: string }) {
           </div>
         </Field>
 
-        <Field label="Group" hint="Matches the sections of your year sheet.">
-          <div className="chips">
-            {[...ACCOUNT_GROUPS, ...(ACCOUNT_GROUPS.includes(a.group) ? [] : [a.group])].map((g) => (
-              <button key={g} type="button" className={`chip lav ${a.group === g ? 'on' : ''}`} onClick={() => set({ group: g })}>
-                {g}
-              </button>
-            ))}
-          </div>
-        </Field>
-
         {a.type === 'units' ? (
           <div className="grid2">
             <Field label="Unit name">
@@ -180,18 +170,34 @@ export function AccountEdit({ id }: { id?: string }) {
           </div>
         )}
 
-        <Field label="Note">
-          <input value={a.note ?? ''} onChange={(e) => set({ note: e.target.value || undefined })} placeholder="Optional" />
-        </Field>
+        <details className="card flat">
+          <summary>
+            More options <span className="hint">· group {a.group}, note, net worth</span>
+          </summary>
+          <Field label="Group" hint="Matches the sections of your year sheet.">
+            <div className="chips">
+              {[...ACCOUNT_GROUPS, ...(ACCOUNT_GROUPS.includes(a.group) ? [] : [a.group])].map((g) => (
+                <button key={g} type="button" className={`chip lav ${a.group === g ? 'on' : ''}`} onClick={() => set({ group: g })}>
+                  {g}
+                </button>
+              ))}
+            </div>
+          </Field>
 
-        <ToggleRow title="Count in net worth" on={a.includeInNetWorth} onChange={(v) => set({ includeInNetWorth: v })} />
-        {existing && (
-          <ToggleRow title="Archived" desc="Hidden from lists, history kept" on={a.archived} onChange={(v) => set({ archived: v })} />
-        )}
+          <Field label="Note">
+            <input value={a.note ?? ''} onChange={(e) => set({ note: e.target.value || undefined })} placeholder="Optional" />
+          </Field>
+          <ToggleRow title="Count in net worth" on={a.includeInNetWorth} onChange={(v) => set({ includeInNetWorth: v })} />
+          {existing && (
+            <ToggleRow title="Archived" desc="Hidden from lists, history kept" on={a.archived} onChange={(v) => set({ archived: v })} />
+          )}
+        </details>
 
-        <button className="btn primary block mt" onClick={save}>
-          {existing ? 'Save' : 'Add account'}
-        </button>
+        <div className="save-bar">
+          <button className="btn primary block" onClick={save}>
+            {existing ? 'Save' : 'Add account'}
+          </button>
+        </div>
         {existing && (
           <button className="btn danger block mt" onClick={remove}>
             Delete account

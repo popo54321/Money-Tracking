@@ -1,5 +1,6 @@
 // Themes: colours live in styles.css ([data-skin]); icons and wording live here.
-export type Skin = 'financial' | 'cute' | 'fantasy' | 'dino' | 'cat';
+export type Skin = 'financial' | 'cute' | 'fantasy' | 'dino' | 'cat' | 'frog';
+import type { MascotKind, Pose } from './Mascot';
 
 export type TileKey =
   | 'recurring' | 'monthClose' | 'budget' | 'wealth' | 'goals' | 'bills' | 'trips' | 'debts' | 'categories' | 'settings';
@@ -18,6 +19,9 @@ export interface SkinDef {
   tiles: Record<TileKey, string>;
   empty: string;
   greeting: string;
+  /** drawn mascot used instead of emoji decorations */
+  mascot?: MascotKind;
+  poses?: Record<string, Pose>;
 }
 
 const CUTE: SkinDef = {
@@ -60,6 +64,24 @@ const DINO: SkinDef = {
   tiles: { recurring: '🔁', monthClose: '🦴', budget: '🦖', wealth: '🪨', goals: '🦕', bills: '🍖', trips: '🗺️', debts: '🐢', categories: '🌿', settings: '🌋' },
   empty: '🦕',
   greeting: 'Rawr,',
+  mascot: 'dino',
+  poses: { home: 'happy', accounts: 'coin', summary: 'wow', wealth: 'coin', goals: 'love', debts: 'happy', recurring: 'sleep', budget: 'coin', trips: 'happy', bills: 'love', empty: 'happy' },
+};
+
+const FROG: SkinDef = {
+  id: 'frog',
+  label: 'Frog',
+  desc: 'Round little frogs on a lily pond',
+  icon: '🐸',
+  plain: false,
+  tabs: { home: '🐸', accounts: '🪷', summary: '🍃', more: '💧' },
+  names: { accounts: 'Lily pond 🪷', more: 'Pond 💧', summary: 'Summary 🍃', budget: 'Budget plan 🐸', goals: 'Saving targets 🌼', wealth: 'Wealth preserve 👑' },
+  sparkle: {},
+  tiles: { recurring: '🔁', monthClose: '📋', budget: '🐸', wealth: '👑', goals: '🌼', bills: '🍰', trips: '🧳', debts: '🐛', categories: '🍃', settings: '💧' },
+  empty: '🐸',
+  greeting: 'Ribbit,',
+  mascot: 'frog',
+  poses: { home: 'happy', accounts: 'coin', summary: 'wow', wealth: 'coin', goals: 'love', debts: 'happy', recurring: 'sleep', budget: 'coin', trips: 'happy', bills: 'love', empty: 'happy' },
 };
 
 const CAT: SkinDef = {
@@ -90,7 +112,7 @@ const FINANCIAL: SkinDef = {
   greeting: 'Welcome,',
 };
 
-export const SKINS: SkinDef[] = [FINANCIAL, CUTE, FANTASY, DINO, CAT];
+export const SKINS: SkinDef[] = [FINANCIAL, CUTE, FANTASY, DINO, CAT, FROG];
 export const DEFAULT_SKIN: Skin = 'cute';
 
 export function getSkin(id: string | undefined): SkinDef {
