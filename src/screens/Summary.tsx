@@ -54,7 +54,7 @@ export function Summary() {
 
   return (
     <>
-      <Topbar title="Summary 📊" right={<ProfileSwitch />} noBack />
+      <Topbar title="Summary 🔮" right={<ProfileSwitch />} noBack />
       <div className="page">
         <Seg
           value={mode}
@@ -85,7 +85,7 @@ export function Summary() {
         )}
 
         <div className="hero">
-          <span className="sparkle">🍰</span>
+          <span className="sparkle">🦄</span>
           <div className="label">Left over</div>
           <div className="big">{fmtMoney(s.surplus, currency)}</div>
           <div className="stat-row">

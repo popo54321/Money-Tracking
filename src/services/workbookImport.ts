@@ -1,4 +1,4 @@
-// Read the Budget Allocation sheet from Popo's workbook (picked on the phone), so the amounts
+// Read the Budget Allocation sheet from the user's workbook (picked on the phone), so the amounts
 // never need to be typed again or stored in the code.
 import type { BudgetPlan, BudgetRow, BudgetTransfer } from '../domain/types';
 import { uid } from '../db/db';

@@ -1,6 +1,6 @@
-# Money Tracking 🐷
+# Money Tracking 🧚
 
-A cute, pastel money tracker for logging day to day on the phone, fully offline, ready to copy into the monthly workbook.
+A fairy-tale, pastel money tracker for logging day to day on the phone, fully offline, ready to copy into the monthly workbook.
 
 - **Android:** a real app (APK) from this repo's Releases page, with a one-tap update button.
 - **iPhone:** a web app you add to the Home Screen. Works offline after the first visit.
@@ -34,7 +34,7 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 | Area | What you get |
 |---|---|
 | **Entries** | Spend / income / move money with a calculator keypad (`120+35×2`), any currency (converted with live rates), categories from the workbook |
-| **Accounts** | Bank, cash, debit, credit card, top-up card, investments, BTC, gold, insurance: add, edit, archive, reorder |
+| **Accounts** | Bank, cash, debit, credit card, top-up card, investments, BTC, gold, insurance: add, edit, archive, reorder; BTC and gold sit in their own Wealth preserve group |
 | **Set new balance** | Type the new total; choose **just adjust** or **log the difference as income/spending** (for example Interest) |
 | **Credit cards** | Statement day, due day, credit limit, paying account, amount still to pay, **Pay now** |
 | **Repeating** | Daily / weekly / monthly / yearly (every N); recorded automatically on the day; the next payment is **kept ready** (reserved) in its account |
@@ -46,7 +46,7 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price, monthly saving or a linked account, and when you can buy it |
-| **Profiles** | Popo and Qiqi, each with separate accounts, entries and categories |
+| **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |
 | **Backup** | Save a backup file (Drive, email, Files), restore it, export all entries; Android also keeps a daily copy in `Documents/MoneyTracking` |
 
 ---
@@ -79,7 +79,7 @@ Without these secrets the workflow still builds a test APK (under the run's **Ar
 1. Raise `version` in `package.json` (for example `0.1.0` → `0.2.0`).
 2. Push.
 
-The **Android app** workflow builds a signed APK and publishes release `v0.2.0`. The app's Update button finds it. The **Web app** workflow refreshes the iPhone version from `main`.
+On `main`, the **Android app** workflow builds a signed APK and publishes release `v0.2.0`. The app's Update button finds it. The **Web app** workflow refreshes the iPhone version from `main`.
 
 ## Developing
 

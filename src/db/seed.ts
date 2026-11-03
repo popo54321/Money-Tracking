@@ -1,75 +1,31 @@
-// Starting setup taken from the names in Popo's workbook (no amounts).
+// Starting setup for a new user: generic categories, no accounts and no amounts.
 import { todayISO } from '../domain/dates';
 import type { Account, AccountType, BudgetPlan, Category, Profile, Settings } from '../domain/types';
+
+export type SeedAcc = [name: string, type: AccountType, group: string, currency?: string];
 import { db, uid } from './db';
 
 export const DEFAULT_SETTINGS: Settings = {
   defaultCurrency: 'THB',
   favouriteCurrencies: ['THB', 'USD', 'EUR', 'CNY', 'JPY', 'GBP'],
-  activeProfileId: 'popo',
+  activeProfileId: 'user-1',
   theme: 'system',
   githubRepo: 'popo54321/Money-Tracking',
 };
 
-const INCOME = [
-  'Salary', 'Investing Dividend', 'Commission Money', 'Investing Income', 'Company Provident',
-  'Payback', 'Gifts', 'Interest', 'Other',
-];
+const INCOME = ['Salary', 'Bonus', 'Investing Dividend', 'Investing Income', 'Interest', 'Gifts', 'Payback', 'Other'];
 
 const EXPENSE: [string, string[]][] = [
-  ['Eating Out', ['Breakfast', 'Lunch', 'Dinner', 'Delivery']],
+  ['Eating Out', ['Breakfast', 'Lunch', 'Dinner', 'Delivery', 'Coffee']],
   [
     'Discretionary',
     [
-      'Groceries', 'Household', 'Transportation', 'Games', 'Books', 'Qiqi', 'Socialise', 'Gifts', 'Movies',
-      'Clothes', 'Luxury Lifestyle', 'Health & Body Care', 'Workout', 'Personal Development', 'Work Expense',
+      'Groceries', 'Household', 'Transportation', 'Games', 'Books', 'Socialise', 'Gifts', 'Movies', 'Clothes',
+      'Health & Body Care', 'Workout', 'Personal Development',
     ],
   ],
-  ['Infrequent', ['Tax', 'Travel', 'Large Purchase 1', 'Large Purchase 2']],
-  [
-    'Fixed',
-    [
-      'Spotify', 'Adobe', 'YouTube Premium', 'Line Man VIP', 'Gemini', 'Discord', 'Shopee VIP',
-      'Health Insurance', 'Claude', 'Tax & Social Security',
-    ],
-  ],
-];
-
-const QIQI_EXPENSE: [string, string[]][] = [
-  ['Eating Out', ['Breakfast', 'Lunch', 'Dinner', 'Delivery']],
-  ['Discretionary', ['Groceries', 'Household', 'Transportation', 'Clothes', 'Health & Body Care', 'Gifts', 'Socialise']],
-  ['Infrequent', ['Travel', 'Large Purchase']],
-  ['Fixed', ['Insurance', 'Subscriptions', 'Bills']],
-];
-
-type SeedAcc = [name: string, type: AccountType, group: string, currency?: string];
-
-const POPO_ACCOUNTS: SeedAcc[] = [
-  ['Cash', 'cash', 'Bank'],
-  ['Kbank – Monthly Using', 'bank', 'Bank'],
-  ['Kbank – Invest + Trav', 'bank', 'Bank'],
-  ['SCB – Car Eme Edu', 'bank', 'Bank'],
-  ['SCB – Payroll', 'bank', 'Bank'],
-  ['Dime – Cash US', 'bank', 'Bank'],
-  ['2 Years Saving', 'bank', 'Bank'],
-  ['SCB – SCBS&P500E', 'investment', 'Investments'],
-  ['Dime – US Stock', 'investment', 'Investments'],
-  ['Bitcoin – Bitkub', 'crypto', 'Investments', 'BTC'],
-  ['Bitcoin – Trezor wallet', 'crypto', 'Investments', 'BTC'],
-  ['Thai Stock', 'investment', 'Investments'],
-  ['Stock Account', 'investment', 'Investments'],
-  ['Provident fund (My)', 'investment', 'Investments'],
-  ['Provident fund (Comp)', 'investment', 'Investments'],
-  ['AIA Insurance', 'insurance', 'Insurance'],
-  ['AIA Unit Link', 'insurance', 'Insurance'],
-  ['Thailife Insurance', 'insurance', 'Insurance'],
-  ['Social Insurance', 'insurance', 'Insurance'],
-];
-
-const QIQI_ACCOUNTS: SeedAcc[] = [
-  ['Cash', 'cash', 'Bank'],
-  ['Saving Account', 'bank', 'Bank'],
-  ['Gold', 'units', 'Assets', 'baht-weight'],
+  ['Infrequent', ['Tax', 'Travel', 'Large Purchase']],
+  ['Fixed', ['Rent', 'Bills', 'Phone', 'Internet', 'Subscriptions', 'Insurance']],
 ];
 
 export function makeCategories(profileId: string, income: string[], expense: [string, string[]][]): Category[] {
@@ -105,15 +61,9 @@ export function makeAccounts(profileId: string, list: SeedAcc[]): Account[] {
 }
 
 export function makeBudget(profileId: string): BudgetPlan {
-  const phases = [
-    'P1: Living Alone', 'P2: With Qiqi', 'P3: Pregnant Qiqi', 'P4: With Child', 'P5: Car Paid in full',
-  ].map((name) => ({ id: uid(), name }));
-  const catNames = [
-    'Investing', 'Travel', 'Qiqi Insurance', 'Qiqi Expense', 'Popo Expense', 'Household Expense',
-    'Car Payment', 'Emergency', 'Child Education',
-  ];
+  const phases = ['Phase 1'].map((name) => ({ id: uid(), name }));
+  const catNames = ['Saving', 'Investing', 'Living costs', 'Fun', 'Emergency'];
   const categories = catNames.map((name) => ({ id: uid(), name }));
-  const c = (n: string) => categories.find((x) => x.name === n)!.id;
   const amounts: BudgetPlan['amounts'] = {};
   for (const p of phases) amounts[p.id] = {};
   return {
@@ -127,7 +77,7 @@ export function makeBudget(profileId: string): BudgetPlan {
     amounts,
     bonus: {
       income: 0,
-      rows: ['Investment', 'Emergency', 'Car Payment', 'Travel'].map((name) => ({ id: uid(), name, pct: 0 })),
+      rows: ['Investment', 'Emergency', 'Travel'].map((name) => ({ id: uid(), name, pct: 0 })),
     },
     surplus: {
       amount: 0,
@@ -138,36 +88,56 @@ export function makeBudget(profileId: string): BudgetPlan {
         { id: uid(), name: 'Travel', pct: 0 },
       ],
     },
-    transfers: [
-      { id: uid(), fromLabel: 'Payroll', toLabel: 'Emer Edu Car', categoryIds: [c('Car Payment'), c('Emergency'), c('Child Education')], amounts: {} },
-      { id: uid(), fromLabel: 'Payroll', toLabel: 'Daily use', amounts: {}, note: 'Everything inside' },
-      { id: uid(), fromLabel: 'Daily Use', toLabel: 'Travel Invest', categoryIds: [c('Investing'), c('Travel')], amounts: {} },
-      { id: uid(), fromLabel: 'Travel Invest', toLabel: 'Bitkub', amounts: {} },
-      { id: uid(), fromLabel: 'Travel Invest', toLabel: 'Dime', amounts: {} },
-    ],
+    transfers: [],
     checklist: { month: todayISO().slice(0, 7), done: [] },
     updatedAt: Date.now(),
   };
 }
 
-/** Create the starting data on first launch. Safe to call every launch. */
+const PROFILE_EMOJI = ['🧚', '🦄', '🐰', '🦊', '🐻', '🦋', '🐱', '🐥'];
+
+/** A new, empty user with generic categories and an empty budget plan. */
+export async function createProfile(name?: string): Promise<Profile> {
+  const all = await db.profiles.toArray();
+  let n = all.length + 1;
+  while (all.some((p) => p.name === `User ${n}`)) n++;
+  const order = Math.max(-1, ...all.map((p) => p.order)) + 1;
+  const profile: Profile = { id: all.length === 0 ? 'user-1' : uid(), name: name?.trim() || `User ${n}`, emoji: PROFILE_EMOJI[(n - 1) % PROFILE_EMOJI.length], order };
+  await db.transaction('rw', [db.profiles, db.categories, db.budgets], async () => {
+    await db.profiles.add(profile);
+    await db.categories.bulkAdd(makeCategories(profile.id, INCOME, EXPENSE));
+    await db.budgets.put(makeBudget(profile.id));
+  });
+  return profile;
+}
+
+/** Delete a user and everything that belongs to them. */
+export async function deleteProfile(id: string): Promise<void> {
+  await db.transaction('rw', [db.profiles, db.accounts, db.categories, db.txs, db.recurring, db.budgets, db.debts, db.goals], async () => {
+    for (const t of [db.accounts, db.categories, db.txs, db.recurring, db.budgets, db.debts, db.goals]) {
+      await (t as typeof db.accounts).where('profileId').equals(id).delete();
+    }
+    await db.profiles.delete(id);
+  });
+}
+
+/** One-time tidy-up for installs from 0.1: BTC and gold accounts get their own Wealth preserve group. */
+export async function migrate(): Promise<void> {
+  const done = await db.kv.get('migratedWealthGroup');
+  if (done) return;
+  const accs = await db.accounts.toArray();
+  for (const a of accs) {
+    const wealth = a.currency === 'BTC' || (a.type === 'units' && a.unitPriceSource === 'live-gold');
+    if (wealth && (a.group === 'Investments' || a.group === 'Assets')) await db.accounts.update(a.id, { group: 'Wealth preserve' });
+  }
+  await db.kv.put({ key: 'migratedWealthGroup', value: true });
+}
+
+/** First launch: one empty user. Existing installs keep all their data. */
 export async function ensureSeeded(): Promise<boolean> {
   const count = await db.profiles.count();
   if (count > 0) return false;
-  const profiles: Profile[] = [
-    { id: 'popo', name: 'Popo', emoji: '🐻', order: 0 },
-    { id: 'qiqi', name: 'Qiqi', emoji: '🐰', order: 1 },
-  ];
-  await db.transaction('rw', [db.profiles, db.accounts, db.categories, db.budgets, db.kv], async () => {
-    await db.profiles.bulkAdd(profiles);
-    await db.categories.bulkAdd([
-      ...makeCategories('popo', INCOME, EXPENSE),
-      ...makeCategories('qiqi', ['Salary', 'Interest', 'Gifts', 'Payback', 'Other'], QIQI_EXPENSE),
-    ]);
-    await db.accounts.bulkAdd([...makeAccounts('popo', POPO_ACCOUNTS), ...makeAccounts('qiqi', QIQI_ACCOUNTS)]);
-    await db.budgets.bulkAdd([makeBudget('popo')]);
-    await db.kv.put({ key: 'settings', value: DEFAULT_SETTINGS });
-    await db.kv.put({ key: 'needsSetup', value: { popo: true, qiqi: true } });
-  });
+  await createProfile();
+  await db.kv.put({ key: 'settings', value: DEFAULT_SETTINGS });
   return true;
 }

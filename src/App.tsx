@@ -25,7 +25,7 @@ import { Setup } from './screens/Setup';
 
 function Screen() {
   const { route, data } = useApp();
-  if (!data) return <div className="empty"><span className="e">🌸</span>Loading…</div>;
+  if (!data) return <div className="empty"><span className="e">🧚</span>Loading…</div>;
   switch (route.name) {
     case 'home': return <Home />;
     case 'accounts': return <Accounts />;
@@ -66,13 +66,13 @@ function TabBar() {
   return (
     <nav className="tabbar">
       <div className="tabbar-inner">
-        {t('home', '🏡', 'Home')}
-        {t('accounts', '👛', 'Accounts')}
+        {t('home', '🏰', 'Home')}
+        {t('accounts', '💎', 'Accounts')}
         <button className="tab-add" aria-label="Add entry" onClick={() => go({ name: 'entry', kind: 'expense' })}>
           +
         </button>
-        {t('summary', '📊', 'Summary')}
-        {t('more', '🧁', 'More')}
+        {t('summary', '🔮', 'Summary')}
+        {t('more', '🍄', 'More')}
       </div>
     </nav>
   );

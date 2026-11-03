@@ -37,7 +37,7 @@ export function RecurringList() {
       />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🔔</span>
+          <span className="sparkle">🌙</span>
           <div className="label">Fixed spending, per month</div>
           <div className="big">{fmtMoney(monthlyOut, currency)}</div>
           <div className="small">

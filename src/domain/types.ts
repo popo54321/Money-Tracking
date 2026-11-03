@@ -27,14 +27,14 @@ export const ACCOUNT_TYPES: { type: AccountType; label: string; defaultGroup: st
   { type: 'credit', label: 'Credit card', defaultGroup: 'Credit' },
   { type: 'topup', label: 'Top-up card', defaultGroup: 'Bank' },
   { type: 'investment', label: 'Investment', defaultGroup: 'Investments' },
-  { type: 'crypto', label: 'Bitcoin (BTC)', defaultGroup: 'Investments' },
-  { type: 'units', label: 'Gold / units', defaultGroup: 'Assets' },
+  { type: 'crypto', label: 'Bitcoin (BTC)', defaultGroup: 'Wealth preserve' },
+  { type: 'units', label: 'Gold / units', defaultGroup: 'Wealth preserve' },
   { type: 'insurance', label: 'Insurance', defaultGroup: 'Insurance' },
   { type: 'other', label: 'Other', defaultGroup: 'Assets' },
 ];
 
 /** Groups in the same order as the year sheets, plus credit cards. */
-export const ACCOUNT_GROUPS = ['Bank', 'Investments', 'Assets', 'Insurance', 'Business', 'Credit'];
+export const ACCOUNT_GROUPS = ['Bank', 'Wealth preserve', 'Investments', 'Assets', 'Insurance', 'Business', 'Credit'];
 
 export interface Account {
   id: string;

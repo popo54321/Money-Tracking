@@ -25,7 +25,7 @@ def draw_icon(size: int, maskable: bool = False, transparent: bool = False) -> I
             ImageDraw.Draw(mask).rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * 0.23), fill=255)
             img.paste(bg, (0, 0), mask)
         d = ImageDraw.Draw(img)
-    scale = 0.62 if maskable or transparent else 0.74
+    scale = 0.5 if maskable or transparent else 0.58
     cx, cy = s / 2, s / 2 + s * 0.02
     r = s * scale / 2
     # soft shadow
@@ -34,11 +34,25 @@ def draw_icon(size: int, maskable: bool = False, transparent: bool = False) -> I
     sh = sh.filter(ImageFilter.GaussianBlur(s * 0.02))
     img.alpha_composite(sh)
     d = ImageDraw.Draw(img)
+    # fairy wings
+    wing = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    wd = ImageDraw.Draw(wing)
+    for sx in (-1, 1):
+        wd.ellipse([cx + sx * r * 1.0 - r * 0.55, cy - r * 1.25, cx + sx * r * 1.0 + r * 0.55, cy - r * 0.05], fill=(214, 200, 255, 210), outline=(170, 140, 240, 230), width=max(1, int(r * 0.03)))
+        wd.ellipse([cx + sx * r * 1.05 - r * 0.36, cy - r * 0.2, cx + sx * r * 1.05 + r * 0.36, cy + r * 0.55], fill=(255, 214, 236, 210), outline=(230, 150, 200, 230), width=max(1, int(r * 0.03)))
+    img.alpha_composite(wing)
+    d = ImageDraw.Draw(img)
     # piggy body
     d.ellipse([cx - r, cy - r * 0.86, cx + r, cy + r * 0.86], fill=(255, 143, 184))
     # ears
     d.polygon([(cx - r * 0.55, cy - r * 0.62), (cx - r * 0.25, cy - r * 0.78), (cx - r * 0.5, cy - r * 1.08)], fill=(255, 120, 168))
     d.polygon([(cx + r * 0.55, cy - r * 0.62), (cx + r * 0.25, cy - r * 0.78), (cx + r * 0.5, cy - r * 1.08)], fill=(255, 120, 168))
+    # sparkles
+    def star(x, y, k, col):
+        d.polygon([(x, y - k), (x + k * 0.28, y - k * 0.28), (x + k, y), (x + k * 0.28, y + k * 0.28), (x, y + k), (x - k * 0.28, y + k * 0.28), (x - k, y), (x - k * 0.28, y - k * 0.28)], fill=col)
+    star(cx - r * 0.35, cy - r * 1.25, r * 0.16, (255, 226, 120))
+    star(cx + r * 0.6, cy + r * 1.05, r * 0.12, (255, 255, 255))
+    star(cx - r * 0.7, cy + r * 1.0, r * 0.09, (255, 226, 120))
     # coin
     cr = r * 0.24
     ccx, ccy = cx, cy - r * 0.9

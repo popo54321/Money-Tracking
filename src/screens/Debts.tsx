@@ -85,7 +85,7 @@ export function DebtList() {
       <Topbar title="Who owes me 🤝" right={<ProfileSwitch />} />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">💌</span>
+          <span className="sparkle">🦉</span>
           <div className="label">People owe me</div>
           <div className="big">{fmtMoney(totals.owedToMe, currency)}</div>
           <div className="small bold">I owe others {fmtMoney(totals.iOwe, currency)}</div>

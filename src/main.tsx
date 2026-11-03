@@ -1,9 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/nunito/wght.css';
+import '@fontsource/henny-penny/latin-400.css';
 import './styles.css';
 import App from './App';
-import { ensureSeeded } from './db/seed';
+import { ensureSeeded, migrate } from './db/seed';
 import { registerServiceWorker } from './services/updater';
 
 async function start() {
@@ -13,6 +14,7 @@ async function start() {
     // not supported everywhere
   }
   await ensureSeeded();
+  await migrate();
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />

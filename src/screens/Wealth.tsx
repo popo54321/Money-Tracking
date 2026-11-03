@@ -143,10 +143,10 @@ export function Wealth() {
 
   return (
     <>
-      <Topbar title="Wealth preserve 🪙" right={<ProfileSwitch />} />
+      <Topbar title="Wealth preserve 🐉" right={<ProfileSwitch />} />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🏺</span>
+          <span className="sparkle">🐉</span>
           <div className="label">BTC + gold worth now</div>
           <div className="big">{fmtMoney(total, currency)}</div>
           <div className="small bold">

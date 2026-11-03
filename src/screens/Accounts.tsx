@@ -58,10 +58,10 @@ export function Accounts() {
 
   return (
     <>
-      <Topbar title="Accounts 👛" right={<ProfileSwitch />} noBack />
+      <Topbar title="Treasury 💎" right={<ProfileSwitch />} noBack />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">💖</span>
+          <span className="sparkle">👑</span>
           <div className="label">Total (net worth)</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
           <div className="chips">
@@ -76,7 +76,7 @@ export function Accounts() {
         </div>
 
         <button className="btn primary block mb" onClick={() => go({ name: 'accountEdit' })}>
-          ＋ Add account, card or pot
+          ＋ Add account, card or purse
         </button>
 
         {groups.map((g) => {

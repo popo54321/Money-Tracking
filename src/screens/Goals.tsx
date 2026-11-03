@@ -146,10 +146,10 @@ export function Goals() {
 
   return (
     <>
-      <Topbar title="Saving targets 🎯" right={<ProfileSwitch />} />
+      <Topbar title="Wishes 🌠" right={<ProfileSwitch />} />
       <div className="page">
         <div className="hero">
-          <span className="sparkle">🛍️</span>
+          <span className="sparkle">🌠</span>
           <div className="label">Still to save for my wishlist</div>
           <div className="big">{fmtMoney(totalLeft, currency)}</div>
           <div className="small bold">{active.length} {active.length === 1 ? 'thing' : 'things'} on the list</div>
@@ -159,7 +159,7 @@ export function Goals() {
         </button>
         {goals && goals.length === 0 && (
           <div className="card center small muted">
-            <div style={{ fontSize: 40 }}>🧸</div>
+            <div style={{ fontSize: 40 }}>🌠</div>
             Add something you want, its price, and how much you save each month. See when you can buy it.
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { Topbar } from '../components/ui';
+import { Sheet, Topbar } from '../components/ui';
 import { TxGroups } from '../components/TxRow';
 import { netWorth } from '../domain/balances';
 import { fmtAgo, fmtDate, monthEnd, monthKey, monthStart, relativeDays } from '../domain/dates';
@@ -15,8 +15,41 @@ import { useApp, useData } from '../state/app';
 
 export function ProfileSwitch() {
   const { profiles, profile, setProfile, stackDepth } = useApp();
+  const [open, setOpen] = useState(false);
   if (profiles.length < 2) return null;
   const compact = stackDepth > 1;
+  if (profiles.length > 2 || compact) {
+    return (
+      <>
+        <div className="profile-switch">
+          <button className="on" onClick={() => setOpen(true)} aria-label={`User: ${profile.name}. Change user`}>
+            {profile.emoji ?? '🙂'}
+            {compact ? '' : ` ${profile.name}`} ▾
+          </button>
+        </div>
+        <Sheet open={open} onClose={() => setOpen(false)} title="✨ Whose money?">
+          <div className="list">
+            {profiles.map((p) => (
+              <button
+                key={p.id}
+                className="row"
+                onClick={() => {
+                  setProfile(p.id);
+                  setOpen(false);
+                }}
+              >
+                <div className="bubble lav">{p.emoji ?? '🙂'}</div>
+                <div className="main">
+                  <div className="title">{p.name}</div>
+                </div>
+                {p.id === profile.id && <div className="end bold">✓</div>}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      </>
+    );
+  }
   return (
     <div className="profile-switch" role="tablist" aria-label="Whose money">
       {profiles.map((p) => (
@@ -48,7 +81,7 @@ function PriceChips() {
   return (
     <div className="card">
       <div className="between">
-        <h2 style={{ margin: 0 }}>✨ Live prices</h2>
+        <h2 style={{ margin: 0 }}>🔮 Live prices</h2>
         <button
           className="btn sm sky"
           disabled={busy}
@@ -100,7 +133,14 @@ export function Home() {
             <span className="grow">A new version is ready. Tap to update.</span>
           </button>
         )}
-        {setupDue && (
+        {data.accounts.length === 0 && (
+          <button className="banner pink" style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={() => go({ name: 'accountEdit' })}>
+            <span>🪄</span>
+            <span className="grow">Add your first account, card or purse to begin</span>
+            <span>›</span>
+          </button>
+        )}
+        {setupDue && data.accounts.length > 0 && (
           <button className="banner pink" style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={() => go({ name: 'setup' })}>
             <span>🌱</span>
             <span className="grow">Set your starting balances so totals are right</span>
@@ -118,7 +158,7 @@ export function Home() {
         )}
 
         <div className="hero">
-          <span className="sparkle">🌸</span>
+          <span className="sparkle">🧚</span>
           <div className="label">Net worth</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
           <div className="stat-row">
@@ -139,7 +179,7 @@ export function Home() {
         </div>
 
         <div className="section-title">
-          <span>⏰ Coming up</span>
+          <span>🕰️ Coming up</span>
           <span className="grow" />
           <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>All ›</button>
         </div>
@@ -177,15 +217,15 @@ export function Home() {
         <PriceChips />
 
         <div className="section-title">
-          <span>🧾 Recent</span>
+          <span>📜 Recent</span>
           <span className="grow" />
           <button className="btn sm ghost" onClick={() => go({ name: 'txList', title: 'All entries' })}>All ›</button>
         </div>
         {data.txs.length === 0 ? (
           <div className="card center">
-            <div style={{ fontSize: 40 }}>🐣</div>
+            <div style={{ fontSize: 40 }}>🧚‍♀️</div>
             <div className="bold">No entries yet</div>
-            <div className="small muted mb">Tap the pink + to log your first spending.</div>
+            <div className="small muted mb">Tap the glowing + to log your first spending.</div>
           </div>
         ) : (
           <TxGroups txs={data.txs} limit={12} />

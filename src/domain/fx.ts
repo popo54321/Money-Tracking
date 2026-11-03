@@ -44,7 +44,7 @@ export const GOLD_CODE = 'GOLD-BAHT';
 export const BAHT_WEIGHT_GRAMS = 15.244;
 export const GOLD_OZ_PER_BAHT = (BAHT_WEIGHT_GRAMS * 0.965) / 31.1034768;
 
-/** Currencies most useful to Popo, shown first in pickers. */
+/** Common currencies, shown first in pickers. */
 export const COMMON_CURRENCIES = ['THB', 'USD', 'EUR', 'CNY', 'JPY', 'GBP', 'SGD', 'HKD', 'KRW', 'TWD', 'AUD', 'MYR'];
 
 /**

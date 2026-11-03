@@ -5,7 +5,7 @@ import { fmtAgo, fmtDate } from '../domain/dates';
 import type { Profile, Settings as SettingsT } from '../domain/types';
 import { db } from '../db/db';
 import { updateSettings, wipeAll } from '../db/repo';
-import { ensureSeeded } from '../db/seed';
+import { createProfile, deleteProfile, ensureSeeded } from '../db/seed';
 import { backupStats, parseBackup, restoreBackup, shareBackup } from '../services/backup';
 import { entriesCsv, shareEntriesCsv } from '../services/export';
 import { refreshPrices } from '../services/prices';
@@ -14,7 +14,8 @@ import { applyWebUpdate, checkWebUpdate, installApk, isNewer, latestRelease, typ
 import { useApp } from '../state/app';
 import { EMOJI_CHOICES } from '../ui/emoji';
 
-function ProfileEditor({ p }: { p: Profile }) {
+function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
+  const { confirm, toast, profile, profiles, setProfile } = useApp();
   const [name, setName] = useState(p.name);
   const [pick, setPick] = useState(false);
   useEffect(() => setName(p.name), [p.name]);
@@ -24,6 +25,26 @@ function ProfileEditor({ p }: { p: Profile }) {
         {p.emoji ?? '🙂'}
       </button>
       <input className="inline-input grow" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && db.profiles.update(p.id, { name: name.trim() })} />
+      {canDelete && (
+        <button
+          className="btn sm ghost"
+          aria-label={`Delete ${p.name}`}
+          onClick={async () => {
+            const ok = await confirm({
+              title: `Delete ${p.name}?`,
+              message: 'All of their accounts, entries, categories, budget, loans and saving targets are deleted from this device.',
+              ok: 'Delete',
+              danger: true,
+            });
+            if (!ok) return;
+            if (profile.id === p.id) setProfile(profiles.find((x) => x.id !== p.id)!.id);
+            await deleteProfile(p.id);
+            toast('🗑️ User deleted');
+          }}
+        >
+          🗑️
+        </button>
+      )}
       {pick && (
         <Sheet open={pick} onClose={() => setPick(false)} title={`Emoji for ${p.name}`}>
           <div className="chips">
@@ -119,7 +140,7 @@ function UpdateCard() {
 }
 
 export function Settings() {
-  const { settings, prices, profiles, toast, confirm, profile } = useApp();
+  const { settings, prices, profiles, toast, confirm, profile, setProfile } = useApp();
   const [curOpen, setCurOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -233,11 +254,21 @@ export function Settings() {
         <UpdateCard />
 
         <div className="card">
-          <h2>🐻 Profiles</h2>
+          <h2>🧚 Users</h2>
           <div className="tiny muted mb">Each person has separate accounts, entries and categories.</div>
           {profiles.map((p) => (
-            <ProfileEditor key={p.id} p={p} />
+            <ProfileEditor key={p.id} p={p} canDelete={profiles.length > 1} />
           ))}
+          <button
+            className="btn block mt"
+            onClick={async () => {
+              const p = await createProfile();
+              setProfile(p.id);
+              toast(`✨ ${p.name} added`);
+            }}
+          >
+            ＋ Add a user
+          </button>
         </div>
 
         <div className="card">

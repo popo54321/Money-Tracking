@@ -188,7 +188,7 @@ export function Budget() {
   return (
     <>
       <Topbar
-        title="Budget plan 🗂️"
+        title="Budget spell 📜"
         right={
           <button className={`btn sm ${edit ? 'primary' : ''}`} onClick={() => setEdit(!edit)}>
             {edit ? 'Done' : '✏️ Edit'}
