@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
-import { postDueRecurring, saveNewEntry, setAccountBalance, type TxDraft } from './repo';
+import { postDueRecurring, recordOwed, saveNewEntry, setAccountBalance, type TxDraft } from './repo';
 import { balanceOf } from '../domain/balances';
 import type { Account } from '../domain/types';
 
@@ -85,5 +85,33 @@ describe('set new balance', () => {
     });
     const txs = await db.txs.toArray();
     expect(balanceOf(bank, txs, '2026-11-03')).toBe(1100);
+  });
+});
+
+describe('adding unpaid bill shares to Who owes me', () => {
+  const item = (person: string, amount: number, key = `bill:1:${person}`) => ({
+    person,
+    direction: 'owedToMe' as const,
+    amount,
+    currency: 'THB',
+    date: '2026-11-03',
+    note: 'Dinner',
+    key,
+  });
+  it('creates one record per friend and never doubles when added again', async () => {
+    expect(await recordOwed('u1', [item('Ann', 300), item('Ben', 450)])).toBe(2);
+    await recordOwed('u1', [item('Ann', 320), item('Ben', 450)]);
+    const debts = await db.debts.toArray();
+    expect(debts).toHaveLength(2);
+    const ann = debts.find((d) => d.person === 'Ann')!;
+    expect(ann.events).toHaveLength(1);
+    expect(ann.events[0].amount).toBe(320);
+  });
+  it('adds a new bill to the same open record for that friend', async () => {
+    await recordOwed('u1', [item('Ann', 300, 'bill:1:Ann')]);
+    await recordOwed('u1', [item('ann', 200, 'bill:2:Ann')]);
+    const debts = await db.debts.toArray();
+    expect(debts).toHaveLength(1);
+    expect(debts[0].events.map((e) => e.amount)).toEqual([300, 200]);
   });
 });

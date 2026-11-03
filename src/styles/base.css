@@ -670,7 +670,7 @@ button.row:active {
   font-weight: 700;
   font-size: 14px;
 }
-.amount-field.empty {
+.amount-field.is-empty {
   color: var(--muted);
   font-weight: 600;
 }

@@ -7,7 +7,7 @@ import { accountValue, balanceOf, balancesByAccount, netWorth } from './balances
 import { dueToPost, monthlyEquivalent, nextUnposted, occurrence, occurrencesBetween } from './recurring';
 import { cardStatus, dueDateFor, statementOnOrBefore } from './creditCard';
 import { reservedByAccount, upcomingItems } from './reserve';
-import { computeBill, whoOwes } from './billSplit';
+import { computeBill, settleBill, whoOwes } from './billSplit';
 import { computeTrip } from './tripSplit';
 import { phaseTotals, surplusRule, transferAmount } from './budget';
 import { summarise } from './summary';
@@ -283,6 +283,58 @@ describe('bill split', () => {
     });
     expect(r.shares.map((s) => s.pay)).toEqual([334, 333, 333]);
     expect(whoOwes(r, 'a').map((o) => o.amount)).toEqual([333, 333]);
+  });
+});
+
+describe('bill split with several payers', () => {
+  const seven = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((n) => ({ id: n, name: n }));
+  const bill = computeBill({
+    people: seven,
+    items: [{ id: 'x', name: 'Dinner', price: 7000, sharedBy: [], shared: true }],
+    servicePct: 0,
+    vatPct: 0,
+    vatOnService: true,
+    mode: 'even',
+    currency: 'THB',
+  });
+  it('A pays 60 % and B 40 %: the other five pay them back their share', () => {
+    const plan = settleBill(
+      bill,
+      [
+        { personId: 'A', amount: 0, pct: 0.6 },
+        { personId: 'B', amount: 0, pct: 0.4 },
+      ],
+      undefined,
+      'THB',
+    );
+    expect(plan.paid.get('A')).toBe(4200);
+    expect(plan.paid.get('B')).toBe(2800);
+    expect(plan.missing).toBe(0);
+    const toA = sum(plan.transfers.filter((t) => t.toId === 'A').map((t) => t.amount));
+    const toB = sum(plan.transfers.filter((t) => t.toId === 'B').map((t) => t.amount));
+    expect(toA).toBe(3200);
+    expect(toB).toBe(1800);
+    for (const p of ['C', 'D', 'E', 'F', 'G'])
+      expect(sum(plan.transfers.filter((t) => t.fromId === p).map((t) => t.amount))).toBe(1000);
+    expect(plan.transfers.length).toBeLessThanOrEqual(6);
+  });
+  it('typed amounts work too, and say what is still missing', () => {
+    const plan = settleBill(
+      bill,
+      [
+        { personId: 'A', amount: 5000 },
+        { personId: 'C', amount: 1500 },
+      ],
+      undefined,
+      'THB',
+    );
+    expect(plan.paidTotal).toBe(6500);
+    expect(plan.missing).toBe(500);
+  });
+  it('one payer still works like before', () => {
+    const plan = settleBill(bill, undefined, 'A', 'THB');
+    expect(plan.transfers).toHaveLength(6);
+    expect(plan.transfers.every((t) => t.toId === 'A' && t.amount === 1000)).toBe(true);
   });
 });
 

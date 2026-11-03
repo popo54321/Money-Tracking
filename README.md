@@ -42,8 +42,8 @@ Everything you type stays on your phone. Nothing is sent anywhere except request
 | **Summary** | Income and spending by category and group, per month, year or dates |
 | **Month close** | The numbers in the year sheet's order, tap to copy, or export to Excel / CSV |
 | **Budget plan** | Any number of phases, bonus split, leftover-money rule, monthly transfer checklist; can **import a Budget Allocation sheet** from an `.xlsx` workbook |
-| **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly, who pays whom |
-| **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up |
+| **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly; one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
+| **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up; add what's owed to Who owes me |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price, monthly saving or a linked account, and when you can buy it |
 | **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |

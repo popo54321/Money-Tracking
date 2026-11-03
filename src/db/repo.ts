@@ -382,6 +382,66 @@ export async function deleteGoal(id: string): Promise<void> {
   await db.goals.delete(id);
 }
 
+export interface OwedItem {
+  person: string;
+  /** owedToMe = they owe me; iOwe = I owe them */
+  direction: Debt['direction'];
+  amount: number;
+  currency: string;
+  date: ISODate;
+  note: string;
+  /** the same key (e.g. bill + person) always updates the same line, so adding twice never doubles it */
+  key: string;
+}
+
+/**
+ * Put unpaid amounts from a bill or trip into "Who owes me". Adds to an open record for the same person
+ * (same direction and currency) or starts a new one.
+ */
+export async function recordOwed(profileId: string, items: OwedItem[]): Promise<number> {
+  const debts = await db.debts.where('profileId').equals(profileId).toArray();
+  let n = 0;
+  for (const it of items) {
+    if (!(it.amount > 0) || !it.person.trim()) continue;
+    const event = { id: it.key, date: it.date, type: 'lend' as const, amount: it.amount, note: it.note };
+    const same = (d: Debt) =>
+      !d.closed &&
+      d.direction === it.direction &&
+      d.currency === it.currency &&
+      d.person.trim().toLowerCase() === it.person.trim().toLowerCase();
+    const existing = debts.find((d) => d.events.some((e) => e.id === it.key)) ?? debts.find(same);
+    let next: Debt;
+    if (existing) {
+      const has = existing.events.some((e) => e.id === it.key);
+      next = {
+        ...existing,
+        events: has ? existing.events.map((e) => (e.id === it.key ? { ...e, ...event } : e)) : [...existing.events, event],
+        updatedAt: Date.now(),
+      };
+      debts.splice(debts.indexOf(existing), 1, next);
+    } else {
+      next = {
+        id: uid(),
+        profileId,
+        person: it.person.trim(),
+        direction: it.direction,
+        currency: it.currency,
+        interestType: 'none',
+        ratePct: 0,
+        ratePer: 'year',
+        events: [event],
+        closed: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      debts.push(next);
+    }
+    await db.debts.put(next);
+    n++;
+  }
+  return n;
+}
+
 // ---------- reset ----------
 
 export async function wipeAll(): Promise<void> {
