@@ -220,16 +220,6 @@ textarea {
   position: relative;
   overflow: hidden;
 }
-.hero::after {
-  content: var(--hero-deco);
-  position: absolute;
-  left: 18px;
-  bottom: -2px;
-  font-size: 11px;
-  letter-spacing: 6px;
-  color: var(--gold);
-  opacity: 0.8;
-}
 
 .hero .label {
   font-size: 13px;
@@ -1142,15 +1132,6 @@ table.t tr.total td {
   .hero .big {
     font-size: 27px;
   }
-}
-
-.tile::after {
-  content: var(--tile-deco);
-  position: absolute;
-  right: 12px;
-  top: 8px;
-  color: var(--gold);
-  font-size: 16px;
 }
 
 .sparkle.mascot {
