@@ -10,6 +10,7 @@ import { updateSettings } from '../db/repo';
 import { refreshPrices } from '../services/prices';
 import { useApp, useData } from '../state/app';
 import { ProfileSwitch } from './Home';
+import { holdProps } from '../components/hold';
 
 function CostSheet({ account, onClose }: { account: Account; onClose: () => void }) {
   const { currency, toast } = useApp();
@@ -17,8 +18,8 @@ function CostSheet({ account, onClose }: { account: Account; onClose: () => void
   return (
     <Sheet open onClose={onClose} title={`What the starting amount cost`}>
       <div className="small muted mb">
-        {account.name} started with {fmtMoney(account.openingBalance, account.currency)}. How much did you pay for it in total? (Your “Capital Assets
-        Value”.) Later buys are added automatically from your Move entries.
+        {account.name} started with {fmtMoney(account.openingBalance, account.currency)}. How much did you pay for it in total?
+        (Your “Capital Assets Value”.) Later buys are added automatically from your Move entries.
       </div>
       <Field label={`Cost in ${currency}`}>
         <AmountField value={v} onChange={setV} currency={currency} />
@@ -88,7 +89,9 @@ function HoldingCard({
         <div className="stat" style={{ background: 'var(--bg2)' }}>
           <div className="k">Profit / loss</div>
           <div className={`v ${pl === null ? '' : pl >= 0 ? 'pos' : 'neg'}`}>
-            {pl === null ? '—' : `${fmtMoney(pl, currency, { compact: true, sign: true })} (${fmtNumber((status.profitPct ?? 0) * 100, 1, 1)}%)`}
+            {pl === null
+              ? '—'
+              : `${fmtMoney(pl, currency, { compact: true, sign: true })} (${fmtNumber((status.profitPct ?? 0) * 100, 1, 1)}%)`}
           </div>
         </div>
       </div>
@@ -102,10 +105,16 @@ function HoldingCard({
         <div className="mt">
           {status.lines.map((l) => (
             <div key={l.account.id} className="item-line">
-              <button className="grow" style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }} onClick={() => go({ name: 'account', id: l.account.id })}>
+              <button
+                className="grow"
+                style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0 }}
+                onClick={() => go({ name: 'account', id: l.account.id })}
+                {...holdProps(() => go({ name: 'accountEdit', id: l.account.id }))}
+              >
                 <div className="bold small">{l.account.name}</div>
                 <div className="tiny muted">
-                  {fmtNumber(l.units, unitDp, Math.min(unitDp, 2))} {unit} · paid {l.cost > 0 ? fmtMoney(l.cost, currency, { compact: true }) : '—'}
+                  {fmtNumber(l.units, unitDp, Math.min(unitDp, 2))} {unit} · paid{' '}
+                  {l.cost > 0 ? fmtMoney(l.cost, currency, { compact: true }) : '—'}
                 </div>
               </button>
               <span className="small bold nowrap">{fmtMoney(l.value, currency, { compact: true })}</span>
@@ -150,7 +159,12 @@ export function Wealth() {
           <div className="label">BTC + gold worth now</div>
           <div className="big">{fmtMoney(total, currency)}</div>
           <div className="small bold">
-            {[btc.cost + gold.cost > 0 ? `paid ${fmtMoney(btc.cost + gold.cost, currency, { compact: true })}` : '', btc.profit !== null || gold.profit !== null ? `profit ${fmtMoney((btc.profit ?? 0) + (gold.profit ?? 0), currency, { compact: true, sign: true })}` : '']
+            {[
+              btc.cost + gold.cost > 0 ? `paid ${fmtMoney(btc.cost + gold.cost, currency, { compact: true })}` : '',
+              btc.profit !== null || gold.profit !== null
+                ? `profit ${fmtMoney((btc.profit ?? 0) + (gold.profit ?? 0), currency, { compact: true, sign: true })}`
+                : '',
+            ]
               .filter(Boolean)
               .join(' · ') ||
               (btcAccounts.length + goldAccounts.length === 0
@@ -167,7 +181,11 @@ export function Wealth() {
           unit="BTC"
           unitDp={8}
           priceLine={<>1 BTC = {fmtMoney(btcPrice, currency, { dp: 0 })}</>}
-          extra={<div className="tiny muted">{prices.btcFetchedAt ? `${prices.btcSource}, ${fmtAgo(prices.btcFetchedAt)}` : 'built-in price until first update'}</div>}
+          extra={
+            <div className="tiny muted">
+              {prices.btcFetchedAt ? `${prices.btcSource}, ${fmtAgo(prices.btcFetchedAt)}` : 'built-in price until first update'}
+            </div>
+          }
           onBuy={() =>
             btcAccounts[0]
               ? go({ name: 'entry', kind: 'transfer', accountId: bank?.id, toAccountId: btcAccounts[0].id, note: 'Buy BTC' })
@@ -187,11 +205,14 @@ export function Wealth() {
           extra={
             <>
               <div className="small mt">
-                Gold bar 96.5%: shop buys {fmtMoney(prices.goldBuyThb ?? null, 'THB', { dp: 0 })} · sells {fmtMoney(prices.goldSellThb ?? null, 'THB', { dp: 0 })} per baht
+                Gold bar 96.5%: shop buys {fmtMoney(prices.goldBuyThb ?? null, 'THB', { dp: 0 })} · sells{' '}
+                {fmtMoney(prices.goldSellThb ?? null, 'THB', { dp: 0 })} per baht
                 {gold.units ? ` · you hold ${fmtNumber(gold.units * BAHT_WEIGHT_GRAMS, 2)} g` : ''}
               </div>
               <div className="tiny muted">
-                {prices.goldFetchedAt ? `${prices.goldSource}, ${fmtAgo(prices.goldFetchedAt)}` : prices.goldSource ?? 'built-in price'}
+                {prices.goldFetchedAt
+                  ? `${prices.goldSource}, ${fmtAgo(prices.goldFetchedAt)}`
+                  : (prices.goldSource ?? 'built-in price')}
                 {prices.goldIsEstimate ? ' (estimate)' : ''}
               </div>
               <div className="mt">
@@ -227,7 +248,8 @@ export function Wealth() {
           ↻ Update BTC & gold prices
         </button>
         <div className="tiny muted center mt">
-          Buy with “Move”: money out of your bank, BTC or baht-weight into the holding account. Costs are averaged, so selling part keeps your average cost.
+          Buy with “Move”: money out of your bank, BTC or baht-weight into the holding account. Costs are averaged, so selling
+          part keeps your average cost.
         </div>
       </div>
       {costFor && <CostSheet account={costFor} onClose={() => setCostFor(null)} />}

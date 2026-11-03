@@ -1,15 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type {
-  Account,
-  BillSplit,
-  BudgetPlan,
-  Category,
-  PriceSnapshot,
-  Profile,
-  Recurring,
-  Trip,
-  Tx,
-} from '../domain/types';
+import type { Account, BillSplit, BudgetPlan, Category, PriceSnapshot, Profile, Recurring, Trip, Tx } from '../domain/types';
 import type { Debt } from '../domain/debts';
 import type { Goal } from '../domain/goals';
 

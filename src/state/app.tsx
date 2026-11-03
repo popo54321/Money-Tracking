@@ -1,15 +1,6 @@
 // App-wide state: settings, prices, the active profile and its data, navigation, toasts and dialogs.
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { balancesByAccount } from '../domain/balances';
 import { todayISO } from '../domain/dates';
 import { withBtc, type RateTable } from '../domain/fx';
@@ -29,7 +20,16 @@ export type Route =
   | { name: 'more' }
   | { name: 'account'; id: string }
   | { name: 'accountEdit'; id?: string }
-  | { name: 'entry'; id?: string; kind?: Tx['kind']; accountId?: string; toAccountId?: string; amount?: number; categoryId?: string; note?: string }
+  | {
+      name: 'entry';
+      id?: string;
+      kind?: Tx['kind'];
+      accountId?: string;
+      toAccountId?: string;
+      amount?: number;
+      categoryId?: string;
+      note?: string;
+    }
   | { name: 'txList'; categoryId?: string; accountId?: string; from?: string; to?: string; title?: string }
   | { name: 'recurring' }
   | { name: 'recurringEdit'; id?: string }
@@ -249,7 +249,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // pages tied to one record (an account, an entry…) don't exist in the other profile
     setStack((s) => {
       const top = s[s.length - 1];
-      const keep = ['home', 'accounts', 'summary', 'more', 'recurring', 'monthClose', 'budget', 'debts', 'goals', 'wealth', 'categories', 'bills', 'trips', 'settings', 'txList'];
+      const keep = [
+        'home',
+        'accounts',
+        'summary',
+        'more',
+        'recurring',
+        'monthClose',
+        'budget',
+        'debts',
+        'goals',
+        'wealth',
+        'categories',
+        'bills',
+        'trips',
+        'settings',
+        'txList',
+      ];
       return keep.includes(top.name) ? s.filter((r) => keep.includes(r.name)) : [s[0]];
     });
   }, []);
@@ -264,7 +280,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     root.setAttribute('data-skin', skin.id);
   }, [settings.theme, skin.id]);
 
-  if (!profiles || !profile) return <div className="empty"><span className="e">🌸</span>Loading…</div>;
+  if (!profiles || !profile)
+    return (
+      <div className="empty">
+        <span className="e">🌸</span>Loading…
+      </div>
+    );
 
   const value: AppCtx = {
     settings,
@@ -291,19 +312,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
+      {toastMsg && (
+        <div className="toast" role="status">
+          {toastMsg}
+        </div>
+      )}
       {dialog && (
-        <div className="backdrop dialog-backdrop" onClick={() => { dialog.resolve(false); setDialog(null); }}>
+        <div
+          className="backdrop dialog-backdrop"
+          onClick={() => {
+            dialog.resolve(false);
+            setDialog(null);
+          }}
+        >
           <div className="dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>{dialog.title}</h3>
             {dialog.message && <p>{dialog.message}</p>}
             <div className="btn-row">
-              <button className="btn ghost" onClick={() => { dialog.resolve(false); setDialog(null); }}>
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  dialog.resolve(false);
+                  setDialog(null);
+                }}
+              >
                 {dialog.cancel ?? 'Cancel'}
               </button>
               <button
                 className={dialog.danger ? 'btn danger' : 'btn primary'}
-                onClick={() => { dialog.resolve(true); setDialog(null); }}
+                onClick={() => {
+                  dialog.resolve(true);
+                  setDialog(null);
+                }}
               >
                 {dialog.ok ?? 'OK'}
               </button>

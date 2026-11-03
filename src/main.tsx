@@ -2,7 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/nunito/wght.css';
 import '@fontsource-variable/inter/wght.css';
-import './styles.css';
+import './styles/themes.css';
+import './styles/base.css';
+import './styles/skins.css';
 import App from './App';
 import { ensureSeeded, migrate } from './db/seed';
 import { registerServiceWorker } from './services/updater';
@@ -25,7 +27,5 @@ async function start() {
 
 start().catch((e) => {
   document.getElementById('root')!.innerHTML =
-    '<div style="padding:24px;font-family:sans-serif"><h2>Something went wrong</h2><p>' +
-    String(e?.message ?? e) +
-    '</p></div>';
+    '<div style="padding:24px;font-family:sans-serif"><h2>Something went wrong</h2><p>' + String(e?.message ?? e) + '</p></div>';
 });

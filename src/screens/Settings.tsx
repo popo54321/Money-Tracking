@@ -25,7 +25,12 @@ function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
       <button className="icon-btn" onClick={() => setPick(!pick)} aria-label="Choose emoji">
         {p.emoji ?? '🙂'}
       </button>
-      <input className="inline-input grow" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && db.profiles.update(p.id, { name: name.trim() })} />
+      <input
+        className="inline-input grow"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => name.trim() && db.profiles.update(p.id, { name: name.trim() })}
+      />
       {canDelete && (
         <button
           className="btn sm ghost"
@@ -33,7 +38,8 @@ function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
           onClick={async () => {
             const ok = await confirm({
               title: `Delete ${p.name}?`,
-              message: 'All of their accounts, entries, categories, budget, loans and saving targets are deleted from this device.',
+              message:
+                'All of their accounts, entries, categories, budget, loans and saving targets are deleted from this device.',
               ok: 'Delete',
               danger: true,
             });
@@ -98,7 +104,7 @@ function UpdateCard() {
   };
 
   return (
-    <Section title="🚀 Updates" hint={`v${APP_VERSION}`}>
+    <Section title="🚀 Updates">
       <div className="small muted mb">
         You have version {APP_VERSION} ({native ? 'Android app' : 'web app'}).
       </div>
@@ -108,7 +114,11 @@ function UpdateCard() {
       {status && <div className="small mt">{status}</div>}
       {rel && native && isNewer(rel) && (
         <>
-          {rel.notes && <div className="tiny muted mt" style={{ whiteSpace: 'pre-line' }}>{rel.notes.slice(0, 600)}</div>}
+          {rel.notes && (
+            <div className="tiny muted mt" style={{ whiteSpace: 'pre-line' }}>
+              {rel.notes.slice(0, 600)}
+            </div>
+          )}
           <button
             className="btn primary block mt"
             onClick={async () => {
@@ -139,7 +149,7 @@ function UpdateCard() {
   );
 }
 
-function Section({ title, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="card">
       <h2>{title}</h2>
@@ -178,14 +188,17 @@ export function Settings() {
 
   const exportAll = async () => {
     const [txs, accounts, categories] = await Promise.all([db.txs.toArray(), db.accounts.toArray(), db.categories.toArray()]);
-    await shareEntriesCsv(`money-tracking-entries-${new Date().toISOString().slice(0, 10)}.csv`, entriesCsv(txs, accounts, categories, profiles));
+    await shareEntriesCsv(
+      `money-tracking-entries-${new Date().toISOString().slice(0, 10)}.csv`,
+      entriesCsv(txs, accounts, categories, profiles),
+    );
   };
 
   return (
     <>
       <Topbar title="Settings" />
       <div className="page">
-        <Section title="🧚 Users" hint={`${profiles.length}`}>
+        <Section title="🧚 Users">
           <div className="tiny muted mb">Each person has separate accounts, entries and categories.</div>
           {profiles.map((p) => (
             <ProfileEditor key={p.id} p={p} canDelete={profiles.length > 1} />
@@ -202,10 +215,15 @@ export function Settings() {
           </button>
         </Section>
 
-        <Section title="🎨 Theme" hint={skin.label}>
+        <Section title="🎨 Theme">
           <div className="theme-grid mb">
             {SKINS.map((t) => (
-              <button key={t.id} className={`theme-tile ${skin.id === t.id ? 'on' : ''}`} onClick={() => set({ skin: t.id })} aria-pressed={skin.id === t.id}>
+              <button
+                key={t.id}
+                className={`theme-tile ${skin.id === t.id ? 'on' : ''}`}
+                onClick={() => set({ skin: t.id })}
+                aria-pressed={skin.id === t.id}
+              >
                 <span className="theme-icon">{t.icon}</span>
                 <span className="bold">{t.label}</span>
                 <span className="tiny muted">{t.desc}</span>
@@ -223,8 +241,7 @@ export function Settings() {
           />
         </Section>
 
-
-        <Section title="💱 Money" hint={settings.defaultCurrency}>
+        <Section title="💱 Money">
           <Field label="Main currency" hint="Totals, net worth and summaries are shown in this currency.">
             <button type="button" className="amount-field" onClick={() => setCurOpen(true)}>
               {settings.defaultCurrency} <span className="cur">▾</span>
@@ -233,7 +250,11 @@ export function Settings() {
           <Field label="Favourite currencies" hint="Shown first when you pick a currency.">
             <div className="chips">
               {settings.favouriteCurrencies.map((c) => (
-                <button key={c} className="chip on" onClick={() => set({ favouriteCurrencies: settings.favouriteCurrencies.filter((x) => x !== c) })}>
+                <button
+                  key={c}
+                  className="chip on"
+                  onClick={() => set({ favouriteCurrencies: settings.favouriteCurrencies.filter((x) => x !== c) })}
+                >
                   {c} ✕
                 </button>
               ))}
@@ -244,11 +265,15 @@ export function Settings() {
           </Field>
         </Section>
 
-        <Section title="💾 Backup & export" hint={settings.lastBackupAt ? `last ${fmtAgo(settings.lastBackupAt)}` : 'no backup yet'}>
+        <Section title="💾 Backup & export">
           <div className="small muted mb">
-            {counts ? `${counts.accounts} ${counts.accounts === 1 ? 'account' : 'accounts'}, ${counts.txs} ${counts.txs === 1 ? 'entry' : 'entries'} on this ${isNative() ? 'phone' : 'device'}.` : ''} Last backup:{' '}
-            {settings.lastBackupAt ? fmtAgo(settings.lastBackupAt) : 'never'}.
-            {isNative() && settings.lastAutoBackupAt ? ` Daily copy in Documents/MoneyTracking (${fmtAgo(settings.lastAutoBackupAt)}).` : ''}
+            {counts
+              ? `${counts.accounts} ${counts.accounts === 1 ? 'account' : 'accounts'}, ${counts.txs} ${counts.txs === 1 ? 'entry' : 'entries'} on this ${isNative() ? 'phone' : 'device'}.`
+              : ''}{' '}
+            Last backup: {settings.lastBackupAt ? fmtAgo(settings.lastBackupAt) : 'never'}.
+            {isNative() && settings.lastAutoBackupAt
+              ? ` Daily copy in Documents/MoneyTracking (${fmtAgo(settings.lastAutoBackupAt)}).`
+              : ''}
           </div>
           <div className="vstack">
             <button
@@ -276,14 +301,18 @@ export function Settings() {
 
         <UpdateCard />
 
-        <Section title="🌈 Live prices" hint={'exchange rates, BTC, gold'}>
+        <Section title="🌈 Live prices">
           <div className="small">
-            Exchange rates: {prices.ratesFetchedAt ? `${prices.ratesSource}, ${fmtAgo(prices.ratesFetchedAt)}` : prices.ratesSource}
+            Exchange rates:{' '}
+            {prices.ratesFetchedAt ? `${prices.ratesSource}, ${fmtAgo(prices.ratesFetchedAt)}` : prices.ratesSource}
           </div>
           <div className="small">
-            BTC price: {prices.btcFetchedAt ? `${prices.btcSource}, ${fmtAgo(prices.btcFetchedAt)}` : prices.btcSource ?? 'not yet'}
+            BTC price:{' '}
+            {prices.btcFetchedAt ? `${prices.btcSource}, ${fmtAgo(prices.btcFetchedAt)}` : (prices.btcSource ?? 'not yet')}
           </div>
-          <div className="tiny muted mt">Only these use the internet. Everything else works offline. Saved prices are used until the next update.</div>
+          <div className="tiny muted mt">
+            Only these use the internet. Everything else works offline. Saved prices are used until the next update.
+          </div>
           <button
             className="btn sky block mt"
             disabled={busy}
@@ -306,7 +335,7 @@ export function Settings() {
           </Section>
         )}
 
-        <Section title="⚠️ Start again" hint={''}>
+        <Section title="⚠️ Start again">
           <button
             className="btn danger block"
             onClick={async () => {
@@ -329,11 +358,18 @@ export function Settings() {
           v{APP_VERSION} · {profile.name}’s view · github.com/{settings.githubRepo}
         </div>
       </div>
-      <CurrencySheet open={curOpen} onClose={() => setCurOpen(false)} value={settings.defaultCurrency} onPick={(c) => set({ defaultCurrency: c })} />
+      <CurrencySheet
+        open={curOpen}
+        onClose={() => setCurOpen(false)}
+        value={settings.defaultCurrency}
+        onPick={(c) => set({ defaultCurrency: c })}
+      />
       <CurrencySheet
         open={favOpen}
         onClose={() => setFavOpen(false)}
-        onPick={(c) => !settings.favouriteCurrencies.includes(c) && set({ favouriteCurrencies: [...settings.favouriteCurrencies, c] })}
+        onPick={(c) =>
+          !settings.favouriteCurrencies.includes(c) && set({ favouriteCurrencies: [...settings.favouriteCurrencies, c] })
+        }
       />
     </>
   );

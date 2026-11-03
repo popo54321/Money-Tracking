@@ -27,10 +27,10 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
-      - name: Test
-        run: npm test
+      - name: Check (types, formatting, tests)
+        run: npm run check
 
       - name: Build the app
         run: npm run build

@@ -3,22 +3,72 @@ import type { AccountType, Category } from '../domain/types';
 import { isPlainIcons } from './skins';
 
 function initials(name: string): string {
-  const words = name.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  const words = name
+    .replace(/[^\p{L}\p{N} ]/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (words.length === 0) return '•';
   return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
-  salary: '💰', 'investing dividend': '📈', 'commission money': '🤝', 'investing income': '📊',
-  'company provident': '🏦', payback: '🔁', gifts: '🎁', interest: '🌼', other: '✨',
-  breakfast: '🥐', lunch: '🍜', dinner: '🍲', delivery: '🛵', groceries: '🛒', household: '🏠',
-  transportation: '🚇', games: '🎮', books: '📚', qiqi: '💕', socialise: '🥂', 'treating people': '🍻',
-  movies: '🎬', clothes: '👗', 'luxury lifestyle': '💎', 'health & body care': '🧴', workout: '🏋️',
-  'personal development': '🌱', 'work expense': '💼', tax: '🧾', travel: '✈️', 'large purchase 1': '🛍️',
-  'large purchase 2': '📦', 'large purchase': '🛍️', spotify: '🎧', adobe: '🎨', 'youtube premium': '📺',
-  'line man vip': '🛵', gemini: '♊', discord: '💬', 'shopee vip': '🧡', 'health insurance': '🩺', claude: '🤖',
-  'tax & social security': '🏛️', insurance: '🛡️', subscriptions: '🔔', bills: '💡', coffee: '☕', snacks: '🍡',
-  pets: '🐾', rent: '🔑', phone: '📱', internet: '🌐', electricity: '⚡', water: '💧', fuel: '⛽', parking: '🅿️',
+  salary: '💰',
+  'investing dividend': '📈',
+  'commission money': '🤝',
+  'investing income': '📊',
+  'company provident': '🏦',
+  payback: '🔁',
+  gifts: '🎁',
+  interest: '🌼',
+  other: '✨',
+  breakfast: '🥐',
+  lunch: '🍜',
+  dinner: '🍲',
+  delivery: '🛵',
+  groceries: '🛒',
+  household: '🏠',
+  transportation: '🚇',
+  games: '🎮',
+  books: '📚',
+  qiqi: '💕',
+  socialise: '🥂',
+  'treating people': '🍻',
+  movies: '🎬',
+  clothes: '👗',
+  'luxury lifestyle': '💎',
+  'health & body care': '🧴',
+  workout: '🏋️',
+  'personal development': '🌱',
+  'work expense': '💼',
+  tax: '🧾',
+  travel: '✈️',
+  'large purchase 1': '🛍️',
+  'large purchase 2': '📦',
+  'large purchase': '🛍️',
+  spotify: '🎧',
+  adobe: '🎨',
+  'youtube premium': '📺',
+  'line man vip': '🛵',
+  gemini: '♊',
+  discord: '💬',
+  'shopee vip': '🧡',
+  'health insurance': '🩺',
+  claude: '🤖',
+  'tax & social security': '🏛️',
+  insurance: '🛡️',
+  subscriptions: '🔔',
+  bills: '💡',
+  coffee: '☕',
+  snacks: '🍡',
+  pets: '🐾',
+  rent: '🔑',
+  phone: '📱',
+  internet: '🌐',
+  electricity: '⚡',
+  water: '💧',
+  fuel: '⛽',
+  parking: '🅿️',
 };
 
 const GROUP_EMOJI: Record<string, string> = {
@@ -42,12 +92,29 @@ export function groupEmoji(group: string): string {
 }
 
 const ACCOUNT_EMOJI: Record<AccountType, string> = {
-  bank: '🏦', cash: '💵', debit: '💳', credit: '💳', topup: '🎫', investment: '📈', crypto: '🪙', units: '🥇',
-  insurance: '🛡️', other: '👛',
+  bank: '🏦',
+  cash: '💵',
+  debit: '💳',
+  credit: '💳',
+  topup: '🎫',
+  investment: '📈',
+  crypto: '🪙',
+  units: '🥇',
+  insurance: '🛡️',
+  other: '👛',
 };
 
 const ACCOUNT_SHORT: Record<AccountType, string> = {
-  bank: 'BK', cash: 'CA', debit: 'DB', credit: 'CC', topup: 'TU', investment: 'IN', crypto: '₿', units: 'AU', insurance: 'IS', other: 'OT',
+  bank: 'BK',
+  cash: 'CA',
+  debit: 'DB',
+  credit: 'CC',
+  topup: 'TU',
+  investment: 'IN',
+  crypto: '₿',
+  units: 'AU',
+  insurance: 'IS',
+  other: 'OT',
 };
 
 export function accountEmoji(type: AccountType): string {
@@ -60,27 +127,43 @@ export type Pastel = (typeof COLOURS)[number];
 
 export function accountColour(type: AccountType): Pastel {
   switch (type) {
-    case 'bank': return 'sky';
-    case 'cash': return 'mint';
-    case 'debit': return 'lav';
-    case 'credit': return 'pink';
-    case 'topup': return 'peach';
-    case 'investment': return 'mint';
-    case 'crypto': return 'butter';
-    case 'units': return 'butter';
-    case 'insurance': return 'lav';
-    default: return 'peach';
+    case 'bank':
+      return 'sky';
+    case 'cash':
+      return 'mint';
+    case 'debit':
+      return 'lav';
+    case 'credit':
+      return 'pink';
+    case 'topup':
+      return 'peach';
+    case 'investment':
+      return 'mint';
+    case 'crypto':
+      return 'butter';
+    case 'units':
+      return 'butter';
+    case 'insurance':
+      return 'lav';
+    default:
+      return 'peach';
   }
 }
 
 export function groupColour(group: string): Pastel {
   switch (group) {
-    case 'Eating Out': return 'peach';
-    case 'Discretionary': return 'pink';
-    case 'Infrequent': return 'sky';
-    case 'Fixed': return 'lav';
-    case 'Income': return 'mint';
-    default: return 'butter';
+    case 'Eating Out':
+      return 'peach';
+    case 'Discretionary':
+      return 'pink';
+    case 'Infrequent':
+      return 'sky';
+    case 'Fixed':
+      return 'lav';
+    case 'Income':
+      return 'mint';
+    default:
+      return 'butter';
   }
 }
 
@@ -92,8 +175,79 @@ export function nameColour(name: string): Pastel {
 }
 
 export const EMOJI_CHOICES = [
-  '🍜', '🍲', '🥐', '🍣', '🍕', '🍔', '☕', '🧋', '🍰', '🍡', '🛒', '🏠', '🚇', '🚕', '⛽', '✈️', '🏨', '🎮', '📚',
-  '🎬', '🎧', '📺', '👗', '👟', '💄', '🧴', '💊', '🩺', '🏋️', '🌱', '💼', '🧾', '🏛️', '💡', '📱', '🌐', '🎁', '💕',
-  '🥂', '🐾', '👶', '🎓', '🚗', '🛍️', '💎', '🎨', '🤖', '💰', '📈', '📊', '🏦', '🔁', '🌼', '✨', '🎀', '🧸', '🌸',
-  '🍀', '⭐', '🌙', '🐻', '🐰', '🐱', '🐶', '🐼', '🦊', '🐥', '🐳', '📷', '💻', '⌚', '🎸', '🏝️', '🪙', '🥇',
+  '🍜',
+  '🍲',
+  '🥐',
+  '🍣',
+  '🍕',
+  '🍔',
+  '☕',
+  '🧋',
+  '🍰',
+  '🍡',
+  '🛒',
+  '🏠',
+  '🚇',
+  '🚕',
+  '⛽',
+  '✈️',
+  '🏨',
+  '🎮',
+  '📚',
+  '🎬',
+  '🎧',
+  '📺',
+  '👗',
+  '👟',
+  '💄',
+  '🧴',
+  '💊',
+  '🩺',
+  '🏋️',
+  '🌱',
+  '💼',
+  '🧾',
+  '🏛️',
+  '💡',
+  '📱',
+  '🌐',
+  '🎁',
+  '💕',
+  '🥂',
+  '🐾',
+  '👶',
+  '🎓',
+  '🚗',
+  '🛍️',
+  '💎',
+  '🎨',
+  '🤖',
+  '💰',
+  '📈',
+  '📊',
+  '🏦',
+  '🔁',
+  '🌼',
+  '✨',
+  '🎀',
+  '🧸',
+  '🌸',
+  '🍀',
+  '⭐',
+  '🌙',
+  '🐻',
+  '🐰',
+  '🐱',
+  '🐶',
+  '🐼',
+  '🦊',
+  '🐥',
+  '🐳',
+  '📷',
+  '💻',
+  '⌚',
+  '🎸',
+  '🏝️',
+  '🪙',
+  '🥇',
 ];

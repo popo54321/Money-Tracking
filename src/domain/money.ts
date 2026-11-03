@@ -14,18 +14,26 @@ export function roundTo(x: number, dp: number): number {
   return x < 0 ? -r : r;
 }
 
-export function roundMoney(x: number, currency: string): number {
-  return roundTo(x, decimalsFor(currency));
-}
-
 const SYMBOLS: Record<string, string> = {
-  THB: '฿', USD: '$', EUR: '€', GBP: '£', CNY: '¥', JPY: '¥', KRW: '₩', BTC: '₿',
-  INR: '₹', VND: '₫', PHP: '₱', LAK: '₭', TWD: 'NT$', HKD: 'HK$', SGD: 'S$', AUD: 'A$', CAD: 'C$', NZD: 'NZ$',
+  THB: '฿',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  CNY: '¥',
+  JPY: '¥',
+  KRW: '₩',
+  BTC: '₿',
+  INR: '₹',
+  VND: '₫',
+  PHP: '₱',
+  LAK: '₭',
+  TWD: 'NT$',
+  HKD: 'HK$',
+  SGD: 'S$',
+  AUD: 'A$',
+  CAD: 'C$',
+  NZD: 'NZ$',
 };
-
-export function currencySymbol(code: string): string {
-  return SYMBOLS[code] ?? '';
-}
 
 const nfCache = new Map<string, Intl.NumberFormat>();
 function nf(minDp: number, maxDp: number): Intl.NumberFormat {
@@ -81,9 +89,7 @@ export function allocate(total: number, weights: number[], dp = 2): number[] {
   const raw = w.map((x) => (totalUnits * x) / sum);
   const floors = raw.map((x) => Math.floor(x + 1e-9));
   let rest = totalUnits - floors.reduce((a, b) => a + b, 0);
-  const order = raw
-    .map((x, i) => ({ i, frac: x - Math.floor(x + 1e-9) }))
-    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+  const order = raw.map((x, i) => ({ i, frac: x - Math.floor(x + 1e-9) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
   const out = floors.slice();
   for (let k = 0; rest > 0; k = (k + 1) % n, rest--) out[order[k].i] += 1;
   for (let k = 0; rest < 0; k = (k + 1) % n, rest++) out[order[n - 1 - k].i] -= 1;

@@ -10,6 +10,7 @@ import {
   Seg,
   ToggleRow,
   Topbar,
+  fmtExpr,
   useCalc,
 } from '../components/ui';
 import { unitValue } from '../domain/balances';
@@ -41,14 +42,6 @@ function writeLast(profileId: string, kind: string, id: string) {
   }
 }
 
-function fmtExpr(expr: string): string {
-  return expr.replace(/\d+(\.\d*)?/g, (m) => {
-    const [i, d] = m.split('.');
-    const g = i.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return d !== undefined ? `${g}.${d}` : g;
-  });
-}
-
 export function Entry({ route }: { route: EntryRoute }) {
   const { profile, rates, currency, today, back, toast, confirm } = useApp();
   const data = useData();
@@ -56,7 +49,7 @@ export function Entry({ route }: { route: EntryRoute }) {
   const usable = data.accounts.filter((a) => !a.archived || a.id === existing?.accountId || a.id === existing?.toAccountId);
 
   const initialKind: Exclude<TxKind, 'adjust'> =
-    existing && existing.kind !== 'adjust' ? existing.kind : (route.kind as Exclude<TxKind, 'adjust'>) ?? 'expense';
+    existing && existing.kind !== 'adjust' ? existing.kind : ((route.kind as Exclude<TxKind, 'adjust'>) ?? 'expense');
   const [kind, setKind] = useState<Exclude<TxKind, 'adjust'> | 'adjust'>(existing?.kind ?? initialKind);
 
   const defaultAccount = (k: string) => {
@@ -65,12 +58,14 @@ export function Entry({ route }: { route: EntryRoute }) {
     return (usable.find((a) => a.type === 'cash' || a.type === 'bank') ?? usable[0])?.id;
   };
 
-  const [accountId, setAccountId] = useState<string | undefined>(existing?.accountId ?? route.accountId ?? defaultAccount(initialKind));
+  const [accountId, setAccountId] = useState<string | undefined>(
+    existing?.accountId ?? route.accountId ?? defaultAccount(initialKind),
+  );
   const [toAccountId, setToAccountId] = useState<string | undefined>(existing?.toAccountId ?? route.toAccountId);
   const acc = accountId ? data.accountById.get(accountId) : undefined;
   const toAcc = toAccountId ? data.accountById.get(toAccountId) : undefined;
 
-  const startAmount = existing ? existing.origAmount ?? Math.abs(existing.amount) : route.amount;
+  const startAmount = existing ? (existing.origAmount ?? Math.abs(existing.amount)) : route.amount;
   const calc = useCalc(startAmount ? String(roundTo(startAmount, 8)) : '');
   const [typedCurrency, setTypedCurrency] = useState<string>(existing?.origCurrency ?? acc?.currency ?? currency);
   const [chargedOverride, setChargedOverride] = useState<number | null>(existing?.origCurrency ? existing.amount : null);
@@ -91,7 +86,7 @@ export function Entry({ route }: { route: EntryRoute }) {
   const accCur = acc?.currency ?? currency;
   const foreign = !!acc && acc.type !== 'units' && typedCurrency !== accCur;
   const autoCharged = foreign && amount !== null ? convert(amount, typedCurrency, accCur, rates) : null;
-  const charged = foreign ? chargedOverride ?? autoCharged : amount;
+  const charged = foreign ? (chargedOverride ?? autoCharged) : amount;
 
   const transferCross = kind === 'transfer' && !!toAcc && !!acc && toAcc.currency !== accCur;
   const autoTo = useMemo(() => {
@@ -101,7 +96,7 @@ export function Entry({ route }: { route: EntryRoute }) {
     if (v1 === null || v2 === null || v2 === 0) return null;
     return roundTo((charged * v1) / v2, decimalsFor(toAcc.currency));
   }, [transferCross, charged, acc, toAcc, rates]);
-  const toAmount = transferCross ? toAmountOverride ?? autoTo : charged;
+  const toAmount = transferCross ? (toAmountOverride ?? autoTo) : charged;
 
   const switchKind = (k: Exclude<TxKind, 'adjust'>) => {
     setKind(k);
@@ -155,7 +150,7 @@ export function Entry({ route }: { route: EntryRoute }) {
         accountId: acc.id,
         amount: kind === 'adjust' ? (existing && existing.amount < 0 ? -Math.abs(amount) : amount) : charged,
         toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
-        toAmount: kind === 'transfer' ? toAmount ?? charged : undefined,
+        toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
         categoryId,
         note,
         origAmount: foreign ? amount : undefined,
@@ -175,7 +170,7 @@ export function Entry({ route }: { route: EntryRoute }) {
         amount: charged,
         accountId: acc.id,
         toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
-        toAmount: kind === 'transfer' ? toAmount ?? charged : undefined,
+        toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
         categoryId,
         note: note.trim() || undefined,
         freq,
@@ -209,7 +204,8 @@ export function Entry({ route }: { route: EntryRoute }) {
   };
 
   const kindCls = kind === 'income' ? 'income' : kind === 'transfer' || kind === 'adjust' ? 'transfer' : '';
-  const shownValue = amount === null ? (calc.expr ? fmtExpr(calc.expr) : fmtMoney(0, typedCurrency)) : fmtMoney(amount, typedCurrency);
+  const shownValue =
+    amount === null ? (calc.expr ? fmtExpr(calc.expr) : fmtMoney(0, typedCurrency)) : fmtMoney(amount, typedCurrency);
 
   return (
     <>
@@ -269,7 +265,11 @@ export function Entry({ route }: { route: EntryRoute }) {
         {foreign && (
           <Field
             label={`Charged to ${acc?.name} (${accCur})`}
-            hint={autoCharged === null ? 'No rate saved for this currency. Type the amount charged.' : 'Worked out with the latest rate. Tap to type the real amount from your bank.'}
+            hint={
+              autoCharged === null
+                ? 'No rate saved for this currency. Type the amount charged.'
+                : 'Worked out with the latest rate. Tap to type the real amount from your bank.'
+            }
           >
             <AmountField value={charged} onChange={setChargedOverride} currency={accCur} />
           </Field>
@@ -308,7 +308,14 @@ export function Entry({ route }: { route: EntryRoute }) {
           </Field>
         )}
         {transferCross && toAcc && (
-          <Field label={`Arrives as (${toAcc.currency})`} hint={toAcc.currency === 'BTC' ? 'Type the exact BTC you received.' : 'Estimated from the latest rate. Tap to type the real amount.'}>
+          <Field
+            label={`Arrives as (${toAcc.currency})`}
+            hint={
+              toAcc.currency === 'BTC'
+                ? 'Type the exact BTC you received.'
+                : 'Estimated from the latest rate. Tap to type the real amount.'
+            }
+          >
             <AmountField value={toAmount} onChange={setToAmountOverride} currency={toAcc.currency} />
           </Field>
         )}
@@ -340,10 +347,17 @@ export function Entry({ route }: { route: EntryRoute }) {
                     </select>
                   </Field>
                 </div>
-                <div className="small muted">{describeSchedule(freq, every)}, starting {date}. This entry is the first one.</div>
+                <div className="small muted">
+                  {describeSchedule(freq, every)}, starting {date}. This entry is the first one.
+                </div>
                 <ToggleRow title="Record automatically on the day" on={autoPost} onChange={setAutoPost} />
                 {kind !== 'income' && (
-                  <ToggleRow title="🔒 Keep the next payment ready" desc="Shows it as reserved in the paying account" on={reserve} onChange={setReserve} />
+                  <ToggleRow
+                    title="🔒 Keep the next payment ready"
+                    desc="Shows it as reserved in the paying account"
+                    on={reserve}
+                    onChange={setReserve}
+                  />
                 )}
               </>
             )}

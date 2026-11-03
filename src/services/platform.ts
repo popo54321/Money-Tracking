@@ -18,7 +18,11 @@ function toBase64(bytes: Uint8Array): string {
  * Hand a file to the user: Android opens the share sheet (Drive, email, Files…),
  * iPhone/web uses the share sheet when available, otherwise downloads it.
  */
-export async function shareFile(name: string, data: string | Uint8Array, mime: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
+export async function shareFile(
+  name: string,
+  data: string | Uint8Array,
+  mime: string,
+): Promise<'shared' | 'downloaded' | 'cancelled'> {
   if (isNative()) {
     const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
     const { Share } = await import('@capacitor/share');

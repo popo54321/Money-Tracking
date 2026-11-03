@@ -62,47 +62,53 @@ export function TxRow({ tx, contextAccountId }: { tx: Tx; contextAccountId?: str
   };
   return (
     <>
-    <button className="row" onClick={() => go({ name: 'entry', id: tx.id })} {...holdProps(() => setMenu(true))}>
-      <div className={`bubble ${colour}`}>{emoji}</div>
-      <div className="main">
-        <div className="title">{title}</div>
-        <div className="sub">{sub || ' '}</div>
-      </div>
-      <div className="end">
-        <div className={`amt ${cls}`}>{fmtMoney(amount, cur, { sign: tx.kind !== 'transfer' || !!contextAccountId })}</div>
-        {tx.origCurrency && tx.origAmount !== undefined && (
-          <div className="amt2">{fmtMoney(tx.origAmount, tx.origCurrency)}</div>
-        )}
-      </div>
-    </button>
-    {menu && (
-      <Sheet open onClose={() => setMenu(false)} title={`${title} · ${fmtMoney(amount, cur)}`}>
-        <div className="vstack">
-          <button className="btn block" onClick={() => { setMenu(false); go({ name: 'entry', id: tx.id }); }}>
-            ✏️ Edit
-          </button>
-          <button className="btn mint block" onClick={duplicate}>
-            📄 Duplicate (log it again today)
-          </button>
-          <button
-            className="btn danger block"
-            onClick={async () => {
-              setMenu(false);
-              if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
-              await deleteTx(tx.id);
-              if (tx.recurringId) {
-                // keep the repeating entry from recording this date again
-                const r = await db.recurring.get(tx.recurringId);
-                if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
-              }
-              toast('🗑️ Deleted');
-            }}
-          >
-            🗑️ Delete
-          </button>
+      <button className="row" onClick={() => go({ name: 'entry', id: tx.id })} {...holdProps(() => setMenu(true))}>
+        <div className={`bubble ${colour}`}>{emoji}</div>
+        <div className="main">
+          <div className="title">{title}</div>
+          <div className="sub">{sub || ' '}</div>
         </div>
-      </Sheet>
-    )}
+        <div className="end">
+          <div className={`amt ${cls}`}>{fmtMoney(amount, cur, { sign: tx.kind !== 'transfer' || !!contextAccountId })}</div>
+          {tx.origCurrency && tx.origAmount !== undefined && (
+            <div className="amt2">{fmtMoney(tx.origAmount, tx.origCurrency)}</div>
+          )}
+        </div>
+      </button>
+      {menu && (
+        <Sheet open onClose={() => setMenu(false)} title={`${title} · ${fmtMoney(amount, cur)}`}>
+          <div className="vstack">
+            <button
+              className="btn block"
+              onClick={() => {
+                setMenu(false);
+                go({ name: 'entry', id: tx.id });
+              }}
+            >
+              ✏️ Edit
+            </button>
+            <button className="btn mint block" onClick={duplicate}>
+              📄 Duplicate (log it again today)
+            </button>
+            <button
+              className="btn danger block"
+              onClick={async () => {
+                setMenu(false);
+                if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
+                await deleteTx(tx.id);
+                if (tx.recurringId) {
+                  // keep the repeating entry from recording this date again
+                  const r = await db.recurring.get(tx.recurringId);
+                  if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
+                }
+                toast('🗑️ Deleted');
+              }}
+            >
+              🗑️ Delete
+            </button>
+          </div>
+        </Sheet>
+      )}
     </>
   );
 }

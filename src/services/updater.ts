@@ -15,8 +15,14 @@ export interface ReleaseInfo {
 
 /** -1 if a < b, 0 if equal, 1 if a > b (compares x.y.z numerically). */
 export function compareVersions(a: string, b: string): number {
-  const pa = a.replace(/^v/, '').split(/[.+-]/).map((x) => parseInt(x, 10) || 0);
-  const pb = b.replace(/^v/, '').split(/[.+-]/).map((x) => parseInt(x, 10) || 0);
+  const pa = a
+    .replace(/^v/, '')
+    .split(/[.+-]/)
+    .map((x) => parseInt(x, 10) || 0);
+  const pb = b
+    .replace(/^v/, '')
+    .split(/[.+-]/)
+    .map((x) => parseInt(x, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length, 3); i++) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (d) return d < 0 ? -1 : 1;
@@ -94,7 +100,8 @@ function announce(w: ServiceWorker) {
 }
 
 export async function registerServiceWorker(): Promise<void> {
-  if (isNative() || !('serviceWorker' in navigator) || location.protocol === 'http:' && location.hostname !== 'localhost') return;
+  if (isNative() || !('serviceWorker' in navigator) || (location.protocol === 'http:' && location.hostname !== 'localhost'))
+    return;
   if (import.meta.env.DEV) return;
   try {
     const hadController = !!navigator.serviceWorker.controller;

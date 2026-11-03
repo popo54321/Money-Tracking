@@ -156,7 +156,15 @@ describe('credit cards', () => {
     expect(dueDateFor('2026-10-05', 25)).toBe('2026-10-25');
   });
   it('tracks the unpaid part of the last statement', () => {
-    const card = acc({ id: 'card', type: 'credit', group: 'Credit', statementDay: 25, dueDay: 10, payFromAccountId: 'bank', creditLimit: 50000 });
+    const card = acc({
+      id: 'card',
+      type: 'credit',
+      group: 'Credit',
+      statementDay: 25,
+      dueDay: 10,
+      payFromAccountId: 'bank',
+      creditLimit: 50000,
+    });
     const txs = [
       tx({ kind: 'expense', accountId: 'card', amount: 3000, date: '2026-10-20' }),
       tx({ kind: 'expense', accountId: 'card', amount: 500, date: '2026-10-28' }),
@@ -180,8 +188,20 @@ describe('reserves', () => {
     const bank = acc({ id: 'bank', openingBalance: 20000 });
     const card = acc({ id: 'card', type: 'credit', group: 'Credit', payFromAccountId: 'bank' });
     const rec = (p: Partial<Recurring>): Recurring => ({
-      id: 'r', profileId: 'popo', name: 'x', kind: 'expense', amount: 0, accountId: 'bank', freq: 'month', every: 1,
-      startDate: '2026-01-05', autoPost: true, reserve: true, active: true, createdAt: 0, ...p,
+      id: 'r',
+      profileId: 'popo',
+      name: 'x',
+      kind: 'expense',
+      amount: 0,
+      accountId: 'bank',
+      freq: 'month',
+      every: 1,
+      startDate: '2026-01-05',
+      autoPost: true,
+      reserve: true,
+      active: true,
+      createdAt: 0,
+      ...p,
     });
     const items = upcomingItems(
       [bank, card],
@@ -323,12 +343,25 @@ describe('travel split', () => {
 
 describe('budget allocation', () => {
   const plan: BudgetPlan = {
-    id: 'b', profileId: 'popo', monthlyIncome: 51920, currency: 'THB', activePhaseId: 'p1',
-    phases: [{ id: 'p1', name: 'P1' }, { id: 'p3', name: 'P3' }],
+    id: 'b',
+    profileId: 'popo',
+    monthlyIncome: 51920,
+    currency: 'THB',
+    activePhaseId: 'p1',
+    phases: [
+      { id: 'p1', name: 'P1' },
+      { id: 'p3', name: 'P3' },
+    ],
     categories: [
-      { id: 'inv', name: 'Investing' }, { id: 'trav', name: 'Travel' }, { id: 'car', name: 'Car Payment' },
-      { id: 'emer', name: 'Emergency' }, { id: 'edu', name: 'Child Education' }, { id: 'qins', name: 'Qiqi Insurance' },
-      { id: 'qexp', name: 'Qiqi Expense' }, { id: 'pexp', name: 'Popo Expense' }, { id: 'house', name: 'Household Expense' },
+      { id: 'inv', name: 'Investing' },
+      { id: 'trav', name: 'Travel' },
+      { id: 'car', name: 'Car Payment' },
+      { id: 'emer', name: 'Emergency' },
+      { id: 'edu', name: 'Child Education' },
+      { id: 'qins', name: 'Qiqi Insurance' },
+      { id: 'qexp', name: 'Qiqi Expense' },
+      { id: 'pexp', name: 'Popo Expense' },
+      { id: 'house', name: 'Household Expense' },
     ],
     amounts: {
       p1: { inv: 16920, trav: 20000, pexp: 15000 },
@@ -336,9 +369,13 @@ describe('budget allocation', () => {
     },
     bonus: { income: 30000, rows: [] },
     surplus: {
-      amount: 4000, threshold: 300000,
+      amount: 4000,
+      threshold: 300000,
       belowRows: [{ id: 'e', name: 'Emergency', pct: 1 }],
-      aboveRows: [{ id: 'i', name: 'Investment', pct: 0.7 }, { id: 't', name: 'Travel', pct: 0.3 }],
+      aboveRows: [
+        { id: 'i', name: 'Investment', pct: 0.7 },
+        { id: 't', name: 'Travel', pct: 0.3 },
+      ],
     },
     transfers: [{ id: 't1', fromLabel: 'Payroll', toLabel: 'Emer Edu Car', categoryIds: ['car', 'emer', 'edu'], amounts: {} }],
     checklist: { month: '2026-11', done: [] },
@@ -373,7 +410,15 @@ describe('summary', () => {
       tx({ kind: 'expense', accountId: 'bank', amount: 120, categoryId: 'lunch', date: '2026-11-02' }),
       tx({ kind: 'expense', accountId: 'bank', amount: 80, categoryId: 'lunch', date: '2026-11-03' }),
       tx({ kind: 'expense', accountId: 'bank', amount: 209, categoryId: 'spot', date: '2026-11-05' }),
-      tx({ kind: 'expense', accountId: 'bank', amount: 10, valueCurrency: 'USD', value: 10, categoryId: 'lunch', date: '2026-11-06' }),
+      tx({
+        kind: 'expense',
+        accountId: 'bank',
+        amount: 10,
+        valueCurrency: 'USD',
+        value: 10,
+        categoryId: 'lunch',
+        date: '2026-11-06',
+      }),
       tx({ kind: 'expense', accountId: 'bank', amount: 999, categoryId: 'lunch', date: '2026-12-01' }),
       tx({ kind: 'adjust', accountId: 'bank', amount: 999, date: '2026-11-02' }),
     ];

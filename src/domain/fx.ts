@@ -51,12 +51,33 @@ export const COMMON_CURRENCIES = ['THB', 'USD', 'EUR', 'CNY', 'JPY', 'GBP', 'SGD
  * Built-in fallback rates (units per USD) from open.er-api.com, 3 Nov 2026.
  * Used only until the app downloads fresh rates for the first time.
  */
-export const FALLBACK_RATES_DATE = '2026-11-03';
 export const FALLBACK_PER_USD: Record<string, number> = {
-  USD: 1, THB: 33.740315, EUR: 0.893269, CNY: 6.665393, JPY: 157.896122, GBP: 0.745737, SGD: 1.279119,
-  HKD: 7.846694, KRW: 1344.12576, TWD: 32.589181, AUD: 1.427896, CAD: 1.39809, CHF: 0.819466, MYR: 4.070116,
-  IDR: 18144.899424, VND: 25743.911696, PHP: 63.433344, INR: 94.928524, NZD: 1.779045, LAK: 22353.304465,
-  MMK: 2098.633053, KHR: 4107.367979, AED: 3.6725, SEK: 9.77955, NOK: 9.291419, DKK: 6.667072,
+  USD: 1,
+  THB: 33.740315,
+  EUR: 0.893269,
+  CNY: 6.665393,
+  JPY: 157.896122,
+  GBP: 0.745737,
+  SGD: 1.279119,
+  HKD: 7.846694,
+  KRW: 1344.12576,
+  TWD: 32.589181,
+  AUD: 1.427896,
+  CAD: 1.39809,
+  CHF: 0.819466,
+  MYR: 4.070116,
+  IDR: 18144.899424,
+  VND: 25743.911696,
+  PHP: 63.433344,
+  INR: 94.928524,
+  NZD: 1.779045,
+  LAK: 22353.304465,
+  MMK: 2098.633053,
+  KHR: 4107.367979,
+  AED: 3.6725,
+  SEK: 9.77955,
+  NOK: 9.291419,
+  DKK: 6.667072,
 };
 /** BTC price in THB on the same date (CoinGecko). */
 export const FALLBACK_BTC_THB = 2584489;

@@ -93,7 +93,11 @@ export function computeBill(input: BillInput): BillResult {
   });
 
   const roundDp = input.roundWhole ? 0 : dp;
-  const pays = allocate(total, shares.map((x) => x.exact), roundDp);
+  const pays = allocate(
+    total,
+    shares.map((x) => x.exact),
+    roundDp,
+  );
   shares.forEach((x, i) => (x.pay = pays[i]));
   const roundingDiff = roundTo(sum(pays) - total, dp);
 

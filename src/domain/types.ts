@@ -9,16 +9,7 @@ export interface Profile {
 }
 
 export type AccountType =
-  | 'bank'
-  | 'cash'
-  | 'debit'
-  | 'credit'
-  | 'topup'
-  | 'investment'
-  | 'crypto'
-  | 'units'
-  | 'insurance'
-  | 'other';
+  'bank' | 'cash' | 'debit' | 'credit' | 'topup' | 'investment' | 'crypto' | 'units' | 'insurance' | 'other';
 
 export const ACCOUNT_TYPES: { type: AccountType; label: string; defaultGroup: string }[] = [
   { type: 'bank', label: 'Bank account', defaultGroup: 'Bank' },
@@ -109,7 +100,6 @@ export interface Category {
 }
 
 export const EXPENSE_GROUPS = ['Eating Out', 'Discretionary', 'Infrequent', 'Fixed'];
-export const INCOME_GROUP = 'Income';
 
 export type Freq = 'day' | 'week' | 'month' | 'year';
 

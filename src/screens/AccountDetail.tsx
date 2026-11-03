@@ -59,8 +59,17 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
             Now: <b>{fmtMoney(shownCurrent, account.currency)}</b>
             {isCard ? ' owed' : ''}
           </div>
-          <Field label={isCard ? 'Amount owed now' : 'New total balance'} hint="Type what your bank or app shows. I'll work out the difference.">
-            <AmountField value={value} onChange={setValue} currency={account.currency} title="New total" allowNegative={!isCard} />
+          <Field
+            label={isCard ? 'Amount owed now' : 'New total balance'}
+            hint="Type what your bank or app shows. I'll work out the difference."
+          >
+            <AmountField
+              value={value}
+              onChange={setValue}
+              currency={account.currency}
+              title="New total"
+              allowNegative={!isCard}
+            />
           </Field>
           <button
             className="btn primary block"
@@ -91,7 +100,10 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
             <button className={`btn block ${mode === 'adjust' ? 'primary' : ''}`} onClick={() => setMode('adjust')}>
               🪄 Just adjust the balance (not income or spending)
             </button>
-            <button className={`btn block ${mode === 'log' ? 'primary' : kind === 'income' ? 'mint' : 'pink'}`} onClick={() => setMode('log')}>
+            <button
+              className={`btn block ${mode === 'log' ? 'primary' : kind === 'income' ? 'mint' : 'pink'}`}
+              onClick={() => setMode('log')}
+            >
               {kind === 'income' ? '💰 Log the difference as income' : '💸 Log the difference as spending'}
             </button>
           </div>
@@ -172,7 +184,15 @@ export function AccountDetail({ id }: { id: string }) {
       />
       <div className="page">
         <div className="hero">
-          <div className="label">{isCard ? 'Owed on this card' : a.type === 'crypto' ? 'Bitcoin held' : a.unitPriceSource === 'live-gold' ? 'Gold held (baht-weight)' : 'Balance'}</div>
+          <div className="label">
+            {isCard
+              ? 'Owed on this card'
+              : a.type === 'crypto'
+                ? 'Bitcoin held'
+                : a.unitPriceSource === 'live-gold'
+                  ? 'Gold held (baht-weight)'
+                  : 'Balance'}
+          </div>
           <div className="big">{isCard ? fmtMoney(Math.max(0, -bal), a.currency) : fmtMoney(bal, a.currency)}</div>
           {a.currency !== currency && !isCard && (
             <div className="bold">≈ {value === null ? 'no price yet' : fmtMoney(value, currency)}</div>
@@ -185,7 +205,8 @@ export function AccountDetail({ id }: { id: string }) {
           )}
           {a.type === 'units' && a.unitPriceSource === 'live-gold' && (
             <div className="small mt">
-              ทองบาทละ {fmtMoney(prices.goldBuyThb ?? null, 'THB', { dp: 0 })} (shop buys) · {fmtMoney(prices.goldSellThb ?? null, 'THB', { dp: 0 })} (sells)
+              ทองบาทละ {fmtMoney(prices.goldBuyThb ?? null, 'THB', { dp: 0 })} (shop buys) ·{' '}
+              {fmtMoney(prices.goldSellThb ?? null, 'THB', { dp: 0 })} (sells)
               {prices.goldFetchedAt ? ` · ${fmtAgo(prices.goldFetchedAt)}` : ' · built-in price'}
             </div>
           )}
@@ -270,7 +291,9 @@ export function AccountDetail({ id }: { id: string }) {
                 )}
                 <div className="small muted">
                   Next statement {st.nextStatement ? fmtDate(st.nextStatement) : '—'}
-                  {a.creditLimit ? ` · limit ${fmtMoney(a.creditLimit, a.currency, { compact: true })} · available ${fmtMoney(st.available ?? 0, a.currency, { compact: true })}` : ''}
+                  {a.creditLimit
+                    ? ` · limit ${fmtMoney(a.creditLimit, a.currency, { compact: true })} · available ${fmtMoney(st.available ?? 0, a.currency, { compact: true })}`
+                    : ''}
                 </div>
                 {payFrom && <div className="small muted">Paid from {payFrom.name}</div>}
               </>

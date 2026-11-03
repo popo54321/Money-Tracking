@@ -17,7 +17,10 @@ function colName(c: number): string {
   return s;
 }
 
-export async function importBudgetFromWorkbook(data: ArrayBuffer, plan: BudgetPlan): Promise<{ plan: BudgetPlan; notes: string[] }> {
+export async function importBudgetFromWorkbook(
+  data: ArrayBuffer,
+  plan: BudgetPlan,
+): Promise<{ plan: BudgetPlan; notes: string[] }> {
   const XLSX = await import('xlsx');
   const wb = XLSX.read(data, { type: 'array', cellFormula: true });
   const name = wb.SheetNames.find((n) => n.trim().toLowerCase() === 'budget allocation');
@@ -33,7 +36,8 @@ export async function importBudgetFromWorkbook(data: ArrayBuffer, plan: BudgetPl
     return typeof v === 'number' ? v : Number(String(v ?? '').replace(/,/g, '')) || 0;
   };
   const find = (pred: (t: string) => boolean, startRow = range.s.r): { r: number; c: number } | null => {
-    for (let r = startRow; r <= range.e.r; r++) for (let c = range.s.c; c <= range.e.c; c++) if (pred(text(r, c).toLowerCase())) return { r, c };
+    for (let r = startRow; r <= range.e.r; r++)
+      for (let c = range.s.c; c <= range.e.c; c++) if (pred(text(r, c).toLowerCase())) return { r, c };
     return null;
   };
   const notes: string[] = [];
@@ -46,7 +50,7 @@ export async function importBudgetFromWorkbook(data: ArrayBuffer, plan: BudgetPl
   // phases and category amounts: the first "Category" header followed by phase names
   // the "Category" heading with phase names (P1, P2…) to its right
   let head: { r: number; c: number } | null = null;
-  for (let from = range.s.r; from <= range.e.r; ) {
+  for (let from = range.s.r; from <= range.e.r;) {
     const h = find((t) => t === 'category', from);
     if (!h) break;
     if (/^p\d/i.test(text(h.r, h.c + 1))) {
@@ -102,7 +106,9 @@ export async function importBudgetFromWorkbook(data: ArrayBuffer, plan: BudgetPl
   if (surplus) next.surplus.amount = num(surplus.r, surplus.c + 1);
   const below = find((t) => t.startsWith('if emergency below'));
   if (below) {
-    const m = text(below.r, below.c).replace(/,/g, '').match(/(\d+(\.\d+)?)/);
+    const m = text(below.r, below.c)
+      .replace(/,/g, '')
+      .match(/(\d+(\.\d+)?)/);
     if (m) next.surplus.threshold = Number(m[1]);
     next.surplus.belowRows = readRows(below.r + 2, below.c);
   }
@@ -123,7 +129,10 @@ export async function importBudgetFromWorkbook(data: ArrayBuffer, plan: BudgetPl
       // a formula such as =C12+C13+C14 links the transfer to those categories
       const f = cell(r, phases[0].col)?.f;
       if (f && /^[A-Z]+\d+(\+[A-Z]+\d+)*$/.test(f.replace(/\$/g, ''))) {
-        const rowsRef = f.replace(/\$/g, '').split('+').map((x) => Number(x.replace(/^[A-Z]+/, '')) - 1);
+        const rowsRef = f
+          .replace(/\$/g, '')
+          .split('+')
+          .map((x) => Number(x.replace(/^[A-Z]+/, '')) - 1);
         const linked = rowsRef.map((rr) => cats.find((c) => c.row === rr)?.id).filter(Boolean) as string[];
         if (linked.length === rowsRef.length) t.categoryIds = linked;
       }

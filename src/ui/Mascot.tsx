@@ -40,16 +40,29 @@ function Face({ pose, eyeY, cx = 32, gap = 9 }: { pose: Pose; eyeY: number; cx?:
 
 function Prop({ pose, x, y }: { pose: Pose; x: number; y: number }) {
   if (pose === 'love')
-    return <path d={`M${x} ${y + 4} c-5 -3.5 -6 -8 -3 -9.5 c1.6 -0.8 3 0.2 3 1.6 c0 -1.4 1.4 -2.4 3 -1.6 c3 1.5 2 6 -3 9.5z`} fill="#ff5c7a" stroke={INK} strokeWidth="1" />;
+    return (
+      <path
+        d={`M${x} ${y + 4} c-5 -3.5 -6 -8 -3 -9.5 c1.6 -0.8 3 0.2 3 1.6 c0 -1.4 1.4 -2.4 3 -1.6 c3 1.5 2 6 -3 9.5z`}
+        fill="#ff5c7a"
+        stroke={INK}
+        strokeWidth="1"
+      />
+    );
   if (pose === 'coin')
     return (
       <g>
         <circle cx={x} cy={y} r="5.2" fill="#f6c343" stroke="#c9961a" strokeWidth="1.3" />
-        <text x={x} y={y + 2.6} fontSize="7" fontWeight="800" textAnchor="middle" fill="#9a6f00">฿</text>
+        <text x={x} y={y + 2.6} fontSize="7" fontWeight="800" textAnchor="middle" fill="#9a6f00">
+          ฿
+        </text>
       </g>
     );
   if (pose === 'sleep')
-    return <text x={x} y={y} fontSize="8" fontWeight="800" fill="#7aa0c8">z</text>;
+    return (
+      <text x={x} y={y} fontSize="8" fontWeight="800" fill="#7aa0c8">
+        z
+      </text>
+    );
   if (pose === 'happy')
     return <path d={`M${x} ${y - 3} l1.2 2.6 2.6 1.2 -2.6 1.2 -1.2 2.6 -1.2 -2.6 -2.6 -1.2 2.6 -1.2z`} fill="#f6c343" />;
   return null;

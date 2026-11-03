@@ -26,13 +26,21 @@ export interface MonthCloseData {
 }
 
 /** Rates as they were at the end of the month when a snapshot exists, otherwise today's. */
-async function ratesAt(date: string, current: RateTable): Promise<{ table: RateTable; btcThb?: number; goldThb?: number; date?: string }> {
+async function ratesAt(
+  date: string,
+  current: RateTable,
+): Promise<{ table: RateTable; btcThb?: number; goldThb?: number; date?: string }> {
   const snap = await db.prices.where('date').belowOrEqual(date).last();
   if (!snap) {
     const c = await getPriceCache();
     return { table: current, btcThb: c.btcPriceCurrency === 'THB' ? c.btcPrice : undefined, goldThb: c.goldBuyThb };
   }
-  return { table: withBtc(snap.perUsd, snap.btcThb ?? null, 'THB', snap.goldThb ?? null), btcThb: snap.btcThb, goldThb: snap.goldThb, date: snap.date };
+  return {
+    table: withBtc(snap.perUsd, snap.btcThb ?? null, 'THB', snap.goldThb ?? null),
+    btcThb: snap.btcThb,
+    goldThb: snap.goldThb,
+    date: snap.date,
+  };
 }
 
 export async function buildMonthClose(
@@ -75,10 +83,10 @@ export async function buildMonthClose(
     .filter((g) => g.rows.length > 0);
 
   const btcAccounts = visible.filter((a) => a.currency === 'BTC');
-  const perAccount = btcAccounts.map((a) => ({ name: a.name, amount: a.openingDate > end ? 0 : balances.get(a.id) ?? 0 }));
+  const perAccount = btcAccounts.map((a) => ({ name: a.name, amount: a.openingDate > end ? 0 : (balances.get(a.id) ?? 0) }));
   const amount = perAccount.reduce((s, x) => s + x.amount, 0);
   const goldAccounts = visible.filter(isGoldAccount);
-  const goldPer = goldAccounts.map((a) => ({ name: a.name, amount: a.openingDate > end ? 0 : balances.get(a.id) ?? 0 }));
+  const goldPer = goldAccounts.map((a) => ({ name: a.name, amount: a.openingDate > end ? 0 : (balances.get(a.id) ?? 0) }));
   const goldAmount = goldPer.reduce((s, x) => s + x.amount, 0);
   return {
     gold: {
