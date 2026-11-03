@@ -12,6 +12,7 @@ import { refreshPrices } from '../services/prices';
 import { APP_VERSION, isNative, openExternal, pickTextFile } from '../services/platform';
 import { applyWebUpdate, checkWebUpdate, installApk, isNewer, latestRelease, type ReleaseInfo } from '../services/updater';
 import { useApp } from '../state/app';
+import { checkNativeUpdate, tryApplyNative } from '../services/autoUpdate';
 import { EMOJI_CHOICES } from '../ui/emoji';
 import { SKINS } from '../ui/skins';
 
@@ -88,9 +89,25 @@ function UpdateCard() {
     setStatus('Checking…');
     try {
       if (native) {
+        // first try the quick way: new app files, no reinstall
+        const quick = await checkNativeUpdate(settings.githubRepo, true);
+        if (quick === 'downloading') {
+          setStatus('Downloading the new version… it switches in by itself. ⏳');
+          return;
+        }
+        if (quick === 'ready') {
+          setStatus('New version downloaded. Switching now… ✨');
+          tryApplyNative(true);
+          return;
+        }
         const r = await latestRelease(settings.githubRepo);
         setRel(r);
-        setStatus(isNewer(r) ? `Version ${r.version} is available 🎉` : `You have the latest version (${APP_VERSION}) ✨`);
+        setStatus(
+          quick === 'needsApk' || (quick === 'error' && isNewer(r))
+            ? `Version ${r.version} is available 🎉`
+            : `You have the latest version (${APP_VERSION}) ✨`,
+        );
+        if (quick === 'none') setRel(null);
       } else {
         const ready = await checkWebUpdate();
         setStatus(ready ? 'A new version is ready 🎉' : `You have the latest version (${APP_VERSION}) ✨`);
@@ -106,7 +123,8 @@ function UpdateCard() {
   return (
     <Section title="🚀 Updates">
       <div className="small muted mb">
-        You have version {APP_VERSION} ({native ? 'Android app' : 'web app'}).
+        You have version {APP_VERSION} ({native ? 'Android app' : 'web app'}). New versions install themselves: when the app is
+        opened or left with nothing open, so nothing you are typing is lost.
       </div>
       <button className="btn sky block" onClick={check} disabled={busy}>
         {busy ? '…' : '🔍 Check for a new version'}

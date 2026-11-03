@@ -11,6 +11,7 @@ import { db } from '../db/db';
 import { FALLBACK_PRICES, updateSettings } from '../db/repo';
 import { DEFAULT_SETTINGS } from '../db/seed';
 import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
+import { setQuietCheck } from '../services/autoUpdate';
 
 // ---------- navigation ----------
 
@@ -212,6 +213,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const stackRef = useRef(stack);
   stackRef.current = stack;
+  // updates switch themselves in only when nothing is open, so nothing being typed is lost
+  useEffect(() => {
+    setQuietCheck(() => {
+      const top = stackRef.current[stackRef.current.length - 1];
+      return (TAB_ROOTS as readonly string[]).includes(top.name) && overlays.current.length === 0;
+    });
+  }, []);
   useEffect(() => {
     let remove: (() => void) | undefined;
     (async () => {

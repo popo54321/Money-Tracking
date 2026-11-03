@@ -458,9 +458,11 @@ button.row:active {
   background: var(--sky);
   color: var(--sky-ink);
 }
+/* quieter buttons still look like buttons: a light tint and outline, never bare text */
 .btn.ghost {
-  background: transparent;
-  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 11%, transparent);
+  color: var(--ink);
+  border: 1.5px solid color-mix(in srgb, var(--muted) 24%, transparent);
   box-shadow: none;
 }
 .btn.danger {

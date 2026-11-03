@@ -4,7 +4,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+  /** minNativeVersion: the oldest Android app (APK) these files run in. Raise it when android/ or a Capacitor plugin changes. */
+  config: { minNativeVersion: string };
+};
 
 /** Writes dist/sw.js: a service worker that keeps every app file for offline use (web app / iPhone). */
 function offlineServiceWorker(): Plugin {
@@ -34,6 +38,14 @@ function offlineServiceWorker(): Plugin {
         .replace('__VERSION__', version)
         .replace('__FILES__', JSON.stringify(['./', ...list.map((f) => `./${f}`)], null, 2));
       writeFileSync(join(outDir, 'sw.js'), sw);
+      // version.json: lets the Android app fetch these exact files and switch to them without a reinstall
+      const manifest = {
+        version: pkg.version,
+        build: version,
+        minNative: pkg.config.minNativeVersion,
+        files: list.map((f) => ({ path: f, size: statSync(join(outDir, f)).size })),
+      };
+      writeFileSync(join(outDir, 'version.json'), JSON.stringify(manifest, null, 1));
     },
   };
 }
