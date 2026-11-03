@@ -350,9 +350,11 @@ export function Entry({ route }: { route: EntryRoute }) {
           </div>
         )}
 
-        <button className="btn primary block mt" onClick={save}>
-          {existing ? 'Save changes' : 'Save'}
-        </button>
+        <div className="save-bar">
+          <button className="btn primary block" onClick={save}>
+            {existing ? 'Save changes' : 'Save'}
+          </button>
+        </div>
       </div>
       <CurrencySheet
         open={curOpen}

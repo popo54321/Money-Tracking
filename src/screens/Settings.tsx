@@ -98,8 +98,7 @@ function UpdateCard() {
   };
 
   return (
-    <div className="card">
-      <h2>🚀 Updates</h2>
+    <Section title="🚀 Updates" hint={`v${APP_VERSION}`}>
       <div className="small muted mb">
         You have version {APP_VERSION} ({native ? 'Android app' : 'web app'}).
       </div>
@@ -136,7 +135,19 @@ function UpdateCard() {
           </button>
         )}
       </div>
-    </div>
+    </Section>
+  );
+}
+
+function Section({ title, hint, open, children }: { title: string; hint?: string; open?: boolean; children: React.ReactNode }) {
+  return (
+    <details className="card" open={open}>
+      <summary>
+        {title}
+        {hint ? <span className="hint">· {hint}</span> : null}
+      </summary>
+      {children}
+    </details>
   );
 }
 
@@ -175,10 +186,55 @@ export function Settings() {
 
   return (
     <>
-      <Topbar title="Settings ⚙️" />
+      <Topbar title="Settings" />
       <div className="page">
-        <div className="card">
-          <h2>💱 Money</h2>
+        <Section title="🎨 Theme" hint={skin.label}>
+          <div className="vstack mb">
+            {SKINS.map((t) => (
+              <button
+                key={t.id}
+                className={`row ${skin.id === t.id ? 'on' : ''}`}
+                style={{ border: `2px solid ${skin.id === t.id ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 'var(--radius-sm)' }}
+                onClick={() => set({ skin: t.id })}
+              >
+                <div className="bubble" style={{ fontSize: 20 }}>{t.icon}</div>
+                <div className="main">
+                  <div className="title">{t.label}</div>
+                  <div className="sub">{t.desc}</div>
+                </div>
+                {skin.id === t.id && <div className="end bold">✓</div>}
+              </button>
+            ))}
+          </div>
+          <Seg
+            value={settings.theme}
+            onChange={(v) => set({ theme: v })}
+            options={[
+              { v: 'system', label: 'Auto' },
+              { v: 'light', label: '☀️ Light' },
+              { v: 'dark', label: '🌙 Dark' },
+            ]}
+          />
+        </Section>
+
+        <Section title="🧚 Users" hint={`${profiles.length}`}>
+          <div className="tiny muted mb">Each person has separate accounts, entries and categories.</div>
+          {profiles.map((p) => (
+            <ProfileEditor key={p.id} p={p} canDelete={profiles.length > 1} />
+          ))}
+          <button
+            className="btn block mt"
+            onClick={async () => {
+              const p = await createProfile();
+              setProfile(p.id);
+              toast(`✨ ${p.name} added`);
+            }}
+          >
+            ＋ Add a user
+          </button>
+        </Section>
+
+        <Section title="💱 Money" hint={settings.defaultCurrency}>
           <Field label="Main currency" hint="Totals, net worth and summaries are shown in this currency.">
             <button type="button" className="amount-field" onClick={() => setCurOpen(true)}>
               {settings.defaultCurrency} <span className="cur">▾</span>
@@ -196,33 +252,9 @@ export function Settings() {
               </button>
             </div>
           </Field>
-        </div>
+        </Section>
 
-        <div className="card">
-          <h2>🌈 Live prices</h2>
-          <div className="small">
-            Exchange rates: {prices.ratesFetchedAt ? `${prices.ratesSource}, ${fmtAgo(prices.ratesFetchedAt)}` : prices.ratesSource}
-          </div>
-          <div className="small">
-            BTC price: {prices.btcFetchedAt ? `${prices.btcSource}, ${fmtAgo(prices.btcFetchedAt)}` : prices.btcSource ?? 'not yet'}
-          </div>
-          <div className="tiny muted mt">Only these use the internet. Everything else works offline. Saved prices are used until the next update.</div>
-          <button
-            className="btn sky block mt"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              const r = await refreshPrices(true);
-              setBusy(false);
-              toast(r.ok ? '🌈 Updated' : r.error === 'offline' ? '📴 Offline' : `😿 ${r.error}`);
-            }}
-          >
-            ↻ Update prices now
-          </button>
-        </div>
-
-        <div className="card">
-          <h2>💾 Backup & export</h2>
+        <Section title="💾 Backup & export" hint={settings.lastBackupAt ? `last ${fmtAgo(settings.lastBackupAt)}` : 'no backup yet'}>
           <div className="small muted mb">
             {counts ? `${counts.accounts} accounts, ${counts.txs} entries on this ${isNative() ? 'phone' : 'device'}.` : ''} Last backup:{' '}
             {settings.lastBackupAt ? fmtAgo(settings.lastBackupAt) : 'never'}.
@@ -250,69 +282,41 @@ export function Settings() {
               On iPhone, data lives in this web app only. Save a backup regularly, for example to iCloud Drive.
             </div>
           )}
-        </div>
+        </Section>
 
         <UpdateCard />
 
-        <div className="card">
-          <h2>🧚 Users</h2>
-          <div className="tiny muted mb">Each person has separate accounts, entries and categories.</div>
-          {profiles.map((p) => (
-            <ProfileEditor key={p.id} p={p} canDelete={profiles.length > 1} />
-          ))}
+        <Section title="🌈 Live prices" hint={'exchange rates, BTC, gold'}>
+          <div className="small">
+            Exchange rates: {prices.ratesFetchedAt ? `${prices.ratesSource}, ${fmtAgo(prices.ratesFetchedAt)}` : prices.ratesSource}
+          </div>
+          <div className="small">
+            BTC price: {prices.btcFetchedAt ? `${prices.btcSource}, ${fmtAgo(prices.btcFetchedAt)}` : prices.btcSource ?? 'not yet'}
+          </div>
+          <div className="tiny muted mt">Only these use the internet. Everything else works offline. Saved prices are used until the next update.</div>
           <button
-            className="btn block mt"
+            className="btn sky block mt"
+            disabled={busy}
             onClick={async () => {
-              const p = await createProfile();
-              setProfile(p.id);
-              toast(`✨ ${p.name} added`);
+              setBusy(true);
+              const r = await refreshPrices(true);
+              setBusy(false);
+              toast(r.ok ? '🌈 Updated' : r.error === 'offline' ? '📴 Offline' : `😿 ${r.error}`);
             }}
           >
-            ＋ Add a user
+            ↻ Update prices now
           </button>
-        </div>
-
-        <div className="card">
-          <h2>🎨 Theme</h2>
-          <div className="vstack mb">
-            {SKINS.map((t) => (
-              <button
-                key={t.id}
-                className={`row ${skin.id === t.id ? 'on' : ''}`}
-                style={{ border: `2px solid ${skin.id === t.id ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 'var(--radius-sm)' }}
-                onClick={() => set({ skin: t.id })}
-              >
-                <div className="bubble" style={{ fontSize: 20 }}>{t.icon}</div>
-                <div className="main">
-                  <div className="title">{t.label}</div>
-                  <div className="sub">{t.desc}</div>
-                </div>
-                {skin.id === t.id && <div className="end bold">✓</div>}
-              </button>
-            ))}
-          </div>
-          <Seg
-            value={settings.theme}
-            onChange={(v) => set({ theme: v })}
-            options={[
-              { v: 'system', label: 'Auto' },
-              { v: 'light', label: '☀️ Light' },
-              { v: 'dark', label: '🌙 Dark' },
-            ]}
-          />
-        </div>
+        </Section>
 
         {!isNative() && (
-          <div className="card">
-            <h2>📱 Install on iPhone</h2>
+          <Section title="📱 Install on iPhone">
             <div className="small">
               In Safari tap <b>Share</b> → <b>Add to Home Screen</b>. It then opens full-screen and works offline.
             </div>
-          </div>
+          </Section>
         )}
 
-        <div className="card">
-          <h2>⚠️ Start again</h2>
+        <Section title="⚠️ Start again" hint={''}>
           <button
             className="btn danger block"
             onClick={async () => {
@@ -330,7 +334,7 @@ export function Settings() {
           >
             Erase all data
           </button>
-        </div>
+        </Section>
         <div className="center tiny muted">
           v{APP_VERSION} · {profile.name}’s view · github.com/{settings.githubRepo}
         </div>

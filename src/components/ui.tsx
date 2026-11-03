@@ -6,6 +6,7 @@ import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
 import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
 import { accountColour, accountEmoji, categoryEmoji } from '../ui/emoji';
+import { Mascot } from '../ui/Mascot';
 
 // ---------- layout ----------
 
@@ -544,6 +545,7 @@ export function ProgressBar({ value, colour = '' }: { value: number; colour?: st
 /** The little picture in the corner of a top card; nothing in the Financial theme. */
 export function Sparkle({ k, override }: { k: string; override?: string }) {
   const { skin } = useApp();
+  if (skin.mascot) return <span className="sparkle mascot"><Mascot kind={skin.mascot} pose={skin.poses?.[k] ?? 'happy'} size={46} /></span>;
   const e = skin.plain ? '' : override ?? skin.sparkle[k] ?? '';
   return e ? <span className="sparkle">{e}</span> : null;
 }
