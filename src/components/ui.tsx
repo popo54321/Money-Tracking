@@ -155,9 +155,9 @@ export function Sheet({
 
 // ---------- calculator ----------
 
-// Phone-style keypad: clear, delete and brackets on top; operators down the right in the order
+// Phone-style keypad: brackets, clear and delete on top; operators down the right in the order
 // people use them most (+ − × ÷); 0 in the middle of the bottom row like a phone dial pad.
-const KEYS = ['C', '⌫', '(', ')', '7', '8', '9', '+', '4', '5', '6', '−', '1', '2', '3', '×', '.', '0', '=', '÷'];
+const KEYS = ['(', ')', 'C', '⌫', '7', '8', '9', '+', '4', '5', '6', '−', '1', '2', '3', '×', '.', '0', '=', '÷'];
 
 export function useCalc(initial = '') {
   const [expr, setExpr] = useState(initial);
