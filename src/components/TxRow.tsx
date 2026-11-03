@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { fmtDate, todayISO, addDays } from '../domain/dates';
+import { deleteTx } from '../db/repo';
+import { db } from '../db/db';
+import { holdProps } from './hold';
+import { Sheet } from './ui';
 import { fmtMoney } from '../domain/money';
 import type { Tx } from '../domain/types';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour } from '../ui/emoji';
 
 export function TxRow({ tx, contextAccountId }: { tx: Tx; contextAccountId?: string }) {
-  const { go } = useApp();
+  const { go, confirm, toast } = useApp();
+  const [menu, setMenu] = useState(false);
   const { accountById, categoryById } = useData();
   const acc = accountById.get(tx.accountId);
   const to = tx.toAccountId ? accountById.get(tx.toAccountId) : undefined;
@@ -42,8 +48,21 @@ export function TxRow({ tx, contextAccountId }: { tx: Tx; contextAccountId?: str
     cls = tx.amount >= 0 ? 'pos' : 'neg';
   }
   const sub = [tx.kind === 'transfer' ? '' : acc?.name, tx.note, tx.recurringId ? '🔁' : ''].filter(Boolean).join(' · ');
+  const duplicate = () => {
+    setMenu(false);
+    go({
+      name: 'entry',
+      kind: tx.kind === 'adjust' ? 'expense' : tx.kind,
+      accountId: tx.accountId,
+      toAccountId: tx.toAccountId,
+      amount: tx.origAmount ?? tx.amount,
+      categoryId: tx.categoryId,
+      note: tx.note,
+    });
+  };
   return (
-    <button className="row" onClick={() => go({ name: 'entry', id: tx.id })}>
+    <>
+    <button className="row" onClick={() => go({ name: 'entry', id: tx.id })} {...holdProps(() => setMenu(true))}>
       <div className={`bubble ${colour}`}>{emoji}</div>
       <div className="main">
         <div className="title">{title}</div>
@@ -56,6 +75,35 @@ export function TxRow({ tx, contextAccountId }: { tx: Tx; contextAccountId?: str
         )}
       </div>
     </button>
+    {menu && (
+      <Sheet open onClose={() => setMenu(false)} title={`${title} · ${fmtMoney(amount, cur)}`}>
+        <div className="vstack">
+          <button className="btn block" onClick={() => { setMenu(false); go({ name: 'entry', id: tx.id }); }}>
+            ✏️ Edit
+          </button>
+          <button className="btn mint block" onClick={duplicate}>
+            📄 Duplicate (log it again today)
+          </button>
+          <button
+            className="btn danger block"
+            onClick={async () => {
+              setMenu(false);
+              if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
+              await deleteTx(tx.id);
+              if (tx.recurringId) {
+                // keep the repeating entry from recording this date again
+                const r = await db.recurring.get(tx.recurringId);
+                if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
+              }
+              toast('🗑️ Deleted');
+            }}
+          >
+            🗑️ Delete
+          </button>
+        </div>
+      </Sheet>
+    )}
+    </>
   );
 }
 

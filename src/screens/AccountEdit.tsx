@@ -170,10 +170,8 @@ export function AccountEdit({ id }: { id?: string }) {
           </div>
         )}
 
-        <details className="card flat">
-          <summary>
-            More options <span className="hint">· group {a.group}, note, net worth</span>
-          </summary>
+        <div className="card flat">
+          <h2>Extra details</h2>
           <Field label="Group" hint="Matches the sections of your year sheet.">
             <div className="chips">
               {[...ACCOUNT_GROUPS, ...(ACCOUNT_GROUPS.includes(a.group) ? [] : [a.group])].map((g) => (
@@ -191,7 +189,7 @@ export function AccountEdit({ id }: { id?: string }) {
           {existing && (
             <ToggleRow title="Archived" desc="Hidden from lists, history kept" on={a.archived} onChange={(v) => set({ archived: v })} />
           )}
-        </details>
+        </div>
 
         <div className="save-bar">
           <button className="btn primary block" onClick={save}>

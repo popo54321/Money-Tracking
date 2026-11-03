@@ -8,6 +8,7 @@ import { ACCOUNT_GROUPS, type Account } from '../domain/types';
 import { useApp, useData } from '../state/app';
 import { accountColour, accountEmoji } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
+import { holdProps } from '../components/hold';
 
 export function AccountLine({ a }: { a: Account }) {
   const { go, rates, currency, today } = useApp();
@@ -33,7 +34,7 @@ export function AccountLine({ a }: { a: Account }) {
     sub = `🔒 ${fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free ${fmtMoney(bal - reserved, a.currency, { compact: true })}`;
   }
   return (
-    <button className="row" onClick={() => go({ name: 'account', id: a.id })}>
+    <button className="row" onClick={() => go({ name: 'account', id: a.id })} {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}>
       <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
       <div className="main">
         <div className="title">{a.name}</div>

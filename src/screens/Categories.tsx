@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Field, Seg, Sheet, ToggleRow, Topbar } from '../components/ui';
+import { Seg, Topbar } from '../components/ui';
 import { EXPENSE_GROUPS, type Category, type CategoryKind } from '../domain/types';
 import { db, uid } from '../db/db';
-import { categoryInUse, deleteCategory, saveCategory } from '../db/repo';
 import { useApp, useData } from '../state/app';
-import { EMOJI_CHOICES, categoryEmoji, groupColour } from '../ui/emoji';
+import { categoryEmoji, groupColour } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
+import { CategoryEditor } from '../components/CategoryEditor';
 
 export function Categories() {
-  const { profile, toast, confirm } = useApp();
+  const { profile } = useApp();
   const data = useData();
   const [kind, setKind] = useState<CategoryKind>('expense');
   const [edit, setEdit] = useState<Category | null>(null);
@@ -104,65 +104,7 @@ export function Categories() {
         )}
       </div>
 
-      <Sheet open={!!edit} onClose={() => setEdit(null)} title={edit && data.categoryById.has(edit.id) ? 'Edit category' : 'New category'}>
-        {edit && (
-          <>
-            <Field label="Name">
-              <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Coffee" />
-            </Field>
-            <Field label="Emoji">
-              <div className="chips">
-                {EMOJI_CHOICES.map((e) => (
-                  <button key={e} className={`chip ${categoryEmoji(edit) === e ? 'on' : ''}`} onClick={() => setEdit({ ...edit, emoji: e })}>
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            {kind === 'expense' && (
-              <Field label="Group">
-                <div className="chips">
-                  {groups.map((g) => (
-                    <button key={g} className={`chip lav ${edit.group === g ? 'on' : ''}`} onClick={() => setEdit({ ...edit, group: g })}>
-                      {g}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-            )}
-            {data.categoryById.has(edit.id) && <ToggleRow title="Hide" desc="Keeps old entries, hides it when adding new ones" on={edit.archived} onChange={(v) => setEdit({ ...edit, archived: v })} />}
-            <div className="btn-row mt">
-              {data.categoryById.has(edit.id) && (
-                <button
-                  className="btn danger"
-                  onClick={async () => {
-                    if (await categoryInUse(edit.id)) {
-                      toast('It has entries, so hide it instead 🙈');
-                      return;
-                    }
-                    if (!(await confirm({ title: `Delete ${edit.name}?`, ok: 'Delete', danger: true }))) return;
-                    await deleteCategory(edit.id);
-                    setEdit(null);
-                  }}
-                >
-                  Delete
-                </button>
-              )}
-              <button
-                className="btn primary"
-                onClick={async () => {
-                  if (!edit.name.trim()) return toast('Give it a name');
-                  await saveCategory({ ...edit, name: edit.name.trim() });
-                  setEdit(null);
-                  toast('✨ Saved');
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </>
-        )}
-      </Sheet>
+      {edit && <CategoryEditor key={edit.id} category={edit} onClose={() => setEdit(null)} />}
     </>
   );
 }

@@ -1044,6 +1044,7 @@ button.row:active {
 .keypad button.op { background: var(--lav); color: var(--lav-ink); }
 .keypad button.fn { background: var(--butter); color: var(--butter-ink); font-size: 18px; }
 .keypad button.ok { background: var(--mint); color: var(--mint-ink); }
+.keypad button.clear { background: var(--pink); color: var(--pink-ink); font-size: 18px; }
 .keypad button:active { transform: scale(0.95); }
 
 .cat-grid {
@@ -1529,3 +1530,43 @@ details.card > summary::after { content: '›'; margin-left: auto; font-size: 20
 details.card[open] > summary::after { transform: rotate(90deg); }
 details.card[open] > summary { margin-bottom: 10px; }
 details.card > summary .hint { font-weight: 600; font-size: 12.5px; color: var(--muted); }
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.theme-tile {
+  border: 2px solid var(--line);
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 10px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  min-height: 108px;
+}
+.theme-tile.on {
+  border-color: var(--accent);
+  background: var(--bg2);
+}
+.theme-tile .theme-icon { font-size: 28px; line-height: 1.2; }
+.theme-tile .tiny { line-height: 1.25; }
+
+/* press-and-hold: no text selection or system pop-up on long press */
+button,
+.row,
+.cat,
+.chip {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.cat.cat-new {
+  border: 2px dashed var(--line);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}

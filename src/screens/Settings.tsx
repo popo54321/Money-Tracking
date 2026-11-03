@@ -139,15 +139,12 @@ function UpdateCard() {
   );
 }
 
-function Section({ title, hint, open, children }: { title: string; hint?: string; open?: boolean; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <details className="card" open={open}>
-      <summary>
-        {title}
-        {hint ? <span className="hint">· {hint}</span> : null}
-      </summary>
+    <div className="card">
+      <h2>{title}</h2>
       {children}
-    </details>
+    </div>
   );
 }
 
@@ -188,35 +185,6 @@ export function Settings() {
     <>
       <Topbar title="Settings" />
       <div className="page">
-        <Section title="🎨 Theme" hint={skin.label}>
-          <div className="vstack mb">
-            {SKINS.map((t) => (
-              <button
-                key={t.id}
-                className={`row ${skin.id === t.id ? 'on' : ''}`}
-                style={{ border: `2px solid ${skin.id === t.id ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 'var(--radius-sm)' }}
-                onClick={() => set({ skin: t.id })}
-              >
-                <div className="bubble" style={{ fontSize: 20 }}>{t.icon}</div>
-                <div className="main">
-                  <div className="title">{t.label}</div>
-                  <div className="sub">{t.desc}</div>
-                </div>
-                {skin.id === t.id && <div className="end bold">✓</div>}
-              </button>
-            ))}
-          </div>
-          <Seg
-            value={settings.theme}
-            onChange={(v) => set({ theme: v })}
-            options={[
-              { v: 'system', label: 'Auto' },
-              { v: 'light', label: '☀️ Light' },
-              { v: 'dark', label: '🌙 Dark' },
-            ]}
-          />
-        </Section>
-
         <Section title="🧚 Users" hint={`${profiles.length}`}>
           <div className="tiny muted mb">Each person has separate accounts, entries and categories.</div>
           {profiles.map((p) => (
@@ -233,6 +201,28 @@ export function Settings() {
             ＋ Add a user
           </button>
         </Section>
+
+        <Section title="🎨 Theme" hint={skin.label}>
+          <div className="theme-grid mb">
+            {SKINS.map((t) => (
+              <button key={t.id} className={`theme-tile ${skin.id === t.id ? 'on' : ''}`} onClick={() => set({ skin: t.id })} aria-pressed={skin.id === t.id}>
+                <span className="theme-icon">{t.icon}</span>
+                <span className="bold">{t.label}</span>
+                <span className="tiny muted">{t.desc}</span>
+              </button>
+            ))}
+          </div>
+          <Seg
+            value={settings.theme}
+            onChange={(v) => set({ theme: v })}
+            options={[
+              { v: 'system', label: 'Auto' },
+              { v: 'light', label: '☀️ Light' },
+              { v: 'dark', label: '🌙 Dark' },
+            ]}
+          />
+        </Section>
+
 
         <Section title="💱 Money" hint={settings.defaultCurrency}>
           <Field label="Main currency" hint="Totals, net worth and summaries are shown in this currency.">
@@ -256,7 +246,7 @@ export function Settings() {
 
         <Section title="💾 Backup & export" hint={settings.lastBackupAt ? `last ${fmtAgo(settings.lastBackupAt)}` : 'no backup yet'}>
           <div className="small muted mb">
-            {counts ? `${counts.accounts} accounts, ${counts.txs} entries on this ${isNative() ? 'phone' : 'device'}.` : ''} Last backup:{' '}
+            {counts ? `${counts.accounts} ${counts.accounts === 1 ? 'account' : 'accounts'}, ${counts.txs} ${counts.txs === 1 ? 'entry' : 'entries'} on this ${isNative() ? 'phone' : 'device'}.` : ''} Last backup:{' '}
             {settings.lastBackupAt ? fmtAgo(settings.lastBackupAt) : 'never'}.
             {isNative() && settings.lastAutoBackupAt ? ` Daily copy in Documents/MoneyTracking (${fmtAgo(settings.lastAutoBackupAt)}).` : ''}
           </div>
