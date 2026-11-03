@@ -1,47 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { noteSuggestions } from './notes';
-import type { Tx } from './types';
 
 let n = 0;
-const tx = (note: string, date: string, amount = 50, kind: Tx['kind'] = 'expense', categoryId = 'c1'): Tx => ({
-  id: String(n++),
-  profileId: 'p',
-  date,
-  kind,
-  accountId: 'a',
-  amount,
-  categoryId,
-  note,
-  value: amount,
-  valueCurrency: 'THB',
-  createdAt: n,
-  updatedAt: n,
-});
+const tx = (note: string, date: string) => ({ note, date, createdAt: n++ });
 
 describe('note suggestions', () => {
   const txs = [
-    tx('Car park', '2026-10-01', 40, 'expense', 'car'),
-    tx('car park', '2026-10-20', 60, 'expense', 'car'),
-    tx('Coffee', '2026-10-02', 65, 'expense', 'coffee'),
-    tx('Coffee', '2026-10-03', 65, 'expense', 'coffee'),
-    tx('Coffee', '2026-10-04', 70, 'expense', 'coffee'),
-    tx('Iced coffee', '2026-10-05', 80),
-    tx('Salary', '2026-10-25', 50000, 'income'),
+    tx('Car park', '2026-10-01'),
+    tx('car park', '2026-10-20'),
+    tx('Coffee', '2026-10-02'),
+    tx('coffee', '2026-10-03'),
+    tx('Coffee', '2026-10-01'),
+    tx('Iced coffee', '2026-10-05'),
+    tx('Cake', '2026-10-06'),
+    tx('Salary', '2026-10-25'),
   ];
-  it('shows the most used notes first when nothing is typed', () => {
-    expect(noteSuggestions(txs, 'expense', '').map((s) => s.note)).toEqual(['Coffee', 'car park', 'Iced coffee']);
+  it('shows nothing until something is typed', () => {
+    expect(noteSuggestions(txs, '')).toEqual([]);
   });
-  it('matches what is typed, start of the note first, and remembers the last amount and category', () => {
-    const s = noteSuggestions(txs, 'expense', 'co');
-    expect(s.map((x) => x.note)).toEqual(['Coffee', 'Iced coffee']);
-    expect(s[0].last.amount).toBe(70);
-    const park = noteSuggestions(txs, 'expense', 'park')[0];
-    expect(park.count).toBe(2);
-    expect(park.last.amount).toBe(60);
-    expect(park.last.categoryId).toBe('car');
+  it('ignores capitals: one Coffee, spelled the usual way, most used first', () => {
+    expect(noteSuggestions(txs, 'c')).toEqual(['Coffee', 'Car park', 'Cake', 'Iced coffee']);
+    expect(noteSuggestions(txs, 'CO')).toEqual(['Coffee', 'Iced coffee']);
   });
-  it('keeps income and spending notes apart, and hides an exact match', () => {
-    expect(noteSuggestions(txs, 'income', '').map((s) => s.note)).toEqual(['Salary']);
-    expect(noteSuggestions(txs, 'expense', 'coffee').map((s) => s.note)).toEqual(['Iced coffee']);
+  it('matches the start of a word, not the middle', () => {
+    expect(noteSuggestions(txs, 'park')).toEqual(['Car park']);
+    expect(noteSuggestions(txs, 'ffee')).toEqual([]);
+  });
+  it('hides a note already typed in full', () => {
+    expect(noteSuggestions(txs, 'coffee')).toEqual(['Iced coffee']);
   });
 });

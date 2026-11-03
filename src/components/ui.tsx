@@ -5,6 +5,7 @@ import { evaluate, hasOperator } from '../domain/calculator';
 import { COMMON_CURRENCIES } from '../domain/fx';
 import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
 import { orderGroups } from '../domain/groups';
+import { noteSuggestions } from '../domain/notes';
 import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
 import { accountColour, accountEmoji, categoryEmoji, nameColour } from '../ui/emoji';
@@ -117,6 +118,60 @@ export function Money({
 }) {
   const c = cls && v ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '';
   return <span className={c}>{fmtMoney(v, cur, { sign, compact })}</span>;
+}
+
+// ---------- note with remembered words ----------
+
+/**
+ * A note box that remembers what was typed before: a scrolling list of earlier notes drops up
+ * while typing (capitals ignored). Only the words are filled in, nothing else.
+ */
+export function NoteInput({
+  value,
+  onChange,
+  placeholder = 'Optional',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const { data } = useApp();
+  const [open, setOpen] = useState(false);
+  const list = useMemo(() => noteSuggestions(data?.allTxs ?? [], value), [data?.allTxs, value]);
+  const keep = (e: { preventDefault: () => void }) => e.preventDefault(); // keep the keyboard open
+  return (
+    <div className="note-input">
+      {open && list.length > 0 && (
+        <div className="suggest" role="listbox" onMouseDown={keep} onPointerDown={keep}>
+          {list.map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onClick={() => {
+                onChange(n);
+                setOpen(false);
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+      <input
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      />
+    </div>
+  );
 }
 
 // ---------- sheets ----------
