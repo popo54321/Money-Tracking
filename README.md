@@ -42,7 +42,7 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Repeating** | Daily / weekly / monthly / yearly (every N); recorded automatically on the day; the next payment is **kept ready** (reserved) in its account |
 | **Wealth preserve** | BTC (amount × live price) and Thai gold in baht-weight (ทองบาทละ, live 96.5% bar price), cost, average cost and profit |
 | **Summary** | Income and spending by category and group, per month, year or dates, with the change against all of last month (or last year) |
-| **Month close** | Opens on the current month (numbers so far), in the year sheet's order, tap to copy, or export to Excel / CSV; foldable charts of income against spending (6 months) and net worth (12 months) |
+| **Month close** | Opens on the current month (numbers so far), in the year sheet's order, each category with its share of spending or income (and spending as % of income), tap to copy, or export to Excel / CSV; foldable charts of income against spending (6 months) and net worth (12 months) |
 | **Budget plan** | Any number of phases, bonus split, leftover-money rule, monthly transfer checklist; can **import a Budget Allocation sheet** from an `.xlsx` workbook |
 | **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly (food shared by all, drinks only by who had them), one person pays for others (e.g. his wife); one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up; add what's owed to Who owes me |
