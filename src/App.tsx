@@ -17,8 +17,14 @@ import { RecurringList, RecurringEdit } from './screens/Recurring';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Screens used less often load on first visit (they are still kept for offline use).
+const loaders: (() => Promise<unknown>)[] = [];
 function named<P extends object = object>(load: () => Promise<Record<string, unknown>>, key: string) {
+  loaders.push(load);
   return lazy(async () => ({ default: (await load())[key] as ComponentType<P> }));
+}
+/** Load every screen soon after start, so all of them are ready even if the app's files change later. */
+function preloadScreens() {
+  for (const load of loaders) load().catch(() => undefined);
 }
 const MonthClose = named(() => import('./screens/MonthClose'), 'MonthClose');
 const Budget = named(() => import('./screens/Budget'), 'Budget');
@@ -154,6 +160,10 @@ function Housekeeping() {
     })();
     return () => off?.();
   }, [repo]);
+  useEffect(() => {
+    const t = setTimeout(preloadScreens, 2500);
+    return () => clearTimeout(t);
+  }, []);
   useEffect(() => {
     refreshPrices();
     autoBackupIfDue().catch(() => undefined);

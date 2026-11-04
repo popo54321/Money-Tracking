@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldUse, siteUrl, type WebManifest } from './autoUpdate';
+import { canRemoveDownload, folderInUse, shouldUse, siteUrl, type WebManifest } from './autoUpdate';
 import { compareVersions } from './version';
 
 const m = (version: string, minNative: string): WebManifest => ({
@@ -28,5 +28,15 @@ describe('updates that install themselves', () => {
   });
   it('finds the web app site from the repository name', () => {
     expect(siteUrl('popo54321/Money-Tracking')).toBe('https://popo54321.github.io/Money-Tracking/');
+  });
+  it('knows the folder in use however Android writes it, and never removes it', () => {
+    expect(folderInUse('/data/user/0/app/files/web/1.5.0-abc')).toBe('1.5.0-abc');
+    expect(folderInUse('/data/user/0/app/files/web/1.5.0-abc/')).toBe('1.5.0-abc');
+    expect(folderInUse('public')).toBeNull();
+    expect(canRemoveDownload('1.5.0-abc', '1.5.0-abc', '1.5.0')).toBe(false);
+    expect(canRemoveDownload('1.4.1-old', '1.5.0-abc', '1.5.0')).toBe(true);
+    // a newer download waiting to be used stays
+    expect(canRemoveDownload('1.6.0-new', '1.5.0-abc', '1.5.0')).toBe(false);
+    expect(canRemoveDownload('1.6.0-new', null, '1.5.0')).toBe(false);
   });
 });
