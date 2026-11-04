@@ -28,9 +28,8 @@ import { QuickActions } from '../components/QuickActions';
 const COLOURS = ['pink', 'mint', 'lav', 'peach', 'butter', 'sky'];
 
 function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
-  const { toast, confirm, removeWithUndo } = useApp();
+  const { toast, confirm, removeWithUndo, today } = useApp();
   const data = useData();
-  const { today } = useApp();
   const [g, setG] = useState<Goal>(goal);
   const [curOpen, setCurOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -218,7 +217,7 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
 }
 
 export function Goals() {
-  const { profile, today, currency, toast, confirm, removeWithUndo } = useApp();
+  const { profile, today, currency, toast, confirm, removeWithUndo, go } = useApp();
   const [quick, setQuick] = useState<Goal | null>(null);
   const data = useData();
   const goals = useLiveQuery(() => db.goals.where('profileId').equals(profile.id).toArray(), [profile.id]);
@@ -247,6 +246,8 @@ export function Goals() {
     });
 
   const active = list.filter((g) => !g.done);
+  // accounts that hold saving targets: how each one is split
+  const keptIn = data.accounts.filter((a) => active.some((g) => g.accountId === a.id));
   const totalLeft = active.reduce((s, g) => {
     const st = goalStatus(g, savedFor(g), today);
     return s + (g.currency === currency ? st.remaining : 0);
@@ -267,6 +268,35 @@ export function Goals() {
         <button className="btn primary block mb" onClick={create}>
           ＋ Add to wishlist
         </button>
+        {keptIn.map((a) => {
+          const v = splitView(a, data.balances.get(a.id) ?? 0, data.txs, data.goals);
+          return (
+            <button
+              key={a.id}
+              className="card"
+              style={{ width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+              onClick={() => go({ name: 'account', id: a.id })}
+            >
+              <div className="between">
+                <b>🏦 {a.name}</b>
+                <b>{fmtMoney(data.balances.get(a.id) ?? 0, a.currency)}</b>
+              </div>
+              <div className="tiny muted mb">is split into</div>
+              {v.rows.map((r) => (
+                <div key={r.key} className="between small" style={{ padding: '2px 0' }}>
+                  <span>{r.goal ? r.name : `🧩 ${r.name}`}</span>
+                  <span>{fmtMoney(r.amount, a.currency)}</span>
+                </div>
+              ))}
+              <div className="between small bold" style={{ padding: '2px 0' }}>
+                <span>{v.leftName}</span>
+                <span className={v.left < 0 ? 'neg' : ''}>
+                  {v.left < 0 ? `${fmtMoney(-v.left, a.currency)} short` : fmtMoney(v.left, a.currency)}
+                </span>
+              </div>
+            </button>
+          );
+        })}
         {goals && goals.length === 0 && (
           <div className="card center small muted">
             <div style={{ fontSize: 40 }}>🌠</div>
