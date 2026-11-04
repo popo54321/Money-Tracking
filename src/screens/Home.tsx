@@ -2,10 +2,15 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
 import { holdProps } from '../components/hold';
-import { Sheet, Topbar, Sparkle } from '../components/ui';
+import { CurrencySheet, ProgressBar, Sheet, Topbar, Sparkle, useFold } from '../components/ui';
+import { limitLines } from '../domain/limits';
+import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
+import { QuickActions } from '../components/QuickActions';
+import { moveItem } from '../domain/groups';
+import { updateSettings } from '../db/repo';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { netWorth } from '../domain/balances';
-import { fmtAgo, monthEnd, monthKey, monthStart } from '../domain/dates';
+import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { rateBetween } from '../domain/fx';
 import { summarise } from '../domain/summary';
@@ -78,25 +83,72 @@ export function ProfileSwitch() {
   );
 }
 
+/** Currencies on the price strip besides BTC and gold (which are always there). */
+export function watchedCurrencies(watch: string[] | undefined, main: string): string[] {
+  return (watch ?? ['USD']).filter((c, i, a) => c !== main && a.indexOf(c) === i);
+}
+
+function Change({ now, before }: { now: number | null; before: number | null }) {
+  if (now === null || before === null || before === 0) return null;
+  const pct = ((now - before) / before) * 100;
+  if (Math.abs(pct) < 0.005) return null;
+  return (
+    <span className={pct > 0 ? 'up' : 'down'}>
+      {' '}
+      {pct > 0 ? '▲' : '▼'}
+      {Math.abs(pct).toFixed(pct > -1 && pct < 1 ? 2 : 1)}%
+    </span>
+  );
+}
+
 function PriceChips() {
-  const { prices, currency, toast } = useApp();
+  const { prices, currency, toast, settings, today } = useApp();
   const [busy, setBusy] = useState(false);
-  const usd = currency === 'USD' ? null : rateBetween('USD', currency, { perUsd: prices.perUsd });
+  const [adding, setAdding] = useState(false);
+  const [quick, setQuick] = useState<string | null>(null);
+  // the last saved prices from before today, for the ▲ ▼ change
+  const prev = useLiveQuery(() => db.prices.where('date').below(today).last(), [today]);
+  const now = { perUsd: prices.perUsd };
+  const was = prev ? { perUsd: prev.perUsd } : null;
+  const btcIn = (usd: number | undefined, rates: { perUsd: Record<string, number> } | null) =>
+    usd && rates ? (rateBetween('USD', currency, rates) ?? 0) * usd : null;
   const btc =
     prices.btcPrice && prices.btcPriceCurrency
-      ? (rateBetween(prices.btcPriceCurrency, currency, { perUsd: prices.perUsd }) ?? 0) * prices.btcPrice
+      ? (rateBetween(prices.btcPriceCurrency, currency, now) ?? 0) * prices.btcPrice
       : null;
+  const watch = watchedCurrencies(settings.watchCurrencies, currency);
+  const setWatch = (list: string[]) => updateSettings({ watchCurrencies: list });
   const updated = prices.btcFetchedAt ?? prices.ratesFetchedAt;
   return (
     <div className="card prices-card">
       <div className="chips">
-        <span className="pill butter">BTC {fmtMoney(btc, currency, { dp: 0 })}</span>
-        {prices.goldBuyThb && <span className="pill peach">ทอง {fmtMoney(prices.goldBuyThb, 'THB', { dp: 0 })}</span>}
-        {usd && <span className="pill sky">$1 = {fmtMoney(usd, currency)}</span>}
+        <span className="pill butter">
+          BTC {fmtMoney(btc, currency, { dp: 0 })}
+          <Change now={btc} before={btcIn(prev?.btcUsd, was)} />
+        </span>
+        {prices.goldBuyThb && (
+          <span className="pill peach">
+            ทอง {fmtMoney(prices.goldBuyThb, 'THB', { dp: 0 })}
+            <Change now={prices.goldBuyThb} before={prev?.goldThb ?? null} />
+          </span>
+        )}
+        {watch.map((c) => {
+          const v = rateBetween(c, currency, now);
+          return (
+            <button key={c} className="pill sky" {...holdProps(() => setQuick(c))} onClick={() => setQuick(c)}>
+              1 {c} = {fmtMoney(v, currency, { dp: v !== null && v < 1 ? 4 : 2 })}
+              <Change now={v} before={was ? rateBetween(c, currency, was) : null} />
+            </button>
+          );
+        })}
+        <button className="pill add" aria-label="Watch another currency" onClick={() => setAdding(true)}>
+          ＋
+        </button>
       </div>
       <div className="between mt">
         <span className="tiny muted">
           {updated ? `Prices updated ${fmtAgo(updated)}` : 'Built-in prices until the first update'}
+          {prev ? ` · ▲▼ since ${fmtDate(prev.date, false)}` : ''}
         </span>
         <button
           className="btn sm ghost"
@@ -111,7 +163,139 @@ function PriceChips() {
           {busy ? '…' : '↻ Update'}
         </button>
       </div>
+      <CurrencySheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        onPick={(c) => {
+          if (c === currency) return toast(`${c} is your main currency`);
+          setWatch([...watch.filter((x) => x !== c), c]);
+          toast(`👀 Watching ${c}`);
+        }}
+      />
+      {quick && (
+        <QuickActions
+          title={`1 ${quick} = ${fmtMoney(rateBetween(quick, currency, now), currency, { dp: 4 })}`}
+          onClose={() => setQuick(null)}
+          actions={[
+            { label: `🗑️ Stop watching ${quick}`, tone: 'danger', run: () => setWatch(watch.filter((x) => x !== quick)) },
+            {
+              label: '⬅️ Move left',
+              tone: 'plain',
+              run: () => setWatch(moveItem(watch, quick, -1)),
+            },
+          ]}
+        />
+      )}
     </div>
+  );
+}
+
+/** Monthly limits you have set (none set = nothing shown): what is left and about how much a day. */
+function LimitsCard() {
+  const { currency, rates, today, profile, go } = useApp();
+  const data = useData();
+  const [open, toggle] = useFold('home.limits', true);
+  const m = monthKey(today);
+  const s = summarise(data.txs, data.categories, monthStart(m), monthEnd(m), currency, rates);
+  const lines = limitLines(s, data.categories, profile.groupLimits, today, monthEnd(m));
+  if (lines.length === 0) return null;
+  const over = lines.filter((l) => l.level === 'over').length;
+  return (
+    <>
+      <div className="section-title">
+        <button className="fold-head" aria-expanded={open} onClick={toggle}>
+          <span className="fold-arrow">{open ? '▾' : '▸'}</span> 🎯 Limits this month
+        </button>
+      </div>
+      {!open ? (
+        <button className="card fold-line" onClick={toggle}>
+          {lines.length} {lines.length === 1 ? 'limit' : 'limits'}
+          {over ? ` · ${over} over` : ' · all within'}
+        </button>
+      ) : (
+        <div className="list">
+          {lines.map((l) => (
+            <button
+              key={l.key}
+              className="row"
+              style={{ alignItems: 'flex-start' }}
+              onClick={() =>
+                l.category
+                  ? go({ name: 'txList', categoryId: l.category.id, from: monthStart(m), to: monthEnd(m), title: l.name })
+                  : go({ name: 'summary' })
+              }
+            >
+              <div className={`bubble ${groupColour(l.group ?? '')}`}>
+                {l.category ? categoryEmoji(l.category) : groupEmoji(l.name)}
+              </div>
+              <div className="main">
+                <div className="between">
+                  <span className="title">{l.name}</span>
+                  <span className={`amt ${l.level === 'over' ? 'neg' : ''}`}>
+                    {l.left >= 0 ? `${fmtMoney(l.left, currency)} left` : `${fmtMoney(-l.left, currency)} over`}
+                  </span>
+                </div>
+                <div className="sub">
+                  {fmtMoney(l.spent, currency)} of {fmtMoney(l.limit, currency)}
+                  {l.perDay !== null &&
+                    ` · about ${fmtMoney(l.perDay, currency, { dp: 0 })} a day for ${l.daysLeft} ${l.daysLeft === 1 ? 'day' : 'days'}`}
+                </div>
+                <ProgressBar value={l.used} colour={l.level === 'ok' ? 'mint' : l.level} />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Every entry of one month, newest day first, with ‹ › to look at other months. */
+function MonthEntries() {
+  const { today, currency, rates, go, skin } = useApp();
+  const data = useData();
+  const [month, setMonth] = useState(monthKey(today));
+  const from = monthStart(month);
+  const to = monthEnd(month);
+  const list = data.txs.filter((t) => t.date >= from && t.date <= to);
+  const sum = summarise(list, data.categories, from, to, currency, rates);
+  const isNow = month === monthKey(today);
+  return (
+    <>
+      <div className="section-title month-nav">
+        <button className="btn sm ghost" aria-label="Previous month" onClick={() => setMonth(addMonthKey(month, -1))}>
+          ‹
+        </button>
+        <span className="grow center">🧾 {fmtMonth(month)}</span>
+        <button className="btn sm ghost" aria-label="Next month" disabled={isNow} onClick={() => setMonth(addMonthKey(month, 1))}>
+          ›
+        </button>
+        <button className="btn sm ghost" onClick={() => go({ name: 'txList', title: 'All entries' })}>
+          All ›
+        </button>
+      </div>
+      {list.length > 0 && (
+        <div className="small muted mb month-totals">
+          In <b className="pos">{fmtMoney(sum.income.total, currency)}</b> · Out{' '}
+          <b className="neg">{fmtMoney(sum.expense.total, currency)}</b> · {list.length} {list.length === 1 ? 'entry' : 'entries'}
+        </div>
+      )}
+      {data.txs.length === 0 ? (
+        <div className="card center">
+          {skin.mascot ? (
+            <Mascot kind={skin.mascot} pose="happy" size={72} />
+          ) : (
+            skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>
+          )}
+          <div className="bold">No entries yet</div>
+          <div className="small muted mb">Tap + to log your first spending.</div>
+        </div>
+      ) : list.length === 0 ? (
+        <div className="card center small muted">No entries in {fmtMonth(month)}.</div>
+      ) : (
+        <TxGroups txs={list} />
+      )}
+    </>
   );
 }
 
@@ -180,29 +364,10 @@ export function Home() {
           </button>
         </div>
 
-        <ScheduledList limit={5} />
-
-        <div className="section-title">
-          <span>🧾 Recent</span>
-          <span className="grow" />
-          <button className="btn sm ghost" onClick={() => go({ name: 'txList', title: 'All entries' })}>
-            All ›
-          </button>
-        </div>
-        {data.txs.length === 0 ? (
-          <div className="card center">
-            {skin.mascot ? (
-              <Mascot kind={skin.mascot} pose="happy" size={72} />
-            ) : (
-              skin.empty && <div style={{ fontSize: 40 }}>{skin.empty}</div>
-            )}
-            <div className="bold">No entries yet</div>
-            <div className="small muted mb">Tap + to log your first spending.</div>
-          </div>
-        ) : (
-          <TxGroups txs={data.txs} limit={8} />
-        )}
+        <LimitsCard />
+        <ScheduledList limit={5} foldKey="home.scheduled" />
         <PriceChips />
+        <MonthEntries />
       </div>
     </>
   );

@@ -18,7 +18,7 @@ function interestText(d: Debt): string {
 }
 
 export function DebtList() {
-  const { profile, go, today, currency, rates, confirm, toast } = useApp();
+  const { profile, go, today, currency, rates, confirm, toast, removeWithUndo } = useApp();
   const [quick, setQuick] = useState<Debt | null>(null);
   const [amountFor, setAmountFor] = useState<{ debt: Debt; type: DebtEvent['type'] } | null>(null);
   const addEvent = async (debt: Debt, type: DebtEvent['type'], amount: number) => {
@@ -148,8 +148,7 @@ export function DebtList() {
               tone: 'danger',
               run: async () => {
                 if (!(await confirm({ title: `Delete ${quick.person || 'this record'}?`, ok: 'Delete', danger: true }))) return;
-                await deleteDebt(quick.id);
-                toast('🗑️ Deleted');
+                await removeWithUndo(() => deleteDebt(quick.id));
               },
             },
           ]}
@@ -175,7 +174,7 @@ export function DebtList() {
 }
 
 export function DebtDetail({ id }: { id: string }) {
-  const { today, back, confirm, toast } = useApp();
+  const { today, back, confirm, toast, removeWithUndo } = useApp();
   const stored = useLiveQuery(() => db.debts.get(id), [id]);
   const [d, setD] = useState<Debt | null>(null);
   const [ev, setEv] = useState<DebtEvent | null>(null);
@@ -209,7 +208,7 @@ export function DebtDetail({ id }: { id: string }) {
             onClick={async () => {
               if (!(await confirm({ title: 'Delete this record?', ok: 'Delete', danger: true }))) return;
               clearTimeout(saveTimer.current);
-              await deleteDebt(d.id);
+              await removeWithUndo(() => deleteDebt(d.id));
               back();
             }}
           >

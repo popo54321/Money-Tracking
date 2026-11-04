@@ -12,11 +12,12 @@ import {
   SkinName,
 } from '../components/ui';
 import { phaseTotals, pctTotal, splitRows, surplusRule, transferAmount } from '../domain/budget';
+import { applyBudgetTick } from '../domain/splits';
 import { monthKey } from '../domain/dates';
 import { fmtMoney, fmtNumber } from '../domain/money';
 import type { BudgetPlan, BudgetRow, BudgetTransfer } from '../domain/types';
 import { db, uid } from '../db/db';
-import { getOrCreateBudget, saveBudget, saveTx } from '../db/repo';
+import { getOrCreateBudget, saveAccount, saveBudget, saveTx } from '../db/repo';
 import { importBudgetFromWorkbook } from '../services/workbookImport';
 import { pickBinaryFile } from '../services/platform';
 import { holdProps } from '../components/hold';
@@ -201,9 +202,17 @@ export function Budget() {
   const done = plan.checklist.month === month ? plan.checklist.done : [];
   const isActive = phase.id === plan.activePhaseId;
 
-  const toggleDone = (id: string) => {
-    const list = done.includes(id) ? done.filter((x) => x !== id) : [...done, id];
+  const toggleDone = async (id: string) => {
+    const on = !done.includes(id);
+    const list = on ? [...done, id] : done.filter((x) => x !== id);
     update({ ...plan, checklist: { month, done: list } });
+    // splits linked to this transfer's budget categories: tick adds their amounts, untick takes exactly them away
+    const t = plan.transfers.find((x) => x.id === id);
+    const acc = t?.toAccountId ? data.accountById.get(t.toAccountId) : undefined;
+    if (acc?.splits?.some((s) => s.budgetCategoryId && t?.categoryIds?.includes(s.budgetCategoryId))) {
+      await saveAccount(applyBudgetTick(acc, plan, id, month, on));
+      toast(on ? `🧩 Added to ${acc.name}'s splits` : `🧩 Taken back out of ${acc.name}'s splits`);
+    }
   };
 
   const recordTicked = async () => {

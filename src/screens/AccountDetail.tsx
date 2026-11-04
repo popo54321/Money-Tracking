@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AmountField, CategoryGrid, Field, Sheet, Topbar } from '../components/ui';
 import { ScheduledList, TxGroups } from '../components/TxRow';
+import { SplitsCard } from '../components/SplitsCard';
 import { accountValue } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
 import { fmtAgo, fmtDate, relativeDays } from '../domain/dates';
@@ -315,6 +316,8 @@ export function AccountDetail({ id }: { id: string }) {
             </button>
           </div>
         )}
+
+        {!isCard && <SplitsCard account={a} />}
 
         {reservedHere.length > 0 && (
           <div className="card">

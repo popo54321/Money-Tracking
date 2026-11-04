@@ -17,7 +17,7 @@ import { EMOJI_CHOICES } from '../ui/emoji';
 import { SKINS } from '../ui/skins';
 
 function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
-  const { confirm, toast, profile, profiles, setProfile } = useApp();
+  const { confirm, profile, profiles, setProfile, removeWithUndo } = useApp();
   const [name, setName] = useState(p.name);
   const [pick, setPick] = useState(false);
   useEffect(() => setName(p.name), [p.name]);
@@ -46,8 +46,7 @@ function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
             });
             if (!ok) return;
             if (profile.id === p.id) setProfile(profiles.find((x) => x.id !== p.id)!.id);
-            await deleteProfile(p.id);
-            toast('🗑️ User deleted');
+            await removeWithUndo(() => deleteProfile(p.id), '🗑️ User deleted');
           }}
         >
           🗑️

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Topbar } from '../components/ui';
+import { Topbar, useFold } from '../components/ui';
 import { addMonthKey, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
 import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
-import { buildMonthClose, type MonthCloseData } from '../services/monthClose';
+import { buildMonthClose, buildTrend, type MonthCloseData, type MonthTrend } from '../services/monthClose';
+import { IncomeSpendingChart, NetWorthChart } from '../components/Charts';
 import { entriesCsv, shareEntriesCsv, shareMonthXlsx } from '../services/export';
 import { copyText } from '../services/platform';
 import { useApp, useData } from '../state/app';
@@ -50,11 +51,10 @@ function CopyRow({
 export function MonthClose() {
   const { currency, rates, today, profile, profiles, toast, go } = useApp();
   const data = useData();
-  const [month, setMonth] = useState(() => {
-    // after the 20th, default to this month; otherwise the month just finished
-    const k = monthKey(today);
-    return Number(today.slice(8, 10)) >= 20 ? k : addMonthKey(k, -1);
-  });
+  // the current month with its numbers so far; it becomes the full month once the month ends
+  const [month, setMonth] = useState(() => monthKey(today));
+  const [trend, setTrend] = useState<MonthTrend[] | null>(null);
+  const [chartsOpen, toggleCharts] = useFold('monthclose.charts', true);
   const [d, setD] = useState<MonthCloseData | null>(null);
   const [editing, setEditing] = useState<Category | null>(null);
   useEffect(() => {
@@ -64,6 +64,15 @@ export function MonthClose() {
       alive = false;
     };
   }, [month, data, currency, rates]);
+  useEffect(() => {
+    if (!chartsOpen) return;
+    let alive = true;
+    buildTrend(month, 12, data.accounts, data.categories, data.txs, currency, rates, today).then((x) => alive && setTrend(x));
+    return () => {
+      alive = false;
+    };
+  }, [chartsOpen, month, data, currency, rates, today]);
+  const isNow = month === monthKey(today);
 
   const monthTxs = data.txs.filter((t) => t.date >= monthStart(month) && t.date <= monthEnd(month));
   const dp = decimalsFor(currency);
@@ -76,13 +85,45 @@ export function MonthClose() {
           <button className="icon-btn" aria-label="Previous month" onClick={() => setMonth(addMonthKey(month, -1))}>
             ‹
           </button>
-          <div className="bold" style={{ fontSize: 18 }}>
-            {fmtMonth(month)}
+          <div className="center">
+            <div className="bold" style={{ fontSize: 18 }}>
+              {fmtMonth(month)}
+            </div>
+            {isNow && (
+              <div className="tiny muted">
+                so far · {fmtDate(monthStart(month), false)} – {fmtDate(today, false)}
+              </div>
+            )}
           </div>
           <button className="icon-btn" aria-label="Next month" onClick={() => setMonth(addMonthKey(month, 1))}>
             ›
           </button>
         </div>
+        <div className="section-title">
+          <button className="fold-head" aria-expanded={chartsOpen} onClick={toggleCharts}>
+            <span className="fold-arrow">{chartsOpen ? '▾' : '▸'}</span> 📈 Charts
+          </button>
+        </div>
+        {chartsOpen && (
+          <div className="card">
+            {!trend ? (
+              <div className="tiny muted">Loading…</div>
+            ) : (
+              <>
+                <h2>Income and spending · last 6 months</h2>
+                <IncomeSpendingChart key={`b${month}`} data={trend.slice(-6)} currency={currency} />
+                <h2 className="mt">Net worth · last 12 months</h2>
+                <NetWorthChart
+                  key={`l${month}`}
+                  data={trend.map((t) => ({ month: t.month, value: t.netWorth }))}
+                  currency={currency}
+                />
+                <div className="tiny muted mt">Tap a month to see its numbers.</div>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="banner sky">
           <span>💡</span>
           <span className="grow">

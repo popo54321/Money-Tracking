@@ -14,7 +14,7 @@ import { QuickActions } from '../components/QuickActions';
 import { useApp } from '../state/app';
 
 export function TripList() {
-  const { go, profiles, settings, rates, confirm, toast } = useApp();
+  const { go, profiles, settings, rates, confirm, removeWithUndo } = useApp();
   const [quick, setQuick] = useState<Trip | null>(null);
   const trips = useLiveQuery(() => db.trips.orderBy('updatedAt').reverse().toArray(), []);
   const create = async () => {
@@ -103,8 +103,7 @@ export function TripList() {
               tone: 'danger',
               run: async () => {
                 if (!(await confirm({ title: `Delete ${quick.name || 'this trip'}?`, ok: 'Delete', danger: true }))) return;
-                await deleteTrip(quick.id);
-                toast('🗑️ Deleted');
+                await removeWithUndo(() => deleteTrip(quick.id));
               },
             },
           ]}
@@ -284,7 +283,7 @@ function TripOwedButton({ t, settlements }: { t: Trip; settlements: TripResult['
 }
 
 export function TripEdit({ id }: { id: string }) {
-  const { back, confirm, toast, rates } = useApp();
+  const { back, confirm, toast, rates, removeWithUndo } = useApp();
   const stored = useLiveQuery(() => db.trips.get(id), [id]);
   const [t, setT] = useState<Trip | null>(null);
   const [entry, setEntry] = useState<TripEntry | null>(null);
@@ -330,7 +329,7 @@ export function TripEdit({ id }: { id: string }) {
             aria-label="Delete trip"
             onClick={async () => {
               if (!(await confirm({ title: `Delete ${t.name}?`, ok: 'Delete', danger: true }))) return;
-              await deleteTrip(t.id);
+              await removeWithUndo(() => deleteTrip(t.id));
               back();
             }}
           >

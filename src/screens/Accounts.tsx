@@ -39,6 +39,8 @@ export function AccountLine({ a }: { a: Account }) {
     sub = `🔒 ${fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free ${fmtMoney(bal - reserved, a.currency, { compact: true })}`;
   }
   const isCard = a.type === 'credit';
+  const nSplits = a.splits?.length ?? 0;
+  if (nSplits) sub = `${sub} · 🧩 ${nSplits} ${nSplits === 1 ? 'split' : 'splits'}`;
   return (
     <>
       <button className="row" onClick={() => go({ name: 'account', id: a.id })} {...holdProps(() => setQuick(true))}>

@@ -1,7 +1,7 @@
 {
   "name": "money-tracking",
   "private": true,
-  "version": "1.4.1",
+  "version": "1.5.0",
   "config": {
     "minNativeVersion": "1.3.0"
   },

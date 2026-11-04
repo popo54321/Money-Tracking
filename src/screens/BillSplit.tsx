@@ -26,7 +26,7 @@ import { QuickActions } from '../components/QuickActions';
 import { useApp, useData } from '../state/app';
 
 export function BillList() {
-  const { go, profile, today, settings, confirm, toast } = useApp();
+  const { go, profile, today, settings, confirm, removeWithUndo } = useApp();
   const [quick, setQuick] = useState<BillSplit | null>(null);
   const bills = useLiveQuery(() => db.bills.orderBy('updatedAt').reverse().toArray(), []);
   const create = async () => {
@@ -117,8 +117,7 @@ export function BillList() {
               tone: 'danger',
               run: async () => {
                 if (!(await confirm({ title: `Delete ${quick.title || 'this bill'}?`, ok: 'Delete', danger: true }))) return;
-                await deleteBill(quick.id);
-                toast('🗑️ Deleted');
+                await removeWithUndo(() => deleteBill(quick.id));
               },
             },
           ]}
@@ -493,7 +492,7 @@ function PayersSection({
 }
 
 export function BillEdit({ id }: { id: string }) {
-  const { back, toast, confirm } = useApp();
+  const { back, toast, confirm, removeWithUndo } = useApp();
   const stored = useLiveQuery(() => db.bills.get(id), [id]);
   const [b, setB] = useState<BillSplit | null>(null);
   const [newName, setNewName] = useState('');
@@ -566,7 +565,7 @@ export function BillEdit({ id }: { id: string }) {
             aria-label="Delete bill"
             onClick={async () => {
               if (!(await confirm({ title: 'Delete this bill?', ok: 'Delete', danger: true }))) return;
-              await deleteBill(b.id);
+              await removeWithUndo(() => deleteBill(b.id));
               back();
             }}
           >

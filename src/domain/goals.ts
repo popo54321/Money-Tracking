@@ -8,12 +8,18 @@ export interface Goal {
   emoji: string;
   price: number;
   currency: string;
-  /** manual = saved amount typed in; account = saved amount is a linked account's balance */
+  /** kept for old backups; the saved amount is always this target's own record now */
   source: 'manual' | 'account';
+  /** saved so far as of `countFrom` (the record; spending from the account never changes it) */
   saved: number;
+  /** the account the money is kept in (shown in that account's split); optional */
   accountId?: string;
-  /** planned saving per month */
+  /** saving per month, added to `saved` automatically on `addDay` each month until the price is reached */
   monthly: number;
+  /** day of the month the monthly saving is added (1–31, default 1; short months use their last day) */
+  addDay?: number;
+  /** monthly additions count from the day after this date */
+  countFrom?: ISODate;
   targetDate?: ISODate;
   note?: string;
   done: boolean;
@@ -35,6 +41,28 @@ export interface GoalStatus {
   /** per month needed to reach the target date */
   neededPerMonth: number | null;
   monthsToTarget: number | null;
+}
+
+/** How many times `day` of the month falls after `from` and on or before `to`. */
+export function monthlyOccurrences(from: ISODate, to: ISODate, day: number): number {
+  if (to <= from) return 0;
+  const a = parseISO(from);
+  const b = parseISO(to);
+  let n = 0;
+  for (let y = a.y, m = a.m; y < b.y || (y === b.y && m <= b.m); m === 12 ? ((m = 1), y++) : m++) {
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const date = `${y}-${String(m).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+    if (date > from && date <= to) n++;
+  }
+  return n;
+}
+
+/** The saved amount today: the record plus each monthly saving since `countFrom`, never above the price. */
+export function goalSaved(goal: Goal, today: ISODate): number {
+  if (goal.done || !goal.monthly || !goal.countFrom) return goal.saved;
+  const adds = monthlyOccurrences(goal.countFrom, today, goal.addDay ?? 1) * goal.monthly;
+  const total = goal.saved + adds;
+  return goal.price > 0 ? Math.min(Math.max(goal.price, goal.saved), total) : total;
 }
 
 export function goalStatus(goal: Goal, savedNow: number, today: ISODate): GoalStatus {
