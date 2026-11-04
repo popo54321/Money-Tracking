@@ -4,6 +4,7 @@ import type { MascotKind, Pose } from './Mascot';
 
 export type TileKey =
   | 'convert'
+  | 'entries'
   | 'recurring'
   | 'monthClose'
   | 'budget'
@@ -63,6 +64,7 @@ const CUTE: SkinDef = {
   },
   tiles: {
     convert: '💱',
+    entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
     budget: '🗂️',
@@ -107,6 +109,7 @@ const FANTASY: SkinDef = {
   },
   tiles: {
     convert: '💱',
+    entries: '🔎',
     recurring: '🌙',
     monthClose: '📖',
     budget: '📜',
@@ -151,6 +154,7 @@ const DINO: SkinDef = {
   },
   tiles: {
     convert: '💱',
+    entries: '🔎',
     recurring: '🔁',
     monthClose: '🦴',
     budget: '🦖',
@@ -198,6 +202,7 @@ const FROG: SkinDef = {
   sparkle: {},
   tiles: {
     convert: '💱',
+    entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
     budget: '🐸',
@@ -256,6 +261,7 @@ const CAT: SkinDef = {
   },
   tiles: {
     convert: '💱',
+    entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
     budget: '😺',
@@ -289,6 +295,7 @@ const FINANCIAL: SkinDef = {
   sparkle: {},
   tiles: {
     convert: '⇄',
+    entries: '⌕',
     recurring: '↻',
     monthClose: '≡',
     budget: '◫',

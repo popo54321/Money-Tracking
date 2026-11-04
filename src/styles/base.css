@@ -1029,8 +1029,9 @@ button.row:active {
   min-height: 96px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 6px;
+  /* icon, then title, then description, from the top: titles line up across each row */
+  justify-content: flex-start;
+  gap: 10px;
 }
 .tile .e {
   font-size: 30px;
@@ -1547,4 +1548,9 @@ button.pill {
   text-align: left;
   min-height: 52px;
   overflow-wrap: anywhere;
+}
+
+/* More: a group with an odd number of tiles stretches the last one across, so rows never look uneven */
+.tiles > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
