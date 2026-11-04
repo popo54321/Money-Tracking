@@ -1554,3 +1554,32 @@ button.pill {
 .tiles > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
+
+/* Month close: each category's share of the total */
+.copy-row .grow {
+  min-width: 0;
+}
+.share-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg2);
+  margin-top: 4px;
+  overflow: hidden;
+}
+.share-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--pink-ink);
+  opacity: 0.55;
+}
+.share-bar.in i {
+  background: var(--mint-ink);
+}
+.copy-row .pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}

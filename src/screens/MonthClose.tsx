@@ -12,6 +12,12 @@ import { holdProps } from '../components/hold';
 import { CategoryEditor } from '../components/CategoryEditor';
 import type { Category } from '../domain/types';
 
+/** 0.234 → "23%", tiny but not zero → "<1%". */
+function pct(x: number): string {
+  if (x > 0 && x < 0.005) return '<1%';
+  return `${Math.round(x * 100)}%`;
+}
+
 function CopyRow({
   label,
   value,
@@ -19,6 +25,9 @@ function CopyRow({
   cls = '',
   emoji,
   onHold,
+  share,
+  shareOf,
+  tone = 'out',
 }: {
   label: string;
   value: number | null;
@@ -27,6 +36,12 @@ function CopyRow({
   emoji?: string;
   /** press and hold to edit what this row is about */
   onHold?: () => void;
+  /** share of the total (0–1), shown as a % and a thin bar; the copied value stays the number */
+  share?: number | null;
+  /** words after the %: "of income", "of spending" */
+  shareOf?: string;
+  /** colour of the bar: income or spending */
+  tone?: 'in' | 'out';
 }) {
   const { toast } = useApp();
   const text = value === null ? '' : String(roundTo(value, dp));
@@ -41,7 +56,20 @@ function CopyRow({
       }}
     >
       {emoji && <span>{emoji}</span>}
-      <span className="grow">{label}</span>
+      <span className="grow">
+        {label}
+        {share !== undefined && share !== null && (
+          <span className={`share-bar ${tone}`}>
+            <i style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%` }} />
+          </span>
+        )}
+      </span>
+      {share !== undefined && share !== null && (
+        <span className="pct">
+          {pct(share)}
+          {shareOf ? ` ${shareOf}` : ''}
+        </span>
+      )}
       <span className="v">{value === null ? '—' : fmtNumber(value, dp)}</span>
       <span className="c">📋</span>
     </button>
@@ -76,6 +104,8 @@ export function MonthClose() {
 
   const monthTxs = data.txs.filter((t) => t.date >= monthStart(month) && t.date <= monthEnd(month));
   const dp = decimalsFor(currency);
+  const inTotal = d?.summary.income.total ?? 0;
+  const outTotal = d?.summary.expense.total ?? 0;
 
   return (
     <>
@@ -145,6 +175,8 @@ export function MonthClose() {
                   value={c.total}
                   dp={dp}
                   onHold={c.category ? () => setEditing(c.category) : undefined}
+                  share={inTotal > 0 && c.total ? c.total / inTotal : null}
+                  tone="in"
                 />
               ))}
               <CopyRow label="Total Income" value={d.summary.income.total} dp={dp} cls="total" />
@@ -154,8 +186,11 @@ export function MonthClose() {
               <h2>💸 Spending</h2>
               {d.summary.expense.groups.map((g) => (
                 <div key={g.group}>
-                  <div className="cat-group-name">
-                    {groupEmoji(g.group)} {g.group}
+                  <div className="cat-group-name between">
+                    <span>
+                      {groupEmoji(g.group)} {g.group}
+                    </span>
+                    {outTotal > 0 && g.total > 0 && <span>{pct(g.total / outTotal)} of spending</span>}
                   </div>
                   {g.cats.map((c) => (
                     <CopyRow
@@ -166,13 +201,32 @@ export function MonthClose() {
                       dp={dp}
                       cls="sub"
                       onHold={c.category ? () => setEditing(c.category) : undefined}
+                      share={outTotal > 0 && c.total ? c.total / outTotal : null}
                     />
                   ))}
                   <CopyRow label={`Total ${g.group}`} value={g.total} dp={dp} cls="total" />
                 </div>
               ))}
-              <CopyRow label="Total Expenses" value={d.summary.expense.total} dp={dp} cls="total" />
-              <CopyRow label="Left over (Surplus)" value={d.summary.surplus} dp={dp} cls="total" />
+              <CopyRow
+                label="Total Expenses"
+                value={d.summary.expense.total}
+                dp={dp}
+                cls="total"
+                share={inTotal > 0 ? outTotal / inTotal : null}
+                shareOf="of income"
+              />
+              <CopyRow
+                label="Left over (Surplus)"
+                value={d.summary.surplus}
+                dp={dp}
+                cls="total"
+                share={inTotal > 0 && d.summary.surplus > 0 ? d.summary.surplus / inTotal : null}
+                shareOf="kept"
+                tone="in"
+              />
+              <div className="tiny muted mt">
+                % next to each category is its share of all spending (or of all income above). Tap a row to copy just the number.
+              </div>
             </div>
 
             <div className="card">
