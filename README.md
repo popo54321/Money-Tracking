@@ -47,13 +47,13 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly (food shared by all, drinks only by who had them), one person pays for others (e.g. his wife); one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up; add what's owed to Who owes me |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
-| **Saving targets** | Wishlist with price and a monthly saving added by itself on the day you choose; a record only (spending never changes it); can be kept in an account, starting from 0 or from part of what is there |
+| **Saving targets** | Wishlist with price and a monthly saving added by itself on the day you choose; a record only (spending never changes it); can be kept in an account, starting from 0 or from part of what is there; the page shows how each account is split between its targets and What's left |
 | **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |
 | **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
 | **Remembered notes** | While typing a note, earlier notes that start the same way drop up in a scrolling list (capitals ignored, Coffee = coffee). Tapping one fills in only the words |
 | **Splits** | Split an account into parts (Car, Emergency…) plus What's left; budget transfers fill their linked split when ticked and are taken back when unticked; when spending, choose how much comes from each split |
 | **Monthly limits** | Optional, per category or group: Home shows what is left and about how much a day |
-| **Home** | Fold Scheduled; this month's entries with ‹ › for other months; price strip with BTC, gold and any currencies you watch |
+| **Home** | Fold Scheduled; this month's entries with ‹ › for other months; price strip with BTC, gold and any currencies you watch (add or remove them there or in Settings → Live prices) |
 | **Undo** | Every delete shows Undo for a few seconds |
 | **Arrange** | Move whole groups (e.g. Credit or Fixed to the top) and items inside them: Categories page, and Accounts → Arrange |
 | **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |

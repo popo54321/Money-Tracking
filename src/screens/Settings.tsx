@@ -12,6 +12,7 @@ import { refreshPrices } from '../services/prices';
 import { APP_VERSION, isNative, openExternal, pickTextFile } from '../services/platform';
 import { applyWebUpdate, checkWebUpdate, installApk, isNewer, latestRelease, type ReleaseInfo } from '../services/updater';
 import { useApp } from '../state/app';
+import { watchedCurrencies } from './Home';
 import { checkNativeUpdate, tryApplyNative } from '../services/autoUpdate';
 import { EMOJI_CHOICES } from '../ui/emoji';
 import { SKINS } from '../ui/skins';
@@ -179,6 +180,7 @@ export function Settings() {
   const { settings, prices, profiles, toast, confirm, profile, setProfile, skin } = useApp();
   const [curOpen, setCurOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
+  const [watchOpen, setWatchOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const counts = useLiveQuery(async () => ({ txs: await db.txs.count(), accounts: await db.accounts.count() }), []);
   const set = (p: Partial<SettingsT>) => updateSettings(p);
@@ -330,6 +332,25 @@ export function Settings() {
           <div className="tiny muted mt">
             Only these use the internet. Everything else works offline. Saved prices are used until the next update.
           </div>
+          <div className="cat-group-name">Shown on Home</div>
+          <div className="chips">
+            <span className="chip on">🔒 BTC</span>
+            <span className="chip on">🔒 Gold</span>
+            {watchedCurrencies(settings.watchCurrencies, settings.defaultCurrency).map((c, _i, list) => (
+              <button
+                key={c}
+                className="chip"
+                aria-label={`Stop watching ${c}`}
+                onClick={() => updateSettings({ watchCurrencies: list.filter((x) => x !== c) })}
+              >
+                {c} ✕
+              </button>
+            ))}
+            <button className="chip" onClick={() => setWatchOpen(true)}>
+              ＋ Currency
+            </button>
+          </div>
+          <div className="tiny muted mt">BTC and gold are always shown. Add as many currencies as you like.</div>
           <button
             className="btn sky block mt"
             disabled={busy}
@@ -375,6 +396,16 @@ export function Settings() {
           v{APP_VERSION} · {profile.name}’s view · github.com/{settings.githubRepo}
         </div>
       </div>
+      <CurrencySheet
+        open={watchOpen}
+        onClose={() => setWatchOpen(false)}
+        onPick={(c) => {
+          if (c === settings.defaultCurrency) return toast(`${c} is your main currency`);
+          const list = watchedCurrencies(settings.watchCurrencies, settings.defaultCurrency);
+          updateSettings({ watchCurrencies: [...list.filter((x) => x !== c), c] });
+          toast(`👀 Watching ${c}`);
+        }}
+      />
       <CurrencySheet
         open={curOpen}
         onClose={() => setCurOpen(false)}
