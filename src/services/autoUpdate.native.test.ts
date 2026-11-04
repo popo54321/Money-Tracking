@@ -5,7 +5,7 @@ const fake = vi.hoisted(() => {
   const files = new Map<string, number>(); // path → size
   const dirs = new Set<string>();
   const calls: string[] = [];
-  const state = { basePath: 'public', persisted: '', nativeVersion: '1.3.0' };
+  const state = { basePath: 'public', persisted: '', nativeVersion: '1.3.0', appVersion: '1.3.0' };
   return { files, dirs, calls, state };
 });
 
@@ -20,6 +20,17 @@ vi.mock('@capacitor/core', () => ({
     persistServerBasePath: async () => {
       fake.state.persisted = fake.state.basePath;
     },
+    setServerAssetPath: async ({ path }: { path: string }) => {
+      fake.calls.push(`assets ${path}`);
+      fake.state.basePath = path;
+    },
+  },
+}));
+// the version of the app files that are running (it changes when the app switches to new files)
+vi.mock('./platform', () => ({
+  isNative: () => true,
+  get APP_VERSION() {
+    return fake.state.appVersion;
   },
 }));
 vi.mock('@capacitor/app', () => ({ App: { getInfo: async () => ({ version: fake.state.nativeVersion }) } }));
@@ -42,7 +53,10 @@ vi.mock('@capacitor/filesystem', () => {
         fake.files.set(path, Number(new URL(url).searchParams.get('size') ?? sizes[path.split('/').slice(2).join('/')]));
         return { path };
       },
-      getUri: async ({ path }: { path: string }) => ({ uri: `file:///data/user/0/app/files/${path}` }),
+      // like Android (java.io.File.toURI): an existing folder comes back with a slash at the end
+      getUri: async ({ path }: { path: string }) => ({
+        uri: `file:///data/user/0/app/files/${path}${fake.dirs.has(path) ? '/' : ''}`,
+      }),
       readdir: async ({ path }: { path: string }) => ({
         files: [...fake.dirs].filter((d) => parent(d) === path).map((d) => ({ name: d.split('/').pop()! })),
       }),
@@ -84,7 +98,7 @@ describe('Android: new app files without reinstalling', () => {
     fake.files.clear();
     fake.dirs.clear();
     fake.calls.length = 0;
-    Object.assign(fake.state, { basePath: 'public', persisted: '', nativeVersion: '1.3.0' });
+    Object.assign(fake.state, { basePath: 'public', persisted: '', nativeVersion: '1.3.0', appVersion: '1.3.0' });
     store.clear();
     served = manifest('1.4.0');
   });
@@ -121,14 +135,15 @@ describe('Android: new app files without reinstalling', () => {
 
   it('new files that started keep themselves and old downloads are tidied', async () => {
     fake.dirs.add('web/1.2.0-old');
-    fake.dirs.add('web/0.0.0-abc');
-    fake.state.basePath = '/data/user/0/app/files/web/0.0.0-abc';
-    store.set('autoUpdate.trying', JSON.stringify({ build: '0.0.0-abc', version: '0.0.0-test' }));
+    fake.dirs.add('web/1.4.0-abc');
+    fake.state.basePath = '/data/user/0/app/files/web/1.4.0-abc';
+    fake.state.appVersion = '1.4.0';
+    store.set('autoUpdate.trying', JSON.stringify({ build: '1.4.0-abc', version: '1.4.0' }));
     const u = await load();
     await u.confirmRunningFiles();
-    expect(fake.state.persisted).toBe('/data/user/0/app/files/web/0.0.0-abc');
+    expect(fake.state.persisted).toBe('/data/user/0/app/files/web/1.4.0-abc');
     expect(fake.calls).toContain('remove web/1.2.0-old');
-    expect(fake.dirs.has('web/0.0.0-abc')).toBe(true);
+    expect(fake.dirs.has('web/1.4.0-abc')).toBe(true);
     expect(store.has('autoUpdate.trying')).toBe(false);
   });
 
@@ -141,5 +156,37 @@ describe('Android: new app files without reinstalling', () => {
     await u.confirmRunningFiles();
     expect(JSON.parse(store.get('autoUpdate.bad')!)).toEqual(['1.4.0-abc']);
     expect(await u.checkNativeUpdate('popo54321/Money-Tracking', true)).toBe('none');
+  });
+
+  it('after switching, the new files keep their own folder (Android reports it with a slash at the end)', async () => {
+    let u = await load();
+    await u.checkNativeUpdate('popo54321/Money-Tracking', true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fake.state.basePath).toBe('/data/user/0/app/files/web/1.4.0-abc');
+    // what Android itself would report for a folder, if it kept the slash
+    fake.state.basePath = '/data/user/0/app/files/web/1.4.0-abc/';
+    fake.state.appVersion = '1.4.0';
+    fake.dirs.add('web/1.3.0-old');
+    u = await load();
+    await u.confirmRunningFiles();
+    expect(fake.dirs.has('web/1.4.0-abc')).toBe(true);
+    expect(fake.files.has('web/1.4.0-abc/assets/index-abc.js')).toBe(true);
+    expect(fake.calls).not.toContain('remove web/1.4.0-abc');
+    expect(fake.calls).toContain('remove web/1.3.0-old');
+  });
+
+  it('a missing screen file: go back to the built-in files, forget the broken copy, and do not loop', async () => {
+    fake.dirs.add('web/1.5.0-bad');
+    fake.state.basePath = '/data/user/0/app/files/web/1.5.0-bad';
+    const u = await load();
+    expect(
+      u.isMissingFileError(new TypeError('Failed to fetch dynamically imported module: https://localhost/assets/Settings-x.js')),
+    ).toBe(true);
+    expect(await u.repairMissingFiles()).toBe(true);
+    expect(fake.calls).toContain('assets public');
+    expect(fake.dirs.has('web/1.5.0-bad')).toBe(false);
+    expect(JSON.parse(store.get('autoUpdate.bad')!)).toContain('1.5.0-bad');
+    // a second failure straight away shows the error instead of repairing again
+    expect(await u.repairMissingFiles()).toBe(false);
   });
 });

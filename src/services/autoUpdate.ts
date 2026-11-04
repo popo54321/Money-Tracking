@@ -150,18 +150,32 @@ export async function confirmRunningFiles(): Promise<void> {
     lsSet(KEY_TRIES, null);
   }
   const { path } = await WebView.getServerBasePath();
-  const runningDownloaded = path.includes(`/${ROOT}/`);
-  if (runningDownloaded) await WebView.persistServerBasePath();
+  const inUse = folderInUse(path);
+  if (inUse) await WebView.persistServerBasePath();
   try {
     const { files } = await Filesystem.readdir({ path: ROOT, directory: Directory.Data });
     for (const f of files) {
-      // keep the files in use; when running the app's own files, keep only downloads that are newer
-      const keep = runningDownloaded ? path.endsWith(`/${ROOT}/${f.name}`) : compareVersions(f.name, APP_VERSION) > 0;
-      if (!keep) await Filesystem.rmdir({ path: `${ROOT}/${f.name}`, directory: Directory.Data, recursive: true });
+      if (!canRemoveDownload(f.name, inUse, APP_VERSION)) continue;
+      await Filesystem.rmdir({ path: `${ROOT}/${f.name}`, directory: Directory.Data, recursive: true }).catch(() => undefined);
     }
   } catch {
     // nothing downloaded yet
   }
+}
+
+/** The downloaded folder the app is running from ("1.5.1-abc"), or null when it runs its own built-in files. */
+export function folderInUse(basePath: string): string | null {
+  // Android may report the folder with a slash at the end ("…/web/1.5.1-abc/")
+  const m = basePath.replace(/\/+$/, '').match(new RegExp(`/${ROOT}/([^/]+)$`));
+  return m ? m[1] : null;
+}
+
+/**
+ * Old downloads are tidied away, but never the folder in use, and never one that is newer than
+ * the running version (it may be about to be used).
+ */
+export function canRemoveDownload(name: string, inUse: string | null, running: string): boolean {
+  return name !== inUse && compareVersions(name, running) <= 0;
 }
 
 /** Android: look for newer app files, download them in the background, and switch at a quiet moment. */
@@ -223,10 +237,51 @@ export function tryApplyNative(now = false): void {
     const { uri } = await Filesystem.getUri({ path: `${ROOT}/${next.build}`, directory: Directory.Data });
     lsSet(KEY_TRYING, JSON.stringify(next));
     // reloads the app from the new files; the new files keep themselves once they start (confirmRunningFiles)
-    await WebView.setServerBasePath({ path: decodeURIComponent(uri.replace(/^file:\/\//, '')) });
+    // a plain folder path: no file:// and no slash at the end (Android adds one for folders)
+    await WebView.setServerBasePath({ path: decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/\/+$/, '') });
   })().catch(() => {
     pending = next;
   });
 }
 
 onQuietMoment(() => tryApplyNative());
+
+// ---------- a screen's file is missing: repair instead of showing an error ----------
+
+const KEY_REPAIRED = 'autoUpdate.repairedAt';
+
+/** True for the browser's "could not load that part of the app" errors. */
+export function isMissingFileError(e: unknown): boolean {
+  const msg = String((e as Error)?.message ?? e);
+  return /dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError|Loading chunk/i.test(
+    msg,
+  );
+}
+
+/**
+ * Android: go back to the app's own built-in files (the downloaded copy is broken), forget that copy, and let
+ * the next check download a good one. Web: reload once to pick up the current files.
+ * Returns false when a repair was already tried a moment ago, so the error is shown instead of looping.
+ */
+export async function repairMissingFiles(): Promise<boolean> {
+  const last = Number(ls(KEY_REPAIRED) ?? '0');
+  if (Date.now() - last < 60_000) return false;
+  lsSet(KEY_REPAIRED, String(Date.now()));
+  if (!isNative()) {
+    location.reload();
+    return true;
+  }
+  const { WebView } = await import('@capacitor/core');
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  const { path } = await WebView.getServerBasePath();
+  const inUse = folderInUse(path);
+  if (!inUse) {
+    location.reload();
+    return true;
+  }
+  lsSet(KEY_BAD, JSON.stringify([...badVersions(), inUse]));
+  lsSet(KEY_CHECKED, null);
+  await Filesystem.rmdir({ path: `${ROOT}/${inUse}`, directory: Directory.Data, recursive: true }).catch(() => undefined);
+  await WebView.setServerAssetPath({ path: 'public' });
+  return true;
+}
