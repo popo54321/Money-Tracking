@@ -10,6 +10,8 @@ export interface Profile {
   accountGroupOrder?: string[];
   /** the user's order of the spending groups (Eating Out, Fixed…) */
   categoryGroupOrder?: string[];
+  /** monthly spending limits on whole groups, by group name */
+  groupLimits?: Record<string, number>;
 }
 
 export type AccountType =
@@ -59,6 +61,21 @@ export interface Account {
   statementDay?: number;
   dueDay?: number;
   payFromAccountId?: string;
+  /** money earmarked inside this account (a record only; the real balance is unchanged) */
+  splits?: AccountSplit[];
+  /** name of the last split: the balance not earmarked */
+  leftName?: string;
+}
+
+export interface AccountSplit {
+  id: string;
+  name: string;
+  /** starting amount, plus any amount set or moved by hand */
+  base: number;
+  /** budget plan category whose monthly amount is added when its transfer is ticked */
+  budgetCategoryId?: string;
+  /** amounts added by ticked budget transfers, by "month:transfer:category" (unticking removes them) */
+  added?: Record<string, number>;
 }
 
 export type TxKind = 'income' | 'expense' | 'transfer' | 'adjust';
@@ -86,6 +103,8 @@ export interface Tx {
   value: number;
   valueCurrency: string;
   recurringId?: string;
+  /** spending or moving from an account with splits: how much came from each split (the rest from What's left) */
+  fromSplits?: { splitId: string; amount: number }[];
   createdAt: number;
   updatedAt: number;
 }
@@ -101,6 +120,8 @@ export interface Category {
   emoji?: string;
   order: number;
   archived: boolean;
+  /** monthly spending limit in the main currency (none = no limit) */
+  limit?: number;
 }
 
 export const EXPENSE_GROUPS = ['Eating Out', 'Discretionary', 'Infrequent', 'Fixed'];
@@ -272,6 +293,8 @@ export interface Settings {
   githubRepo: string;
   /** value gold at the shop's buying price (what you'd get) or selling price */
   goldPriceSide?: 'buy' | 'sell';
+  /** currencies shown on Home's price strip next to BTC and gold (default: USD) */
+  watchCurrencies?: string[];
 }
 
 export interface PriceCache {

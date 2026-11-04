@@ -19,3 +19,6 @@ android/app/src/main/assets/capacitor.plugins.json
 # signing keys never go in the repository
 *.keystore
 *.jks
+
+# Python caches
+__pycache__/

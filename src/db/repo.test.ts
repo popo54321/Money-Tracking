@@ -151,3 +151,114 @@ describe('cash gets its own group', () => {
     expect((await db.accounts.get('m2'))!.group).toBe('Bank');
   });
 });
+
+describe('undo after deleting', () => {
+  it('puts back an account with all its entries and repeating entries exactly', async () => {
+    const { recordChanges, deleteAccountCascade } = await import('./repo');
+    const base = {
+      profileId: 'p',
+      currency: 'THB',
+      openingBalance: 100,
+      openingDate: '2026-11-01',
+      includeInNetWorth: true,
+      archived: false,
+      order: 0,
+    };
+    await db.accounts.put({ ...base, id: 'u1', name: 'Undo me', type: 'bank', group: 'Bank' } as Account);
+    await db.txs.bulkPut(
+      [1, 2, 3].map((i) => ({
+        id: `ut${i}`,
+        profileId: 'p',
+        date: '2026-11-02',
+        kind: 'expense' as const,
+        accountId: 'u1',
+        amount: i,
+        value: i,
+        valueCurrency: 'THB',
+        createdAt: i,
+        updatedAt: i,
+      })),
+    );
+    await db.recurring.put({
+      id: 'ur',
+      profileId: 'p',
+      name: 'Gym',
+      kind: 'expense',
+      amount: 9,
+      accountId: 'u1',
+      freq: 'month',
+      every: 1,
+      startDate: '2026-11-01',
+      autoPost: true,
+      reserve: false,
+      active: true,
+      createdAt: 1,
+    });
+    const before = JSON.stringify([
+      await db.accounts.get('u1'),
+      await db.txs.where('accountId').equals('u1').sortBy('id'),
+      await db.recurring.get('ur'),
+    ]);
+    const undo = await recordChanges(() => deleteAccountCascade('u1'));
+    expect(await db.accounts.get('u1')).toBeUndefined();
+    expect(await db.txs.where('accountId').equals('u1').count()).toBe(0);
+    await undo();
+    const after = JSON.stringify([
+      await db.accounts.get('u1'),
+      await db.txs.where('accountId').equals('u1').sortBy('id'),
+      await db.recurring.get('ur'),
+    ]);
+    expect(after).toBe(before);
+  });
+  it('undoes changes too, and removes anything the action created', async () => {
+    const { recordChanges } = await import('./repo');
+    await db.debts.put({ id: 'ud', profileId: 'p', person: 'Ann' } as never);
+    const undo = await recordChanges(async () => {
+      await db.debts.update('ud', { person: 'Changed' });
+      await db.debts.put({ id: 'ud2', profileId: 'p', person: 'New' } as never);
+    });
+    await undo();
+    expect((await db.debts.get('ud'))?.person).toBe('Ann');
+    expect(await db.debts.get('ud2')).toBeUndefined();
+  });
+});
+
+describe('category groups', () => {
+  it('rename keeps the place and the limit; delete moves categories or removes unused ones', async () => {
+    const { renameCategoryGroup, deleteCategoryGroup } = await import('./repo');
+    await db.profiles.put({ id: 'gp', name: 'G', order: 0, categoryGroupOrder: ['Fixed', 'Fun'], groupLimits: { Fun: 500 } });
+    const c = (id: string, group: string, kind: 'income' | 'expense' = 'expense') =>
+      ({ id, profileId: 'gp', kind, name: id, group, order: 0, archived: false }) as const;
+    await db.categories.bulkPut([c('g1', 'Fun'), c('g2', 'Fun'), c('g3', 'Fixed'), c('g4', 'Side jobs', 'income')]);
+    await db.txs.put({
+      id: 'gt',
+      profileId: 'gp',
+      date: '2026-11-01',
+      kind: 'expense',
+      accountId: 'a',
+      amount: 1,
+      categoryId: 'g2',
+      value: 1,
+      valueCurrency: 'THB',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await renameCategoryGroup('gp', 'expense', 'Fun', 'Hobbies');
+    expect((await db.categories.bulkGet(['g1', 'g2'])).map((x) => x!.group)).toEqual(['Hobbies', 'Hobbies']);
+    let p = await db.profiles.get('gp');
+    expect(p!.categoryGroupOrder).toEqual(['Fixed', 'Hobbies']);
+    expect(p!.groupLimits).toEqual({ Hobbies: 500 });
+    // income groups work the same way
+    await renameCategoryGroup('gp', 'income', 'Side jobs', 'Extra');
+    expect((await db.categories.get('g4'))!.group).toBe('Extra');
+    // delete without moving: unused category goes, used one is hidden
+    await deleteCategoryGroup('gp', 'expense', 'Hobbies', null);
+    expect(await db.categories.get('g1')).toBeUndefined();
+    expect((await db.categories.get('g2'))!.archived).toBe(true);
+    p = await db.profiles.get('gp');
+    expect(p!.groupLimits).toEqual({});
+    // delete with moving
+    await deleteCategoryGroup('gp', 'expense', 'Fixed', 'Other');
+    expect((await db.categories.get('g3'))!.group).toBe('Other');
+  });
+});

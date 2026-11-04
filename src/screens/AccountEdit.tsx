@@ -7,7 +7,7 @@ import { useApp, useData } from '../state/app';
 import { accountEmoji } from '../ui/emoji';
 
 export function AccountEdit({ id }: { id?: string }) {
-  const { profile, back, replace, toast, confirm, today, tab } = useApp();
+  const { profile, back, replace, toast, confirm, today, tab, removeWithUndo } = useApp();
   const data = useData();
   const existing = id ? data.accountById.get(id) : undefined;
   const [a, setA] = useState<Account>(
@@ -72,8 +72,7 @@ export function AccountEdit({ id }: { id?: string }) {
       danger: true,
     });
     if (!ok) return;
-    await deleteAccountCascade(existing.id);
-    toast('🗑️ Deleted');
+    await removeWithUndo(() => deleteAccountCascade(existing.id));
     tab('accounts');
   };
 

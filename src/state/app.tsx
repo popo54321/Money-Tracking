@@ -8,7 +8,8 @@ import { withBtc, type RateTable } from '../domain/fx';
 import { reservedByAccount, upcomingItems, type UpcomingItem } from '../domain/reserve';
 import type { Account, Category, PriceCache, Profile, Recurring, Settings, Tx } from '../domain/types';
 import { db } from '../db/db';
-import { FALLBACK_PRICES, updateSettings } from '../db/repo';
+import { goalSaved, type Goal } from '../domain/goals';
+import { FALLBACK_PRICES, recordChanges, updateSettings } from '../db/repo';
 import { DEFAULT_SETTINGS } from '../db/seed';
 import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
 import { setQuietCheck } from '../services/autoUpdate';
@@ -68,6 +69,8 @@ export interface ProfileData {
   reserved: Map<string, number>;
   accountById: Map<string, Account>;
   categoryById: Map<string, Category>;
+  /** saving targets, each with its saved amount today */
+  goals: { goal: Goal; saved: number }[];
 }
 
 interface ConfirmOpts {
@@ -95,7 +98,9 @@ interface AppCtx {
   back: () => void;
   tab: (name: (typeof TAB_ROOTS)[number]) => void;
   setProfile: (id: string) => void;
-  toast: (msg: string) => void;
+  toast: (msg: string, opts?: { undo?: () => Promise<void> }) => void;
+  /** delete with an Undo button in the message */
+  removeWithUndo: (fn: () => Promise<void>, msg?: string) => Promise<void>;
   confirm: (o: ConfirmOpts) => Promise<boolean>;
   /** register a close handler for an open sheet so the Android back button closes it first */
   pushOverlay: (close: () => void) => () => void;
@@ -160,9 +165,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const categories = useLiveQuery(() => db.categories.where('profileId').equals(pid).toArray(), [pid]);
   const txs = useLiveQuery(() => db.txs.where('profileId').equals(pid).toArray(), [pid]);
   const recurring = useLiveQuery(() => db.recurring.where('profileId').equals(pid).toArray(), [pid]);
+  const goalRows = useLiveQuery(() => db.goals.where('profileId').equals(pid).toArray(), [pid]);
 
   const data: ProfileData | null = useMemo(() => {
-    if (!accounts || !categories || !txs || !recurring) return null;
+    if (!accounts || !categories || !txs || !recurring || !goalRows) return null;
     const accs = accounts.slice().sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     const cats = categories.slice().sort((a, b) => a.order - b.order);
     const actual = txs.filter((t) => t.date <= today);
@@ -182,8 +188,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reserved,
       accountById: new Map(accs.map((a) => [a.id, a])),
       categoryById: new Map(cats.map((c) => [c.id, c])),
+      goals: goalRows.map((g) => ({ goal: g, saved: goalSaved(g, today) })),
     };
-  }, [accounts, categories, txs, recurring, today]);
+  }, [accounts, categories, txs, recurring, goalRows, today]);
 
   // navigation stack
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
@@ -243,13 +250,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // toasts
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<{ msg: string; undo?: () => Promise<void> } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const toast = useCallback((msg: string) => {
-    setToastMsg(msg);
+  const toast = useCallback((msg: string, opts?: { undo?: () => Promise<void> }) => {
+    setToastMsg({ msg, undo: opts?.undo });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastMsg(null), 2600);
+    toastTimer.current = setTimeout(() => setToastMsg(null), opts?.undo ? 5000 : 2600);
   }, []);
+  /** Delete something and offer Undo for a few seconds; Undo puts back exactly what was removed or changed. */
+  const removeWithUndo = useCallback(
+    async (fn: () => Promise<void>, msg = '🗑️ Deleted') => {
+      const undo = await recordChanges(fn);
+      toast(msg, { undo });
+    },
+    [toast],
+  );
 
   // confirm dialog
   const [dialog, setDialog] = useState<(ConfirmOpts & { resolve: (v: boolean) => void }) | null>(null);
@@ -323,6 +338,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     tab,
     setProfile,
     toast,
+    removeWithUndo,
     confirm,
     pushOverlay,
   };
@@ -331,8 +347,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={value}>
       {children}
       {toastMsg && (
-        <div className="toast" role="status">
-          {toastMsg}
+        <div className={`toast ${toastMsg.undo ? 'with-action' : ''}`} role="status">
+          <span>{toastMsg.msg}</span>
+          {toastMsg.undo && (
+            <button
+              className="toast-action"
+              onClick={async () => {
+                const undo = toastMsg.undo!;
+                setToastMsg(null);
+                await undo();
+                toast('↩️ Put back');
+              }}
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
       {dialog &&

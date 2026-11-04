@@ -22,7 +22,7 @@ import { holdProps } from '../components/hold';
 import { QuickActions, type QuickAction } from '../components/QuickActions';
 
 export function RecurringList() {
-  const { confirm, currency, go, rates, toast, today } = useApp();
+  const { confirm, currency, go, rates, toast, today, removeWithUndo } = useApp();
   const [quick, setQuick] = useState<Recurring | null>(null);
   const data = useData();
   const list = data.recurring.slice().sort((a, b) => {
@@ -157,8 +157,7 @@ export function RecurringList() {
                   danger: true,
                 });
                 if (!ok) return;
-                await deleteRecurring(quick.id, false);
-                toast('🗑️ Deleted');
+                await removeWithUndo(() => deleteRecurring(quick.id, false));
               },
             });
             return list;
@@ -170,7 +169,7 @@ export function RecurringList() {
 }
 
 export function RecurringEdit({ id }: { id?: string }) {
-  const { profile, today, back, toast, confirm, rates, currency } = useApp();
+  const { profile, today, back, toast, confirm, rates, currency, removeWithUndo } = useApp();
   const data = useData();
   const existing = id ? data.recurring.find((r) => r.id === id) : undefined;
   const firstAccount =
@@ -372,8 +371,7 @@ export function RecurringEdit({ id }: { id?: string }) {
                 danger: true,
               });
               if (!ok) return;
-              await deleteRecurring(existing.id, false);
-              toast('🗑️ Deleted');
+              await removeWithUndo(() => deleteRecurring(existing.id, false));
               back();
             }}
           >

@@ -9,6 +9,7 @@ import type {
   BillSplit,
   BudgetPlan,
   Category,
+  CategoryKind,
   PriceCache,
   Recurring,
   Settings,
@@ -19,6 +20,7 @@ import type {
 import { FALLBACK_BTC_THB, FALLBACK_GOLD_BUY_THB, FALLBACK_GOLD_SELL_THB, FALLBACK_PER_USD } from '../domain/fx';
 import type { Debt } from '../domain/debts';
 import type { Goal } from '../domain/goals';
+import type { IndexableType, Table } from 'dexie';
 import { db, uid } from './db';
 import { DEFAULT_SETTINGS, makeBudget } from './seed';
 
@@ -79,6 +81,7 @@ export interface TxDraft {
   origAmount?: number;
   origCurrency?: string;
   recurringId?: string;
+  fromSplits?: { splitId: string; amount: number }[];
 }
 
 /** Stamp the entry with its value in the default currency at today's rates. */
@@ -111,6 +114,11 @@ export async function saveTx(draft: TxDraft, rates: RateTable, defaultCurrency: 
     value,
     valueCurrency,
     recurringId: draft.recurringId ?? existing?.recurringId,
+    // only splits of this account, only spending or moving out
+    fromSplits:
+      draft.kind === 'expense' || draft.kind === 'transfer'
+        ? draft.fromSplits?.filter((f) => f.amount > 0 && account?.splits?.some((x) => x.id === f.splitId))
+        : undefined,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -206,6 +214,44 @@ export async function saveCategory(c: Category): Promise<void> {
   await db.categories.put(c);
 }
 
+/**
+ * Runs `fn` and remembers what it changed, so it can be put back exactly (Undo after a delete).
+ * Settings and price caches are left out: they are not the user's records.
+ */
+export async function recordChanges(fn: () => Promise<void>): Promise<() => Promise<void>> {
+  const before: { table: Table; key: IndexableType; value: unknown }[] = [];
+  const offs: (() => void)[] = [];
+  for (const t of db.tables) {
+    if (t.name === 'kv' || t.name === 'prices') continue;
+    const onDelete = (key: IndexableType, obj: unknown) => void before.push({ table: t, key, value: structuredClone(obj) });
+    const onUpdate = (_mods: object, key: IndexableType, obj: unknown) =>
+      void before.push({ table: t, key, value: structuredClone(obj) });
+    const onCreate = (key: IndexableType | undefined, obj: Record<string, unknown>) =>
+      void before.push({ table: t, key: key ?? (obj[t.schema.primKey.keyPath as string] as IndexableType), value: undefined });
+    t.hook('deleting', onDelete);
+    t.hook('updating', onUpdate);
+    t.hook('creating', onCreate);
+    offs.push(() => {
+      t.hook('deleting').unsubscribe(onDelete);
+      t.hook('updating').unsubscribe(onUpdate);
+      t.hook('creating').unsubscribe(onCreate);
+    });
+  }
+  try {
+    await fn();
+  } finally {
+    offs.forEach((off) => off());
+  }
+  return async () => {
+    await db.transaction('rw', db.tables, async () => {
+      for (const b of before.slice().reverse()) {
+        if (b.value === undefined) await b.table.delete(b.key);
+        else await b.table.put(b.value);
+      }
+    });
+  };
+}
+
 /** Saves a new order for accounts or categories: `ids` from first to last. */
 export async function reorderRows(table: 'accounts' | 'categories', ids: string[]): Promise<void> {
   const t = table === 'accounts' ? db.accounts : db.categories;
@@ -217,6 +263,69 @@ export async function reorderRows(table: 'accounts' | 'categories', ids: string[
 /** Saves the order of the big headings for one person. */
 export async function saveGroupOrder(profileId: string, which: 'account' | 'category', order: string[]): Promise<void> {
   await db.profiles.update(profileId, which === 'account' ? { accountGroupOrder: order } : { categoryGroupOrder: order });
+}
+
+/** Renames a category group (moving its categories), keeping its place in the order and its limit. */
+export async function renameCategoryGroup(profileId: string, kind: CategoryKind, from: string, to: string): Promise<void> {
+  const name = to.trim();
+  if (!name || name === from) return;
+  await db.transaction('rw', db.categories, db.profiles, async () => {
+    await db.categories
+      .where('profileId')
+      .equals(profileId)
+      .filter((c) => c.kind === kind && c.group === from)
+      .modify({ group: name });
+    const p = await db.profiles.get(profileId);
+    if (!p) return;
+    const order = (p.categoryGroupOrder ?? []).map((g) => (g === from ? name : g)).filter((g, i, a) => a.indexOf(g) === i);
+    const limits = { ...(p.groupLimits ?? {}) };
+    if (kind === 'expense' && limits[from] !== undefined) {
+      limits[name] = limits[from];
+      delete limits[from];
+    }
+    await db.profiles.update(profileId, { categoryGroupOrder: order, groupLimits: limits });
+  });
+}
+
+/**
+ * Removes a category group. Its categories move to `moveTo`, or, with no `moveTo`, are deleted
+ * (categories that already have entries are hidden instead, so old entries keep their category).
+ */
+export async function deleteCategoryGroup(
+  profileId: string,
+  kind: CategoryKind,
+  group: string,
+  moveTo: string | null,
+): Promise<void> {
+  const cats = await db.categories
+    .where('profileId')
+    .equals(profileId)
+    .filter((c) => c.kind === kind && c.group === group)
+    .toArray();
+  for (const c of cats) {
+    if (moveTo) await db.categories.update(c.id, { group: moveTo });
+    else if (await categoryInUse(c.id)) await db.categories.update(c.id, { archived: true, group: 'Hidden' });
+    else await db.categories.delete(c.id);
+  }
+  const p = await db.profiles.get(profileId);
+  if (p) {
+    const limits = { ...(p.groupLimits ?? {}) };
+    delete limits[group];
+    await db.profiles.update(profileId, {
+      categoryGroupOrder: (p.categoryGroupOrder ?? []).filter((g) => g !== group),
+      groupLimits: limits,
+    });
+  }
+}
+
+/** Sets or clears (0 / none) the monthly limit of a whole spending group. */
+export async function setGroupLimit(profileId: string, group: string, limit: number | null): Promise<void> {
+  const p = await db.profiles.get(profileId);
+  if (!p) return;
+  const limits = { ...(p.groupLimits ?? {}) };
+  if (limit && limit > 0) limits[group] = limit;
+  else delete limits[group];
+  await db.profiles.update(profileId, { groupLimits: limits });
 }
 
 export async function categoryInUse(id: string): Promise<boolean> {

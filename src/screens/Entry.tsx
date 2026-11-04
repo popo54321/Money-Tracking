@@ -19,6 +19,7 @@ import { convert } from '../domain/fx';
 import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
 import { describeSchedule } from '../domain/recurring';
 import { fmtDate } from '../domain/dates';
+import { splitView } from '../domain/splits';
 import type { Freq, TxKind } from '../domain/types';
 import { db } from '../db/db';
 import { deleteTx, saveNewEntry, saveTx } from '../db/repo';
@@ -45,7 +46,7 @@ function writeLast(profileId: string, kind: string, id: string) {
 }
 
 export function Entry({ route }: { route: EntryRoute }) {
-  const { profile, rates, currency, today, back, toast, confirm } = useApp();
+  const { profile, rates, currency, today, back, toast, confirm, removeWithUndo } = useApp();
   const data = useData();
   const existing = route.id ? data.allTxs.find((t) => t.id === route.id) : undefined;
   const usable = data.accounts.filter((a) => !a.archived || a.id === existing?.accountId || a.id === existing?.toAccountId);
@@ -76,6 +77,10 @@ export function Entry({ route }: { route: EntryRoute }) {
   const [date, setDate] = useState(existing?.date ?? today);
   const [note, setNote] = useState(existing?.note ?? route.note ?? '');
   const [showPad, setShowPad] = useState(!existing);
+  // spending or moving from an account with splits: how much comes out of each split (the rest from What's left)
+  const [fromSplits, setFromSplits] = useState<Record<string, number>>(() =>
+    Object.fromEntries((existing?.fromSplits ?? []).map((f) => [f.splitId, f.amount])),
+  );
   const [curOpen, setCurOpen] = useState(false);
 
   const [repeat, setRepeat] = useState(false);
@@ -99,6 +104,17 @@ export function Entry({ route }: { route: EntryRoute }) {
     return roundTo((charged * v1) / v2, decimalsFor(toAcc.currency));
   }, [transferCross, charged, acc, toAcc, rates]);
   const toAmount = transferCross ? (toAmountOverride ?? autoTo) : charged;
+  const takeSplits = (kind === 'expense' || kind === 'transfer') && !!acc?.splits?.length;
+  const splitRows = takeSplits
+    ? splitView(
+        acc!,
+        data.balances.get(acc!.id) ?? 0,
+        data.txs.filter((t) => t.id !== existing?.id),
+        [],
+      )
+    : null;
+  const takenFromSplits = takeSplits ? Object.values(fromSplits).reduce((x, v) => x + (v || 0), 0) : 0;
+  const fromLeft = (charged ?? 0) - takenFromSplits;
 
   const switchKind = (k: Exclude<TxKind, 'adjust'>) => {
     setKind(k);
@@ -142,6 +158,7 @@ export function Entry({ route }: { route: EntryRoute }) {
       toast(`No exchange rate for ${typedCurrency}. Type the amount charged.`);
       return;
     }
+    if (takeSplits && fromLeft < -0.005) return toast('The splits add up to more than the amount');
     const draft = {
       id: existing?.id,
       profileId: profile.id,
@@ -155,6 +172,11 @@ export function Entry({ route }: { route: EntryRoute }) {
       note,
       origAmount: foreign ? amount : undefined,
       origCurrency: foreign ? typedCurrency : undefined,
+      fromSplits: takeSplits
+        ? Object.entries(fromSplits)
+            .filter(([, v]) => v > 0)
+            .map(([splitId, v]) => ({ splitId, amount: v }))
+        : undefined,
     };
     const repeatOpts =
       repeat && !existing && kind !== 'adjust'
@@ -186,13 +208,14 @@ export function Entry({ route }: { route: EntryRoute }) {
     if (!existing) return;
     const ok = await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true });
     if (!ok) return;
-    await deleteTx(existing.id);
-    if (existing.recurringId) {
-      // keep the repeating entry from re-creating this occurrence
-      const r = await db.recurring.get(existing.recurringId);
-      if (r && (!r.lastPosted || r.lastPosted < existing.date)) await db.recurring.update(r.id, { lastPosted: existing.date });
-    }
-    toast('🗑️ Deleted');
+    await removeWithUndo(async () => {
+      await deleteTx(existing.id);
+      if (existing.recurringId) {
+        // keep the repeating entry from re-creating this occurrence
+        const r = await db.recurring.get(existing.recurringId);
+        if (r && (!r.lastPosted || r.lastPosted < existing.date)) await db.recurring.update(r.id, { lastPosted: existing.date });
+      }
+    });
     back();
   };
 
@@ -285,8 +308,61 @@ export function Entry({ route }: { route: EntryRoute }) {
 
         <div className="spacer" />
         <Field label={kind === 'transfer' ? 'From' : kind === 'income' ? 'Into account' : 'Paid with'}>
-          <AccountPickerButton accounts={usable} value={accountId} onChange={pickAccount} />
+          <AccountPickerButton
+            accounts={usable}
+            value={accountId}
+            onChange={(id) => {
+              setFromSplits({});
+              pickAccount(id);
+            }}
+          />
         </Field>
+        {takeSplits && splitRows && (
+          <div className="card flat">
+            <div className="bold small">🧩 Take from</div>
+            <div className="tiny muted mb">
+              Put an amount on the splits this comes out of. The rest comes from {splitRows.leftName}.
+            </div>
+            {splitRows.rows
+              .filter((r) => r.split)
+              .map((r) => (
+                <div key={r.key} className="take-row">
+                  <span className="grow small">
+                    <b>{r.name}</b>
+                    <span className="muted"> · {fmtMoney(r.amount, accCur, { compact: true })}</span>
+                  </span>
+                  <div style={{ width: 120, flex: 'none' }}>
+                    <AmountField
+                      compact
+                      value={fromSplits[r.split!.id] || null}
+                      onChange={(v) => setFromSplits({ ...fromSplits, [r.split!.id]: v ?? 0 })}
+                      currency={accCur}
+                      placeholder="0"
+                      title={`From ${r.name}`}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn sm ghost"
+                    title="Take the rest from this split"
+                    onClick={() =>
+                      setFromSplits({ ...fromSplits, [r.split!.id]: Math.max(0, (fromSplits[r.split!.id] || 0) + fromLeft) })
+                    }
+                  >
+                    rest
+                  </button>
+                </div>
+              ))}
+            <div className="take-row">
+              <span className="grow small">
+                <b>{splitRows.leftName}</b>
+              </span>
+              <b className={fromLeft < -0.005 ? 'neg' : ''}>
+                {fromLeft < -0.005 ? `${fmtMoney(-fromLeft, accCur)} too much` : fmtMoney(fromLeft, accCur)}
+              </b>
+            </div>
+          </div>
+        )}
         {kind === 'transfer' && (
           <Field label="To">
             <AccountPickerButton

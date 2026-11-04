@@ -1,24 +1,21 @@
 // Add or edit a category: used by the Categories screen and by press-and-hold anywhere a category is shown.
 import { useState } from 'react';
-import { EXPENSE_GROUPS, type Category } from '../domain/types';
+import type { Category } from '../domain/types';
 import { orderGroups } from '../domain/groups';
 import { categoryInUse, deleteCategory, saveCategory } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { EMOJI_CHOICES, categoryEmoji } from '../ui/emoji';
-import { Field, Sheet, ToggleRow } from './ui';
+import { AmountField, Field, Sheet, ToggleRow } from './ui';
 
 export function CategoryEditor({ category, onClose }: { category: Category; onClose: () => void }) {
-  const { toast, confirm, skin, profile } = useApp();
+  const { toast, confirm, skin, profile, removeWithUndo, currency } = useApp();
   const data = useData();
   const [c, setC] = useState<Category>(category);
   const exists = data.categoryById.has(c.id);
-  const groups =
-    c.kind === 'income'
-      ? ['Income']
-      : orderGroups(
-          [...EXPENSE_GROUPS, ...data.categories.filter((x) => x.kind === 'expense').map((x) => x.group), c.group],
-          profile.categoryGroupOrder,
-        );
+  const groups = orderGroups(
+    [...data.categories.filter((x) => x.kind === c.kind).map((x) => x.group), c.group],
+    profile.categoryGroupOrder,
+  );
 
   return (
     <Sheet open onClose={onClose} title={exists ? 'Edit category' : 'New category'}>
@@ -41,7 +38,7 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
           </div>
         </Field>
       )}
-      {c.kind === 'expense' && (
+      {groups.length > 1 && (
         <Field label="Group">
           <div className="chips">
             {groups.map((g) => (
@@ -50,6 +47,22 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
               </button>
             ))}
           </div>
+        </Field>
+      )}
+      {c.kind === 'expense' && (
+        <Field label="🎯 Monthly limit (optional)" hint="Leave empty for no limit. Home shows what is left this month.">
+          <AmountField
+            value={c.limit ?? null}
+            onChange={(v) => setC({ ...c, limit: v && v > 0 ? v : undefined })}
+            currency={currency}
+            placeholder="No limit"
+            title={`${c.name || 'Category'} limit`}
+          />
+          {c.limit ? (
+            <button type="button" className="btn sm ghost mt" onClick={() => setC({ ...c, limit: undefined })}>
+              Remove limit
+            </button>
+          ) : null}
         </Field>
       )}
       {exists && (
@@ -70,7 +83,7 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
                 return;
               }
               if (!(await confirm({ title: `Delete ${c.name}?`, ok: 'Delete', danger: true }))) return;
-              await deleteCategory(c.id);
+              await removeWithUndo(() => deleteCategory(c.id));
               onClose();
             }}
           >

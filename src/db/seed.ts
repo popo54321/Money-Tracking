@@ -1,6 +1,8 @@
 // Starting setup for a new user: generic categories, no accounts and no amounts.
 import { todayISO } from '../domain/dates';
 import type { BudgetPlan, Category, Profile, Settings } from '../domain/types';
+import type { Goal } from '../domain/goals';
+import { balanceOf } from '../domain/balances';
 
 import { db, uid } from './db';
 
@@ -123,6 +125,28 @@ export async function deleteProfile(id: string): Promise<void> {
 
 /** One-time tidy-up for installs from 0.1: BTC and gold accounts get their own Wealth preserve group. */
 export async function migrate(): Promise<void> {
+  // saving targets became records: a target linked to an account keeps what that account counted for it
+  // today (shared in order when several use one account), and monthly savings count from today
+  if (!(await db.kv.get('migratedGoalRecords'))) {
+    const today = todayISO();
+    const used = new Map<string, number>();
+    const goals = (await db.goals.toArray()).sort((a, b) => a.order - b.order);
+    for (const g of goals) {
+      const patch: Partial<Goal> = { countFrom: g.countFrom ?? today, source: 'manual' };
+      if (g.source === 'account' && g.accountId) {
+        const a = await db.accounts.get(g.accountId);
+        if (a) {
+          const txs = await db.txs.where('accountId').equals(a.id).or('toAccountId').equals(a.id).toArray();
+          const already = used.get(a.id) ?? 0;
+          const share = Math.max(0, Math.min(g.price > 0 ? g.price : Infinity, balanceOf(a, txs, today) - already));
+          used.set(a.id, already + share);
+          patch.saved = share;
+        }
+      }
+      await db.goals.update(g.id, patch);
+    }
+    await db.kv.put({ key: 'migratedGoalRecords', value: true });
+  }
   // cash has its own group, apart from bank accounts
   if (!(await db.kv.get('migratedCashGroup'))) {
     for (const a of await db.accounts.toArray())

@@ -913,6 +913,21 @@ button.row:active {
   }
 }
 
+.toast.with-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: auto;
+}
+.toast-action {
+  border: none;
+  background: color-mix(in srgb, var(--bg) 22%, transparent);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 900;
+  border-radius: 10px;
+  padding: 6px 12px;
+}
 .toast {
   position: fixed;
   left: 50%;
@@ -988,6 +1003,14 @@ button.row:active {
 }
 .bar.lav > div {
   background: var(--lav-ink);
+}
+.bar.warn > div {
+  background: #e0a100;
+  opacity: 0.85;
+}
+.bar.over > div {
+  background: var(--danger);
+  opacity: 0.85;
 }
 
 .tiles {
@@ -1326,4 +1349,187 @@ textarea,
 }
 .suggest button:active {
   background: var(--bg2);
+}
+
+/* folding headings: the whole heading is the tap target */
+.fold-head {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fold-arrow {
+  display: inline-block;
+  width: 14px;
+  color: var(--muted);
+}
+.card.fold-line {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 12px 16px;
+}
+
+/* price strip: ▲ ▼ change and the ＋ chip */
+.pill .up,
+.pill .down {
+  font-size: 11px;
+  font-weight: 800;
+}
+.pill .up {
+  color: var(--pos, #2f8f5b);
+}
+.pill .down {
+  color: var(--danger);
+}
+button.pill {
+  border: none;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.pill.add {
+  background: transparent;
+  border: 1.5px dashed var(--line);
+  color: var(--muted);
+  min-width: 34px;
+}
+.month-nav .grow.center {
+  text-align: center;
+}
+.month-totals {
+  text-align: center;
+}
+
+/* Summary: change against last month */
+.delta {
+  font-weight: 800;
+  white-space: nowrap;
+}
+.delta.good {
+  color: var(--income);
+}
+.delta.bad {
+  color: var(--danger);
+}
+.delta.same {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ---------- charts (Month close) ---------- */
+.viz {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  margin-top: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .viz {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+  }
+}
+:root[data-theme='dark'] .viz {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+}
+.viz svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+.viz-head {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.viz-key i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.viz-key i.s1 {
+  background: var(--series-1);
+}
+.viz-key i.s2 {
+  background: var(--series-2);
+}
+.viz-tip {
+  font-size: 12.5px;
+  color: var(--ink);
+  margin: 6px 0 2px;
+  min-height: 18px;
+}
+.viz-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.viz-grid text,
+.viz-x {
+  fill: var(--muted);
+  font-size: 10px;
+  font-family: inherit;
+}
+.viz path.s1 {
+  fill: var(--series-1);
+}
+.viz path.s2 {
+  fill: var(--series-2);
+}
+.viz g:not(.on) > path.s1,
+.viz g:not(.on) > path.s2 {
+  opacity: 0.7;
+}
+.viz g.on > .viz-x {
+  fill: var(--ink);
+  font-weight: 800;
+}
+.viz-line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.viz-dot {
+  fill: var(--series-1);
+  stroke: var(--card);
+  stroke-width: 2;
+}
+.viz-dot.on {
+  r: 5.5;
+}
+.viz-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.card .list.flat-list {
+  box-shadow: none;
+  margin-bottom: 0;
+}
+/* entry: take from splits */
+.take-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.take-row:last-child {
+  border-bottom: none;
 }

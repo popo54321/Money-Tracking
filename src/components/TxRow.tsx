@@ -5,13 +5,14 @@ import type { UpcomingItem } from '../domain/reserve';
 import { db } from '../db/db';
 import { holdProps } from './hold';
 import { QuickActions } from './QuickActions';
+import { useFold } from './ui';
 import { fmtMoney } from '../domain/money';
 import type { Tx } from '../domain/types';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour } from '../ui/emoji';
 
 export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountId?: string; ghost?: boolean }) {
-  const { go, confirm, toast, today } = useApp();
+  const { go, confirm, removeWithUndo, today } = useApp();
   const [menu, setMenu] = useState(false);
   const { accountById, categoryById } = useData();
   const acc = accountById.get(tx.accountId);
@@ -98,13 +99,14 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
               tone: 'danger',
               run: async () => {
                 if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
-                await deleteTx(tx.id);
-                if (tx.recurringId) {
-                  // keep the repeating entry from recording this date again
-                  const r = await db.recurring.get(tx.recurringId);
-                  if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
-                }
-                toast('🗑️ Deleted');
+                await removeWithUndo(async () => {
+                  await deleteTx(tx.id);
+                  if (tx.recurringId) {
+                    // keep the repeating entry from recording this date again
+                    const r = await db.recurring.get(tx.recurringId);
+                    if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
+                  }
+                });
               },
             },
           ]}
@@ -151,13 +153,30 @@ export function TxGroups({ txs, contextAccountId, limit }: { txs: Tx[]; contextA
  * Faded placeholders for what is still to come: entries dated in the future, plus the next payment of
  * each repeating entry and unpaid card statements. Each becomes a normal entry on its day.
  */
-export function ScheduledList({ accountId, days = 31, limit }: { accountId?: string; days?: number; limit?: number }) {
+export function ScheduledList({
+  accountId,
+  days = 31,
+  limit,
+  foldKey,
+}: {
+  accountId?: string;
+  days?: number;
+  limit?: number;
+  /** when set, the heading folds the list into one line, remembered under this name */
+  foldKey?: string;
+}) {
+  const [open, toggle] = useFold(foldKey ?? 'scheduled', true);
   const { go, today, rates, currency, toast } = useApp();
   const data = useData();
   const [quick, setQuick] = useState<UpcomingItem | null>(null);
   const txRows = data.scheduled
     .filter((t) => !accountId || t.accountId === accountId || t.toAccountId === accountId)
-    .map((t) => ({ key: `t:${t.id}`, date: t.date, node: <TxRow key={t.id} tx={t} contextAccountId={accountId} ghost /> }));
+    .map((t) => ({
+      key: `t:${t.id}`,
+      date: t.date,
+      label: t.note || (t.categoryId ? data.categoryById.get(t.categoryId)?.name : undefined) || 'Entry',
+      node: <TxRow key={t.id} tx={t} contextAccountId={accountId} ghost />,
+    }));
   const upRows = data.upcoming
     .filter((u) => u.daysAway <= days && (!accountId || u.accountId === accountId || u.reserveAccountId === accountId))
     .map((u) => {
@@ -172,6 +191,7 @@ export function ScheduledList({ accountId, days = 31, limit }: { accountId?: str
       return {
         key: u.key,
         date: u.date,
+        label: u.label,
         node: (
           <button
             key={u.key}
@@ -205,16 +225,30 @@ export function ScheduledList({ accountId, days = 31, limit }: { accountId?: str
   const rows = [...txRows, ...upRows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   if (rows.length === 0) return null;
   const shown = limit ? rows.slice(0, limit) : rows;
+  const folded = !!foldKey && !open;
+  const next = rows[0];
   return (
     <>
       <div className="section-title">
-        <span>📅 Scheduled</span>
+        {foldKey ? (
+          <button className="fold-head" aria-expanded={open} onClick={toggle}>
+            <span className="fold-arrow">{open ? '▾' : '▸'}</span> 📅 Scheduled
+          </button>
+        ) : (
+          <span>📅 Scheduled</span>
+        )}
         <span className="grow" />
         <button className="btn sm ghost" onClick={() => go({ name: 'recurring' })}>
           Repeating ›
         </button>
       </div>
-      <div className="list">{shown.map((r) => r.node)}</div>
+      {folded ? (
+        <button className="card fold-line" onClick={toggle}>
+          {rows.length} coming up · next: {next.label} {relativeDays(today, next.date)}
+        </button>
+      ) : (
+        <div className="list">{shown.map((r) => r.node)}</div>
+      )}
       {quick && (
         <QuickActions
           title={quick.label}

@@ -1,6 +1,6 @@
 // The numbers to copy into the workbook at month end, in the year sheet's row order.
-import { accountValue, balancesByAccount } from '../domain/balances';
-import { monthEnd, monthStart, type MonthKey } from '../domain/dates';
+import { accountValue, balancesByAccount, netWorth } from '../domain/balances';
+import { addMonthKey, monthEnd, monthStart, type MonthKey } from '../domain/dates';
 import { withBtc, type RateTable } from '../domain/fx';
 import { summarise, type Summary } from '../domain/summary';
 import { ACCOUNT_GROUPS, type Account, type Category, type Tx } from '../domain/types';
@@ -109,4 +109,40 @@ export async function buildMonthClose(
       perAccount,
     },
   };
+}
+
+export interface MonthTrend {
+  month: MonthKey;
+  income: number;
+  spending: number;
+  /** net worth at the month end (or today for the current month); null before any account existed */
+  netWorth: number | null;
+}
+
+/** Income, spending and month-end net worth for `count` months up to `last`, oldest first (for the charts). */
+export async function buildTrend(
+  last: MonthKey,
+  count: number,
+  accounts: Account[],
+  categories: Category[],
+  txs: Tx[],
+  currency: string,
+  currentRates: RateTable,
+  today: string,
+): Promise<MonthTrend[]> {
+  const out: MonthTrend[] = [];
+  const visible = accounts.filter((a) => !a.archived);
+  for (let i = count - 1; i >= 0; i--) {
+    const month = addMonthKey(last, -i);
+    const end = monthEnd(month) < today ? monthEnd(month) : today;
+    const s = summarise(txs, categories, monthStart(month), end, currency, currentRates);
+    const open = visible.filter((a) => a.openingDate <= end);
+    let nw: number | null = null;
+    if (open.length) {
+      const at = end === today ? { table: currentRates } : await ratesAt(end, currentRates);
+      nw = netWorth(open, balancesByAccount(open, txs, end), at.table, currency).total;
+    }
+    out.push({ month, income: s.income.total, spending: s.expense.total, netWorth: nw });
+  }
+  return out;
 }

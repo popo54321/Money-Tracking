@@ -6,7 +6,9 @@ from PIL import Image, ImageDraw, ImageFilter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def draw_icon(size: int, maskable: bool = False, transparent: bool = False) -> Image.Image:
+def draw_icon(size: int, maskable: bool = False, transparent: bool = False, art: float | None = None) -> Image.Image:
+    """art: how much of the width the piggy (with wings) takes. Phones crop the edges of
+    full-bleed icons, so those draw it smaller to keep the wings and sparkles in view."""
     s = size * 4  # draw large, then shrink for smooth edges
     img = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -25,7 +27,7 @@ def draw_icon(size: int, maskable: bool = False, transparent: bool = False) -> I
             ImageDraw.Draw(mask).rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * 0.23), fill=255)
             img.paste(bg, (0, 0), mask)
         d = ImageDraw.Draw(img)
-    scale = 0.5 if maskable or transparent else 0.58
+    scale = art if art is not None else (0.5 if maskable or transparent else 0.58)
     cx, cy = s / 2, s / 2 + s * 0.02
     r = s * scale / 2
     # soft shadow
@@ -81,16 +83,19 @@ def main() -> None:
     pub = os.path.join(ROOT, 'public', 'icons')
     save(draw_icon(192), os.path.join(pub, 'icon-192.png'))
     save(draw_icon(512), os.path.join(pub, 'icon-512.png'))
-    save(draw_icon(512, maskable=True), os.path.join(pub, 'maskable-512.png'))
+    # maskable: the phone may crop to a circle of 80 % of the width
+    save(draw_icon(512, maskable=True, art=0.44), os.path.join(pub, 'maskable-512.png'))
     save(draw_icon(180, maskable=True).convert('RGB'), os.path.join(pub, 'apple-touch-icon.png'))
     res = os.path.join(ROOT, 'android', 'app', 'src', 'main', 'res')
     if '--android' in sys.argv and os.path.isdir(res):
         for name, px in {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}.items():
             folder = os.path.join(res, f'mipmap-{name}')
-            save(draw_icon(px), os.path.join(folder, 'ic_launcher.png'))
-            save(draw_icon(px), os.path.join(folder, 'ic_launcher_round.png'))
+            save(draw_icon(px, art=0.5), os.path.join(folder, 'ic_launcher.png'))
+            save(draw_icon(px, art=0.5), os.path.join(folder, 'ic_launcher_round.png'))
+            # Android shows only the middle 72 of 108 units of this layer, then rounds it, so the
+            # piggy, wings and sparkles must fit well inside: the whole picture, background included
             fg = int(px * 108 / 48)
-            save(draw_icon(fg, transparent=True), os.path.join(folder, 'ic_launcher_foreground.png'))
+            save(draw_icon(fg, maskable=True, art=0.38), os.path.join(folder, 'ic_launcher_foreground.png'))
         import glob
         for sp in glob.glob(os.path.join(res, 'drawable*', 'splash.png')):
             w, h = Image.open(sp).size

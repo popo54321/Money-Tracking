@@ -120,6 +120,31 @@ export function Money({
   return <span className={c}>{fmtMoney(v, cur, { sign, compact })}</span>;
 }
 
+// ---------- folding sections ----------
+
+/** Open or folded, remembered on this phone (e.g. "home.scheduled"). */
+export function useFold(key: string, startOpen = true): [boolean, () => void] {
+  const storageKey = `fold.${key}`;
+  const [open, setOpen] = useState(() => {
+    try {
+      const v = localStorage.getItem(storageKey);
+      return v === null ? startOpen : v === '1';
+    } catch {
+      return startOpen;
+    }
+  });
+  const toggle = () =>
+    setOpen((o) => {
+      try {
+        localStorage.setItem(storageKey, o ? '0' : '1');
+      } catch {
+        // not remembered, still folds
+      }
+      return !o;
+    });
+  return [open, toggle];
+}
+
 // ---------- note with remembered words ----------
 
 /**
@@ -616,7 +641,7 @@ export function CategoryGrid({
     <div>
       {groups.map((g, gi) => (
         <div key={g}>
-          {kind === 'expense' && <div className="cat-group-name">{g}</div>}
+          {(kind === 'expense' || groups.length > 1) && <div className="cat-group-name">{g}</div>}
           <div className="cat-grid">
             {list
               .filter((c) => c.group === g)
@@ -633,11 +658,7 @@ export function CategoryGrid({
                 </button>
               ))}
             {gi === groups.length - 1 && (
-              <button
-                type="button"
-                className="cat cat-new"
-                onClick={() => setEditing(newCategory(kind === 'income' ? 'Income' : g))}
-              >
+              <button type="button" className="cat cat-new" onClick={() => setEditing(newCategory(g))}>
                 <span className="e">＋</span>
                 <span className="n">New</span>
               </button>
