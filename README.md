@@ -46,6 +46,7 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Budget plan** | Any number of phases, bonus split, leftover-money rule, monthly transfer checklist; can **import a Budget Allocation sheet** from an `.xlsx` workbook |
 | **Bill split** | Own orders, shared items split between only the people ticked, service charge & VAT by share, “treat” someone to the charges, split evenly (food shared by all, drinks only by who had them), one person pays for others (e.g. his wife); one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up; add what's owed to Who owes me |
+| **Currency converter** | Any amount between any two currencies (and BTC), swap, the same amount in your other currencies and gold, tap to copy; works offline with the last saved rates |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price and a monthly saving added by itself on the day you choose; a record only (spending never changes it); can be kept in an account, starting from 0 or from part of what is there; the page shows how each account is split between its targets and What's left |
 | **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |

@@ -1533,3 +1533,18 @@ button.pill {
 .take-row:last-child {
   border-bottom: none;
 }
+
+/* currency converter: the result is big and tappable (copies it) */
+.convert-result {
+  border: 1.5px solid var(--line);
+  background: var(--bg2);
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 900;
+  text-align: left;
+  min-height: 52px;
+  overflow-wrap: anywhere;
+}

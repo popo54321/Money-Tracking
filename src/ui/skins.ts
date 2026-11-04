@@ -3,7 +3,17 @@ export type Skin = 'financial' | 'cute' | 'fantasy' | 'dino' | 'cat' | 'frog';
 import type { MascotKind, Pose } from './Mascot';
 
 export type TileKey =
-  'recurring' | 'monthClose' | 'budget' | 'wealth' | 'goals' | 'bills' | 'trips' | 'debts' | 'categories' | 'settings';
+  | 'convert'
+  | 'recurring'
+  | 'monthClose'
+  | 'budget'
+  | 'wealth'
+  | 'goals'
+  | 'bills'
+  | 'trips'
+  | 'debts'
+  | 'categories'
+  | 'settings';
 
 export interface SkinDef {
   id: Skin;
@@ -52,6 +62,7 @@ const CUTE: SkinDef = {
     bills: '🧮',
   },
   tiles: {
+    convert: '💱',
     recurring: '🔁',
     monthClose: '📋',
     budget: '🗂️',
@@ -95,6 +106,7 @@ const FANTASY: SkinDef = {
     bills: '🍄',
   },
   tiles: {
+    convert: '💱',
     recurring: '🌙',
     monthClose: '📖',
     budget: '📜',
@@ -138,6 +150,7 @@ const DINO: SkinDef = {
     bills: '🍖',
   },
   tiles: {
+    convert: '💱',
     recurring: '🔁',
     monthClose: '🦴',
     budget: '🦖',
@@ -184,6 +197,7 @@ const FROG: SkinDef = {
   },
   sparkle: {},
   tiles: {
+    convert: '💱',
     recurring: '🔁',
     monthClose: '📋',
     budget: '🐸',
@@ -241,6 +255,7 @@ const CAT: SkinDef = {
     bills: '🍣',
   },
   tiles: {
+    convert: '💱',
     recurring: '🔁',
     monthClose: '📋',
     budget: '😺',
@@ -273,6 +288,7 @@ const FINANCIAL: SkinDef = {
   },
   sparkle: {},
   tiles: {
+    convert: '⇄',
     recurring: '↻',
     monthClose: '≡',
     budget: '◫',

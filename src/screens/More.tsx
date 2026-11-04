@@ -16,6 +16,7 @@ export function More() {
         { k: 'bills', t: 'Bill split', d: 'Eating out with friends', c: 'pink', r: { name: 'bills' } },
         { k: 'trips', t: 'Travel split', d: 'Trips with friends & family', c: 'butter', r: { name: 'trips' } },
         { k: 'debts', t: 'Who owes me', d: 'Loans, repayments, interest', c: 'sky', r: { name: 'debts' } },
+        { k: 'convert', t: 'Currency converter', d: 'Any currency, BTC and gold', c: 'mint', r: { name: 'convert' } },
       ],
     },
     {
