@@ -36,6 +36,7 @@ const DebtList = named(() => import('./screens/Debts'), 'DebtList');
 const DebtDetail = named<{ id: string }>(() => import('./screens/Debts'), 'DebtDetail');
 const Goals = named(() => import('./screens/Goals'), 'Goals');
 const Wealth = named(() => import('./screens/Wealth'), 'Wealth');
+const Convert = named(() => import('./screens/Convert'), 'Convert');
 const Settings = named(() => import('./screens/Settings'), 'Settings');
 const Categories = named(() => import('./screens/Categories'), 'Categories');
 const Setup = named(() => import('./screens/Setup'), 'Setup');
@@ -86,6 +87,8 @@ function Screen() {
       return <DebtDetail id={route.id} />;
     case 'goals':
       return <Goals />;
+    case 'convert':
+      return <Convert />;
     case 'wealth':
       return <Wealth />;
     case 'settings':
