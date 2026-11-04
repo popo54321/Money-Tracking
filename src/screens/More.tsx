@@ -16,7 +16,6 @@ export function More() {
         { k: 'bills', t: 'Bill split', d: 'Eating out with friends', c: 'pink', r: { name: 'bills' } },
         { k: 'trips', t: 'Travel split', d: 'Trips with friends & family', c: 'butter', r: { name: 'trips' } },
         { k: 'debts', t: 'Who owes me', d: 'Loans, repayments, interest', c: 'sky', r: { name: 'debts' } },
-        { k: 'convert', t: 'Currency converter', d: 'Any currency, BTC and gold', c: 'mint', r: { name: 'convert' } },
       ],
     },
     {
@@ -29,10 +28,12 @@ export function More() {
       ],
     },
     {
-      label: 'Set up',
+      label: 'Tools & set up',
       tiles: [
+        { k: 'convert', t: 'Currency converter', d: 'Any currency, BTC and gold', c: 'mint', r: { name: 'convert' } },
+        { k: 'entries', t: 'All entries', d: 'Search every entry', c: 'peach', r: { name: 'txList', title: 'All entries' } },
         { k: 'categories', t: 'Categories', d: 'Add, rename, emoji', c: 'lav', r: { name: 'categories' } },
-        { k: 'settings', t: 'Settings', d: 'Theme, users, backup, update', c: 'mint', r: { name: 'settings' } },
+        { k: 'settings', t: 'Settings', d: 'Theme, users, backup, update', c: 'sky', r: { name: 'settings' } },
       ],
     },
   ];
