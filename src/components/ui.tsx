@@ -5,6 +5,7 @@ import { evaluate, hasOperator } from '../domain/calculator';
 import { COMMON_CURRENCIES } from '../domain/fx';
 import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
 import { orderGroups } from '../domain/groups';
+import { buzz } from '../services/haptics';
 import { noteSuggestions } from '../domain/notes';
 import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
@@ -283,6 +284,7 @@ export function Keypad({ onKey, okLabel }: { onKey: (k: string) => void; okLabel
           key={k}
           type="button"
           className={'+−×÷'.includes(k) ? 'op' : k === '=' ? 'ok' : k === 'C' ? 'clear' : '()⌫'.includes(k) ? 'fn' : ''}
+          onPointerDown={() => buzz()}
           onClick={() => onKey(k)}
           aria-label={k === '⌫' ? 'Delete' : k === 'C' ? 'Clear' : k}
         >

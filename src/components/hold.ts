@@ -1,6 +1,7 @@
 // Press and hold: returns props for any element so a long press runs `onHold`
 // and the tap that ends the press does not also count as a normal tap.
 import type React from 'react';
+import { buzz } from '../services/haptics';
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let fired = false;
@@ -21,11 +22,7 @@ export function holdProps(onHold: () => void) {
         fired = true;
         // the finger is still down: make sure the phone doesn't start selecting text in the menu that opens
         window.getSelection()?.removeAllRanges();
-        try {
-          navigator.vibrate?.(15);
-        } catch {
-          // vibration is a bonus
-        }
+        buzz('medium');
         onHold();
       }, HOLD_MS);
     },

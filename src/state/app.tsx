@@ -13,6 +13,7 @@ import { FALLBACK_PRICES, recordChanges, updateSettings } from '../db/repo';
 import { DEFAULT_SETTINGS } from '../db/seed';
 import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
 import { setQuietCheck } from '../services/autoUpdate';
+import { setHapticsEnabled } from '../services/haptics';
 
 // ---------- navigation ----------
 
@@ -219,6 +220,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => setHapticsEnabled(settings.vibrate !== false), [settings.vibrate]);
   const stackRef = useRef(stack);
   stackRef.current = stack;
   // updates switch themselves in only when nothing is open, so nothing being typed is lost

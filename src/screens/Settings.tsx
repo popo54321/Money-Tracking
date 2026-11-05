@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { CurrencySheet, Field, Seg, Sheet, Topbar } from '../components/ui';
+import { CurrencySheet, Field, Seg, Sheet, ToggleRow, Topbar } from '../components/ui';
 import { fmtAgo, fmtDate } from '../domain/dates';
 import type { Profile, Settings as SettingsT } from '../domain/types';
 import { db } from '../db/db';
@@ -257,6 +257,12 @@ export function Settings() {
               { v: 'light', label: '☀️ Light' },
               { v: 'dark', label: '🌙 Dark' },
             ]}
+          />
+          <ToggleRow
+            title="📳 Vibrate when typing"
+            desc={isNative() ? 'A light buzz on each calculator key' : 'Android only: iPhone does not let web apps vibrate'}
+            on={settings.vibrate !== false}
+            onChange={(v) => set({ vibrate: v })}
           />
         </Section>
 
