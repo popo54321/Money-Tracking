@@ -295,6 +295,8 @@ export interface Settings {
   goldPriceSide?: 'buy' | 'sell';
   /** currencies shown on Home's price strip next to BTC and gold (default: USD) */
   watchCurrencies?: string[];
+  /** buzz on key presses (default on) */
+  vibrate?: boolean;
 }
 
 export interface PriceCache {
