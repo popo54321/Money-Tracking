@@ -192,6 +192,10 @@ export interface BillSplit {
   servicePct: number;
   vatPct: number;
   vatOnService: boolean;
+  /** tip as a % (0 or none = no tip), shared like the service charge */
+  tipPct?: number;
+  /** tip on the whole bill (food + service + VAT) instead of the food only */
+  tipOnTotal?: boolean;
   /** even = the food is shared equally by everyone; shared items still go only to the people ticked */
   mode: 'itemised' | 'even';
   roundWhole: boolean;

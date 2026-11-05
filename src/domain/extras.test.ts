@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { debtStatus, type Debt } from './debts';
 import { goalStatus, type Goal } from './goals';
+import { computeBill } from './billSplit';
 
 const debt = (p: Partial<Debt>): Debt => ({
   id: 'd',
@@ -197,5 +198,33 @@ describe('wealth preserve', () => {
     const s = holdingStatus([gold], [], rates, 'THB');
     expect(s.profit).toBeCloseTo(625500 - 454614.2, 4);
     expect(GOLD_OZ_PER_BAHT).toBeCloseTo(0.47295, 4);
+  });
+});
+
+describe('bill split tips', () => {
+  const people = [
+    { id: 'a', name: 'A' },
+    { id: 'b', name: 'B' },
+  ];
+  const items = [
+    { id: '1', name: 'Steak', price: 300, sharedBy: ['a'], shared: false },
+    { id: '2', name: 'Salad', price: 100, sharedBy: ['b'], shared: false },
+  ];
+  const base = { people, items, servicePct: 10, vatPct: 7, vatOnService: true, mode: 'itemised' as const, currency: 'THB' };
+  it('tip % on the food only, shared by what each person had', () => {
+    const r = computeBill({ ...base, tipPct: 10 });
+    expect(r.tip).toBeCloseTo(40, 9);
+    expect(r.total).toBeCloseTo(400 + 40 + 30.8 + 40, 9);
+    expect(r.shares.map((s) => s.tip)).toEqual([30, 10]);
+    expect(r.shares.reduce((x, s) => x + s.pay, 0)).toBeCloseTo(r.total, 9);
+  });
+  it('tip on the whole bill, and nobody pays tip for someone being treated', () => {
+    const r = computeBill({ ...base, tipPct: 10, tipOnTotal: true, people: [people[0], { ...people[1], exemptCharges: true }] });
+    expect(r.tip).toBeCloseTo(47.08, 9);
+    expect(r.shares[1].tip).toBe(0);
+    expect(r.shares[1].pay).toBe(100);
+  });
+  it('no tip by default', () => {
+    expect(computeBill(base).tip).toBe(0);
   });
 });
