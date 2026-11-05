@@ -1,5 +1,5 @@
 // Restaurant bill split: own items, shared items (split between only the people ticked),
-// service charge and VAT in proportion to what each person had, people who are treated
+// service charge, VAT and tip in proportion to what each person had, people who are treated
 // to the charges, an even-split mode (food shared by all, drinks etc. still by who had them),
 // one person paying for others (e.g. for his wife), and rounding that always adds up to the bill.
 import { allocate, decimalsFor, roundTo, sum } from './money';
@@ -13,6 +13,10 @@ export interface BillInput {
   vatPct: number;
   /** VAT is charged on food + service charge (usual in Thailand) */
   vatOnService: boolean;
+  /** tip as a % (0 = none) */
+  tipPct?: number;
+  /** tip on the whole bill (food + service + VAT) instead of the food only */
+  tipOnTotal?: boolean;
   mode: 'itemised' | 'even';
   currency: string;
   /** round each person's share to a whole number */
@@ -25,6 +29,7 @@ export interface PersonShare {
   food: number;
   service: number;
   vat: number;
+  tip: number;
   /** exact share before rounding */
   exact: number;
   /** their own share, rounded */
@@ -42,6 +47,7 @@ export interface BillResult {
   subtotal: number;
   service: number;
   vat: number;
+  tip: number;
   total: number;
   shares: PersonShare[];
   /** sum of rounded shares minus the bill total (non-zero only when rounding to whole numbers) */
@@ -59,10 +65,11 @@ export function computeBill(input: BillInput): BillResult {
   const subtotal = sum(items.map((i) => i.price || 0));
   const service = subtotal * s;
   const vat = (subtotal + (input.vatOnService ? service : 0)) * v;
-  const total = subtotal + service + vat;
+  const tip = (input.tipOnTotal ? subtotal + service + vat : subtotal) * ((input.tipPct || 0) / 100);
+  const total = subtotal + service + vat + tip;
 
   if (people.length === 0) {
-    return { subtotal, service, vat, total, shares: [], roundingDiff: 0, warnings: ['Add at least one person.'] };
+    return { subtotal, service, vat, tip, total, shares: [], roundingDiff: 0, warnings: ['Add at least one person.'] };
   }
 
   const ids = new Set(people.map((p) => p.id));
@@ -84,7 +91,8 @@ export function computeBill(input: BillInput): BillResult {
   // Service charge and VAT are shared by the people who are not exempt, in proportion to their food.
   let payers = people.filter((p) => !p.exemptCharges);
   if (payers.length === 0) {
-    if (service + vat > 0) warnings.push('Everyone is excluded from service charge and VAT, so it is split between everyone.');
+    if (service + vat + tip > 0)
+      warnings.push('Everyone is excluded from service charge and VAT, so it is split between everyone.');
     payers = people;
   }
   const payerFood = sum(payers.map((p) => food.get(p.id)!));
@@ -96,13 +104,15 @@ export function computeBill(input: BillInput): BillResult {
     if (payerIds.has(p.id)) w = payerFood > 0 ? f / payerFood : 1 / payers.length;
     const sv = service * w;
     const vt = vat * w;
+    const tp = tip * w;
     return {
       personId: p.id,
       name: p.name,
       food: f,
       service: sv,
       vat: vt,
-      exact: f + sv + vt,
+      tip: tp,
+      exact: f + sv + vt + tp,
       own: 0,
       pay: 0,
       exempt: !!p.exemptCharges,
@@ -134,7 +144,7 @@ export function computeBill(input: BillInput): BillResult {
   }
   if (loop) warnings.push('Some people are set to pay for each other, so they each pay their own share.');
 
-  return { subtotal, service, vat, total, shares, roundingDiff, warnings };
+  return { subtotal, service, vat, tip, total, shares, roundingDiff, warnings };
 }
 
 /**

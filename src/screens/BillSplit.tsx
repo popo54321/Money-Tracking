@@ -548,9 +548,11 @@ export function BillEdit({ id }: { id: string }) {
       lines.push(
         `${s.name}: ${s.paidBy ? `paid by ${s.paidBy}` : fmtMoney(s.pay, cur)}${
           s.paysFor.length ? ` (incl. ${s.paysFor.join(', ')})` : ''
-        }${s.exempt ? ' (treated to service & VAT)' : ''}`,
+        }${s.exempt ? ' (treated to service, VAT & tip)' : ''}`,
       );
-    lines.push(`Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%)`);
+    lines.push(
+      `Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%${b.tipPct ? `, tip ${b.tipPct}%` : ''})`,
+    );
     for (const t of plan.transfers) lines.push(`${t.fromName} → ${t.toName}: ${fmtMoney(t.amount, cur)}`);
     return lines.join('\n');
   };
@@ -736,7 +738,7 @@ export function BillEdit({ id }: { id: string }) {
         </button>
 
         <div className="card">
-          <h2>🧾 Service charge & VAT</h2>
+          <h2>🧾 Service charge, VAT & tip</h2>
           <div className="chips mb">
             <button className="chip" onClick={() => update({ servicePct: 10, vatPct: 7, vatOnService: true })}>
               10% + 7%
@@ -763,8 +765,28 @@ export function BillEdit({ id }: { id: string }) {
             onChange={(v) => update({ vatOnService: v })}
           />
           <ToggleRow title="Round to whole numbers" on={b.roundWhole} onChange={(v) => update({ roundWhole: v })} />
+          <div className="cat-group-name">💁 Tip</div>
+          <div className="chips mb">
+            {[0, 5, 10, 15, 20].map((t) => (
+              <button key={t} className={`chip ${(b.tipPct ?? 0) === t ? 'on' : ''}`} onClick={() => update({ tipPct: t })}>
+                {t === 0 ? 'No tip' : `${t}%`}
+              </button>
+            ))}
+          </div>
+          <Field label="Tip %">
+            <NumberInput value={b.tipPct ?? 0} onChange={(v) => update({ tipPct: Math.max(0, v) })} />
+          </Field>
+          {(b.tipPct ?? 0) > 0 && (
+            <ToggleRow
+              title="Tip on the whole bill"
+              desc={b.tipOnTotal ? 'Food + service charge + VAT' : 'Off: tip on the food only'}
+              on={!!b.tipOnTotal}
+              onChange={(v) => update({ tipOnTotal: v })}
+            />
+          )}
           <div className="tiny muted">
-            Tap a person above and turn on “Treat to service & VAT” to have the others cover their share.
+            Tap a person above and turn on “Treat to service, VAT & tip” to have the others cover their share. The tip is shared
+            like the service charge.
           </div>
         </div>
 
@@ -774,6 +796,7 @@ export function BillEdit({ id }: { id: string }) {
           <div className="big">{fmtMoney(r.total, cur)}</div>
           <div className="small bold">
             Food {fmtMoney(r.subtotal, cur)} · service {fmtMoney(r.service, cur)} · VAT {fmtMoney(r.vat, cur)}
+            {r.tip > 0 && ` · tip ${fmtMoney(r.tip, cur)}`}
           </div>
         </div>
         {r.warnings.map((w) => (
@@ -792,6 +815,7 @@ export function BillEdit({ id }: { id: string }) {
                 </div>
                 <div className="sub">
                   food {fmtMoney(s.food, cur)} · service {fmtMoney(s.service, cur)} · VAT {fmtMoney(s.vat, cur)}
+                  {s.tip > 0 && ` · tip ${fmtMoney(s.tip, cur)}`}
                   {s.paysFor.length > 0 && ` · 🤝 pays for ${s.paysFor.join(', ')}`}
                 </div>
               </div>
@@ -837,8 +861,8 @@ export function BillEdit({ id }: { id: string }) {
               <input value={personEdit.name} onChange={(e) => setPersonEdit({ ...personEdit, name: e.target.value })} />
             </Field>
             <ToggleRow
-              title="🎁 Treat to service & VAT"
-              desc="They pay only for their food; the others cover their service charge and VAT"
+              title="🎁 Treat to service, VAT & tip"
+              desc="They pay only for their food; the others cover their service charge, VAT and tip"
               on={!!personEdit.exemptCharges}
               onChange={(v) => setPersonEdit({ ...personEdit, exemptCharges: v })}
             />
