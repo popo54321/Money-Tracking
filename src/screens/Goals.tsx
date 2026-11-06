@@ -109,6 +109,11 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
           )}
         </div>
       </Field>
+      {keptIn && (
+        <div className="small mb">
+          🏦 {keptIn.name} holds <b>{fmtMoney(data.balances.get(keptIn.id) ?? 0, keptIn.currency)}</b> now
+        </div>
+      )}
       {isNew && keptIn && free > 0 && (
         <Field label={`${keptIn.name} already has ${fmtMoney(free, keptIn.currency)} not set aside`}>
           <Seg
@@ -324,12 +329,16 @@ export function Goals() {
                     </div>
                     <div className="small muted">
                       {fmtMoney(st.saved, g.currency, { compact: true })} of {fmtMoney(g.price, g.currency, { compact: true })}
-                      {acc ? ` · kept in ${acc.name}` : ''}
                     </div>
                   </div>
                   <div className="bold">{Math.round(st.progress * 100)}%</div>
                 </div>
                 <ProgressBar value={st.progress} colour={st.reached ? 'mint' : 'lav'} />
+                {acc && (
+                  <div className="small mt">
+                    🏦 {acc.name}: <b>{fmtMoney(data.balances.get(acc.id) ?? 0, acc.currency)}</b> in the account
+                  </div>
+                )}
                 <div className="small mt">
                   {g.done
                     ? 'Bought! 🎉'
