@@ -121,6 +121,7 @@ export function Accounts() {
           <Sparkle k="accounts" />
           <div className="label">Total (net worth)</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
+          <div className="small bold mt">💧 Liquid {fmtMoney(nw.liquid, currency)}</div>
           <div className="chips">
             {groups
               .filter((g) => nw.byGroup.has(g))

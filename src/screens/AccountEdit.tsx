@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AccountPickerButton, AmountField, CurrencySheet, Field, NumberInput, ToggleRow, Topbar } from '../components/ui';
+import { isLiquid } from '../domain/balances';
 import { ACCOUNT_GROUPS, ACCOUNT_TYPES, type Account, type AccountType } from '../domain/types';
 import { db, uid } from '../db/db';
 import { accountTxCount, deleteAccountCascade, saveAccount } from '../db/repo';
@@ -226,6 +227,12 @@ export function AccountEdit({ id }: { id?: string }) {
             <input value={a.note ?? ''} onChange={(e) => set({ note: e.target.value || undefined })} placeholder="Optional" />
           </Field>
           <ToggleRow title="Count in net worth" on={a.includeInNetWorth} onChange={(v) => set({ includeInNetWorth: v })} />
+          <ToggleRow
+            title="💧 Liquid money"
+            desc="Can be spent now. Counts in the liquid total next to net worth."
+            on={isLiquid(a)}
+            onChange={(v) => set({ liquid: v })}
+          />
           {existing && (
             <ToggleRow
               title="Archived"

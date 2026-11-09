@@ -70,12 +70,21 @@ export function unitValue(account: Account, rates: RateTable, target: string): n
 
 export interface NetWorth {
   total: number;
+  /** the part that can be spent now: accounts marked liquid (card debt counts against it) */
+  liquid: number;
   missing: string[];
   byGroup: Map<string, number>;
 }
 
+/** Bank, cash and card money is liquid unless the account says otherwise; investments, BTC, gold and insurance are not. */
+const LIQUID_TYPES = new Set(['bank', 'cash', 'debit', 'topup', 'credit']);
+export function isLiquid(a: Account): boolean {
+  return a.liquid ?? LIQUID_TYPES.has(a.type);
+}
+
 export function netWorth(accounts: Account[], balances: Map<string, number>, rates: RateTable, target: string): NetWorth {
   let total = 0;
+  let liquid = 0;
   const missing: string[] = [];
   const byGroup = new Map<string, number>();
   for (const a of accounts) {
@@ -86,7 +95,8 @@ export function netWorth(accounts: Account[], balances: Map<string, number>, rat
       continue;
     }
     total += v;
+    if (isLiquid(a)) liquid += v;
     byGroup.set(a.group, (byGroup.get(a.group) ?? 0) + v);
   }
-  return { total, missing, byGroup };
+  return { total, liquid, missing, byGroup };
 }

@@ -12,6 +12,7 @@ import {
   Topbar,
   Sparkle,
   SkinName,
+  useFold,
 } from '../components/ui';
 import { fmtDate, fmtMonth } from '../domain/dates';
 import { goalSaved, goalStatus, type Goal } from '../domain/goals';
@@ -253,6 +254,8 @@ export function Goals() {
   const active = list.filter((g) => !g.done);
   // accounts that hold saving targets: how each one is split
   const keptIn = data.accounts.filter((a) => active.some((g) => g.accountId === a.id));
+  const [accOpen, toggleAcc] = useFold('goals.accounts', true);
+  const [tgtOpen, toggleTgt] = useFold('goals.targets', true);
   const totalLeft = active.reduce((s, g) => {
     const st = goalStatus(g, savedFor(g), today);
     return s + (g.currency === currency ? st.remaining : 0);
@@ -273,101 +276,121 @@ export function Goals() {
         <button className="btn primary block mb" onClick={create}>
           ＋ Add to wishlist
         </button>
-        {keptIn.map((a) => {
-          const v = splitView(a, data.balances.get(a.id) ?? 0, data.txs, data.goals);
-          return (
-            <button
-              key={a.id}
-              className="card"
-              style={{ width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
-              onClick={() => go({ name: 'account', id: a.id })}
-            >
-              <div className="between">
-                <b>🏦 {a.name}</b>
-                <b>{fmtMoney(data.balances.get(a.id) ?? 0, a.currency)}</b>
-              </div>
-              <div className="tiny muted mb">is split into</div>
-              {v.rows.map((r) => (
-                <div key={r.key} className="between small" style={{ padding: '2px 0' }}>
-                  <span>{r.goal ? r.name : `🧩 ${r.name}`}</span>
-                  <span>{fmtMoney(r.amount, a.currency)}</span>
-                </div>
-              ))}
-              <div className="between small bold" style={{ padding: '2px 0' }}>
-                <span>{v.leftName}</span>
-                <span className={v.left < 0 ? 'neg' : ''}>
-                  {v.left < 0 ? `${fmtMoney(-v.left, a.currency)} short` : fmtMoney(v.left, a.currency)}
-                </span>
-              </div>
+        {keptIn.length > 0 && (
+          <div className="section-title">
+            <button className="fold-head" aria-expanded={accOpen} onClick={toggleAcc}>
+              <span className="fold-arrow">{accOpen ? '▾' : '▸'}</span> 🏦 Accounts
             </button>
-          );
-        })}
+            <span className="grow" />
+            <span className="small muted">{keptIn.length}</span>
+          </div>
+        )}
+        {accOpen &&
+          keptIn.map((a) => {
+            const v = splitView(a, data.balances.get(a.id) ?? 0, data.txs, data.goals);
+            return (
+              <button
+                key={a.id}
+                className="card"
+                style={{ width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+                onClick={() => go({ name: 'account', id: a.id })}
+              >
+                <div className="between">
+                  <b>🏦 {a.name}</b>
+                  <b>{fmtMoney(data.balances.get(a.id) ?? 0, a.currency)}</b>
+                </div>
+                <div className="tiny muted mb">is split into</div>
+                {v.rows.map((r) => (
+                  <div key={r.key} className="between small" style={{ padding: '2px 0' }}>
+                    <span>{r.goal ? r.name : `🧩 ${r.name}`}</span>
+                    <span>{fmtMoney(r.amount, a.currency)}</span>
+                  </div>
+                ))}
+                <div className="between small bold" style={{ padding: '2px 0' }}>
+                  <span>{v.leftName}</span>
+                  <span className={v.left < 0 ? 'neg' : ''}>
+                    {v.left < 0 ? `${fmtMoney(-v.left, a.currency)} short` : fmtMoney(v.left, a.currency)}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         {goals && goals.length === 0 && (
           <div className="card center small muted">
             <div style={{ fontSize: 40 }}>🌠</div>
             Add something you want, its price, and how much you save each month. See when you can buy it.
           </div>
         )}
-        {list.map((g, i) => {
-          const st = goalStatus(g, savedFor(g), today);
-          const colour = COLOURS[i % COLOURS.length];
-          const acc = g.accountId ? data.accountById.get(g.accountId) : undefined;
-          return (
-            <div key={g.id} className="card" style={{ opacity: g.done ? 0.6 : 1 }}>
-              <button
-                style={{ border: 'none', background: 'none', padding: 0, width: '100%', textAlign: 'left' }}
-                onClick={() => setEdit(g)}
-                {...holdProps(() => setQuick(g))}
-              >
-                <div className="hstack">
-                  <div className={`bubble ${colour}`} style={{ width: 48, height: 48, fontSize: 26 }}>
-                    {g.emoji}
-                  </div>
-                  <div className="grow">
-                    <div className="bold">
-                      {g.name} {g.done ? '🎉' : st.reached ? '✨' : ''}
-                    </div>
-                    <div className="small muted">
-                      {fmtMoney(st.saved, g.currency, { compact: true })} of {fmtMoney(g.price, g.currency, { compact: true })}
-                    </div>
-                  </div>
-                  <div className="bold">{Math.round(st.progress * 100)}%</div>
-                </div>
-                <ProgressBar value={st.progress} colour={st.reached ? 'mint' : 'lav'} />
-                {acc && (
-                  <div className="small mt">
-                    🏦 {acc.name}: <b>{fmtMoney(data.balances.get(acc.id) ?? 0, acc.currency)}</b> in the account
-                  </div>
-                )}
-                <div className="small mt">
-                  {g.done
-                    ? 'Bought! 🎉'
-                    : st.reached
-                      ? '✨ You can buy it now!'
-                      : st.eta
-                        ? `🗓️ At ${fmtMoney(g.monthly, g.currency, { compact: true })} a month: ready in ${fmtMonth(st.eta.slice(0, 7))} (${st.monthsLeft} ${st.monthsLeft === 1 ? 'month' : 'months'})`
-                        : 'Set a monthly saving to see when you can buy it'}
-                </div>
-                {g.targetDate && !st.reached && !g.done && st.neededPerMonth !== null && (
-                  <div className={`small ${g.monthly >= st.neededPerMonth ? 'pos' : 'neg'}`}>
-                    🎯 For {fmtDate(g.targetDate)}: save {fmtMoney(st.neededPerMonth, g.currency, { compact: true })} a month
-                  </div>
-                )}
-              </button>
-              {!g.done && (
+        {list.length > 0 && (
+          <div className="section-title">
+            <button className="fold-head" aria-expanded={tgtOpen} onClick={toggleTgt}>
+              <span className="fold-arrow">{tgtOpen ? '▾' : '▸'}</span> 🎯 Targets
+            </button>
+            <span className="grow" />
+            <span className="small muted">{list.length}</span>
+          </div>
+        )}
+        {tgtOpen &&
+          list.map((g, i) => {
+            const st = goalStatus(g, savedFor(g), today);
+            const colour = COLOURS[i % COLOURS.length];
+            const acc = g.accountId ? data.accountById.get(g.accountId) : undefined;
+            return (
+              <div key={g.id} className="card" style={{ opacity: g.done ? 0.6 : 1 }}>
                 <button
-                  className="btn sm mint mt"
-                  onClick={() => {
-                    setAddFor(g);
-                    setAddAmount(g.monthly || null);
-                  }}
+                  style={{ border: 'none', background: 'none', padding: 0, width: '100%', textAlign: 'left' }}
+                  onClick={() => setEdit(g)}
+                  {...holdProps(() => setQuick(g))}
                 >
-                  ＋ I saved some
+                  <div className="hstack">
+                    <div className={`bubble ${colour}`} style={{ width: 48, height: 48, fontSize: 26 }}>
+                      {g.emoji}
+                    </div>
+                    <div className="grow">
+                      <div className="bold">
+                        {g.name} {g.done ? '🎉' : st.reached ? '✨' : ''}
+                      </div>
+                      <div className="small muted">
+                        {fmtMoney(st.saved, g.currency, { compact: true })} of {fmtMoney(g.price, g.currency, { compact: true })}
+                      </div>
+                    </div>
+                    <div className="bold">{Math.round(st.progress * 100)}%</div>
+                  </div>
+                  <ProgressBar value={st.progress} colour={st.reached ? 'mint' : 'lav'} />
+                  {acc && (
+                    <div className="small mt">
+                      🏦 {acc.name}: <b>{fmtMoney(data.balances.get(acc.id) ?? 0, acc.currency)}</b> in the account
+                    </div>
+                  )}
+                  <div className="small mt">
+                    {g.done
+                      ? 'Bought! 🎉'
+                      : st.reached
+                        ? '✨ You can buy it now!'
+                        : st.eta
+                          ? `🗓️ At ${fmtMoney(g.monthly, g.currency, { compact: true })} a month: ready in ${fmtMonth(st.eta.slice(0, 7))} (${st.monthsLeft} ${st.monthsLeft === 1 ? 'month' : 'months'})`
+                          : 'Set a monthly saving to see when you can buy it'}
+                  </div>
+                  {g.targetDate && !st.reached && !g.done && st.neededPerMonth !== null && (
+                    <div className={`small ${g.monthly >= st.neededPerMonth ? 'pos' : 'neg'}`}>
+                      🎯 For {fmtDate(g.targetDate)}: save {fmtMoney(st.neededPerMonth, g.currency, { compact: true })} a month
+                    </div>
+                  )}
                 </button>
-              )}
-            </div>
-          );
-        })}
+                {!g.done && (
+                  <button
+                    className="btn sm mint mt"
+                    onClick={() => {
+                      setAddFor(g);
+                      setAddAmount(g.monthly || null);
+                    }}
+                  >
+                    ＋ I saved some
+                  </button>
+                )}
+              </div>
+            );
+          })}
       </div>
       {edit && <GoalSheet key={edit.id} goal={edit} onClose={() => setEdit(null)} />}
       <Sheet open={!!addFor} onClose={() => setAddFor(null)} title={`Add to ${addFor?.name ?? ''}`}>

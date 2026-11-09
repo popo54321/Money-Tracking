@@ -1583,3 +1583,18 @@ button.pill {
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* bill split: the tip on its own, easy to see */
+.tip-callout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--butter);
+  color: var(--butter-ink);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+}
+.tip-callout b {
+  font-size: 20px;
+}

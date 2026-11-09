@@ -45,6 +45,8 @@ export interface Account {
   openingBalance: number;
   openingDate: ISODate;
   includeInNetWorth: boolean;
+  /** money that can be spent now (counts in the liquid total); unset = by type (bank, cash, cards yes) */
+  liquid?: boolean;
   archived: boolean;
   order: number;
   note?: string;
@@ -196,6 +198,10 @@ export interface BillSplit {
   tipPct?: number;
   /** tip on the whole bill (food + service + VAT) instead of the food only */
   tipOnTotal?: boolean;
+  /** round up to this step (e.g. 10, 100); 0 or none = exact */
+  tipRoundTo?: number;
+  /** true: round the whole bill up (the extra is tip); false: round the tip itself up */
+  tipRoundTotal?: boolean;
   /** even = the food is shared equally by everyone; shared items still go only to the people ticked */
   mode: 'itemised' | 'even';
   roundWhole: boolean;

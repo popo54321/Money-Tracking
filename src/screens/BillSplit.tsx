@@ -551,7 +551,7 @@ export function BillEdit({ id }: { id: string }) {
         }${s.exempt ? ' (treated to service, VAT & tip)' : ''}`,
       );
     lines.push(
-      `Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%${b.tipPct ? `, tip ${b.tipPct}%` : ''})`,
+      `Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%${r.tip > 0 ? `, tip ${fmtMoney(r.tip, cur)}` : ''})`,
     );
     for (const t of plan.transfers) lines.push(`${t.fromName} → ${t.toName}: ${fmtMoney(t.amount, cur)}`);
     return lines.join('\n');
@@ -784,6 +784,32 @@ export function BillEdit({ id }: { id: string }) {
               onChange={(v) => update({ tipOnTotal: v })}
             />
           )}
+          <div className="cat-group-name">Round up to pay easily</div>
+          <div className="chips mb">
+            {[0, 10, 20, 50, 100].map((n) => (
+              <button
+                key={n}
+                className={`chip ${(b.tipRoundTo ?? 0) === n ? 'on' : ''}`}
+                onClick={() => update({ tipRoundTo: n })}
+              >
+                {n === 0 ? 'Exact' : `to ${fmtMoney(n, cur, { dp: 0 })}`}
+              </button>
+            ))}
+          </div>
+          {(b.tipRoundTo ?? 0) > 0 && (
+            <Seg
+              value={b.tipRoundTotal ? 'total' : 'tip'}
+              onChange={(v) => update({ tipRoundTotal: v === 'total' })}
+              options={[
+                { v: 'tip', label: 'Round the tip' },
+                { v: 'total', label: 'Round the whole bill' },
+              ]}
+            />
+          )}
+          <div className="tip-callout mt">
+            <span>💁 Tip to leave</span>
+            <b>{fmtMoney(r.tip, cur)}</b>
+          </div>
           <div className="tiny muted">
             Tap a person above and turn on “Treat to service, VAT & tip” to have the others cover their share. The tip is shared
             like the service charge.
@@ -794,9 +820,19 @@ export function BillEdit({ id }: { id: string }) {
           <Sparkle k="bills" />
           <div className="label">Total bill</div>
           <div className="big">{fmtMoney(r.total, cur)}</div>
-          <div className="small bold">
-            Food {fmtMoney(r.subtotal, cur)} · service {fmtMoney(r.service, cur)} · VAT {fmtMoney(r.vat, cur)}
-            {r.tip > 0 && ` · tip ${fmtMoney(r.tip, cur)}`}
+          <div className="stat-row">
+            <div className="stat">
+              <div className="k">Food</div>
+              <div className="v">{fmtMoney(r.subtotal, cur)}</div>
+            </div>
+            <div className="stat">
+              <div className="k">Service + VAT</div>
+              <div className="v">{fmtMoney(r.service + r.vat, cur)}</div>
+            </div>
+            <div className="stat">
+              <div className="k">💁 Tip</div>
+              <div className="v">{fmtMoney(r.tip, cur)}</div>
+            </div>
           </div>
         </div>
         {r.warnings.map((w) => (

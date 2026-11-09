@@ -38,13 +38,13 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Entries** | Spend / income / move money with a phone-style calculator (`(120+80)×2`), any currency (converted with live rates), your own categories |
 | **Accounts** | Bank, cash, debit, credit card, top-up card, investments, BTC, gold, insurance: add, edit, archive, reorder; BTC and gold sit in their own Wealth preserve group |
 | **Set new balance** | Type the new total; choose **just adjust** or **log the difference as income/spending** (for example Interest) |
-| **Credit cards** | Statement day, due day, credit limit, paying account, amount still to pay, **Pay now** |
+| **Credit cards** | Statement day, due day, credit limit, paying account, amount still to pay, **Pay now**; everything owed (statement plus spending since) is kept ready in the paying account |
 | **Repeating** | Daily / weekly / monthly / yearly (every N); recorded automatically on the day; the next payment is **kept ready** (reserved) in its account |
 | **Wealth preserve** | BTC (amount × live price) and Thai gold in baht-weight (ทองบาทละ, live 96.5% bar price), cost, average cost and profit |
 | **Summary** | Income and spending by category and group, per month, year or dates, with the change against all of last month (or last year) |
 | **Month close** | Opens on the current month (numbers so far), in the year sheet's order, each category with its share of spending or income (and spending as % of income), tap to copy, or export to Excel / CSV; foldable charts of income against spending (6 months) and net worth (12 months) |
 | **Budget plan** | Any number of phases, bonus split, leftover-money rule, monthly transfer checklist; can **import a Budget Allocation sheet** from an `.xlsx` workbook |
-| **Bill split** | Own orders, shared items split between only the people ticked, service charge, VAT and tip (any %, on the food or the whole bill) by share, “treat” someone to the charges, split evenly (food shared by all, drinks only by who had them), one person pays for others (e.g. his wife); one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
+| **Bill split** | Own orders, shared items split between only the people ticked, service charge, VAT and tip (any %, on the food or the whole bill, rounded up to ฿10–100 if wanted, shown on its own) by share, “treat” someone to the charges, split evenly (food shared by all, drinks only by who had them), one person pays for others (e.g. his wife); one or several payers (by amount or %); fewest payments to settle; add what friends owe you to Who owes me |
 | **Travel split** | Any number of travellers, any currencies at trip rates, personal / everyone / some, fewest payments to settle up; add what's owed to Who owes me |
 | **Currency converter** | Any amount between any two currencies (and BTC), swap, the same amount in your other currencies and gold, tap to copy; works offline with the last saved rates |
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
@@ -56,6 +56,7 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Monthly limits** | Optional, per category or group: Home shows what is left and about how much a day |
 | **Home** | Fold Scheduled; this month's entries with ‹ › for other months; price strip with BTC, gold and any currencies you watch (add or remove them there or in Settings → Live prices) |
 | **Vibration** | A light buzz on each calculator key and on press and hold (Android; switch off in Settings → Theme) |
+| **Liquid money** | Tick which accounts are spendable now; Home and Accounts show net worth and the liquid part (bank, cash and cards by default) |
 | **Undo** | Every delete shows Undo for a few seconds |
 | **Arrange** | Move whole groups (e.g. Credit or Fixed to the top) and items inside them: Categories page, and Accounts → Arrange |
 | **Users** | Add as many as you like (User 1, User 2…), each with separate accounts, entries and categories |

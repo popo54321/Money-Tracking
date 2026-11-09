@@ -228,3 +228,119 @@ describe('bill split tips', () => {
     expect(computeBill(base).tip).toBe(0);
   });
 });
+
+describe('credit card: keep everything owed ready in the paying account', () => {
+  const bank = {
+    id: 'bank',
+    profileId: 'p',
+    name: 'Bank',
+    type: 'bank',
+    group: 'Bank',
+    currency: 'THB',
+    openingBalance: 50000,
+    openingDate: '2026-10-01',
+    includeInNetWorth: true,
+    archived: false,
+    order: 0,
+  } as Account;
+  const card = {
+    ...bank,
+    id: 'card',
+    name: 'Card',
+    type: 'credit',
+    group: 'Credit',
+    openingBalance: -10000,
+    statementDay: 25,
+    dueDay: 10,
+    payFromAccountId: 'bank',
+  } as Account;
+  const tx = (id: string, date: string, p: Partial<Tx>): Tx =>
+    ({
+      id,
+      profileId: 'p',
+      date,
+      kind: 'expense',
+      accountId: 'card',
+      amount: 0,
+      value: 0,
+      valueCurrency: 'THB',
+      createdAt: 1,
+      updatedAt: 1,
+      ...p,
+    }) as Tx;
+  it('statement due plus spending since the statement', async () => {
+    const { upcomingItems, reservedByAccount } = await import('./reserve');
+    const txs = [tx('s', '2026-11-02', { amount: 2000 })];
+    const items = upcomingItems([bank, card], [], txs, '2026-11-07');
+    const st = items.find((i) => i.source === 'card')!;
+    expect(st.amount).toBe(10000);
+    expect(reservedByAccount(items, [bank, card]).get('bank')).toBe(12000);
+  });
+  it('after the statement is paid, the new spending is still kept ready', async () => {
+    const { upcomingItems, reservedByAccount } = await import('./reserve');
+    const txs = [
+      tx('s', '2026-11-02', { amount: 2000 }),
+      tx('pay', '2026-11-05', { kind: 'transfer', accountId: 'bank', toAccountId: 'card', amount: 10000, toAmount: 10000 }),
+    ];
+    const items = upcomingItems([bank, card], [], txs, '2026-11-07');
+    expect(items.find((i) => i.source === 'card')!.label).toBe('Card spending so far');
+    expect(reservedByAccount(items, [bank, card]).get('bank')).toBe(2000);
+  });
+});
+
+describe('bill split tip rounding', () => {
+  const people = [{ id: 'a', name: 'A' }];
+  const items = [{ id: '1', name: 'Food', price: 3848, sharedBy: ['a'], shared: false }];
+  const base = {
+    people,
+    items,
+    servicePct: 10,
+    vatPct: 7,
+    vatOnService: true,
+    mode: 'itemised' as const,
+    currency: 'THB',
+    tipPct: 5,
+  };
+  it('rounds the tip itself up', () => {
+    // 5 % of 3,848 = 192.40 → 200
+    expect(computeBill({ ...base, tipRoundTo: 10 }).tip).toBeCloseTo(200, 9);
+    expect(computeBill({ ...base, tipRoundTo: 100 }).tip).toBeCloseTo(200, 9);
+  });
+  it('rounds the whole bill up, the extra goes to the tip', () => {
+    const r = computeBill({ ...base, tipRoundTo: 100, tipRoundTotal: true });
+    // 3,848 + 384.80 + 296.30 + 192.40 = 4,721.50 → 4,800
+    expect(r.total).toBeCloseTo(4800, 9);
+    expect(r.tip).toBeCloseTo(270.904, 6);
+  });
+});
+
+describe('liquid money', () => {
+  const a = (id: string, type: Account['type'], openingBalance: number, extra: Partial<Account> = {}) =>
+    ({
+      id,
+      profileId: 'p',
+      name: id,
+      type,
+      group: 'G',
+      currency: 'THB',
+      openingBalance,
+      openingDate: '2026-01-01',
+      includeInNetWorth: true,
+      archived: false,
+      order: 0,
+      ...extra,
+    }) as Account;
+  it('bank, cash and card debt are liquid by default; investments are not; each account can say otherwise', async () => {
+    const { netWorth, balancesByAccount } = await import('./balances');
+    const accs = [
+      a('bank', 'bank', 1000),
+      a('cash', 'cash', 200),
+      a('card', 'credit', -300),
+      a('fund', 'investment', 5000),
+      a('saving', 'bank', 4000, { liquid: false }),
+    ];
+    const nw = netWorth(accs, balancesByAccount(accs, []), { perUsd: { USD: 1, THB: 33 } }, 'THB');
+    expect(nw.total).toBe(9900);
+    expect(nw.liquid).toBe(900);
+  });
+});
