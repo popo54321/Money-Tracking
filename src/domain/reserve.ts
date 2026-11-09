@@ -1,6 +1,7 @@
-// Money to keep ready: the next payment of each repeating bill, and unpaid credit card statements.
+// Money to keep ready: the next payment of each repeating bill, and everything owed on credit cards
+// (the statement due plus what was spent since), kept in the card's paying account.
 import { diffDays, type ISODate } from './dates';
-import { cardStatus } from './creditCard';
+import { cardStatus, dueDateFor } from './creditCard';
 import { monthlyEquivalent, nextUnposted } from './recurring';
 import type { Account, Recurring, Tx } from './types';
 
@@ -17,6 +18,8 @@ export interface UpcomingItem {
   /** account where the money should be kept ready (a card's paying account for card charges) */
   reserveAccountId?: string;
   amount: number;
+  /** amount to keep ready when it differs from `amount` (a card: all that is owed, not just the statement) */
+  reserveAmount?: number;
   currency: string;
   reserved: boolean;
   perMonth?: number;
@@ -57,22 +60,42 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
   for (const card of accounts) {
     if (card.type !== 'credit' || card.archived || !card.statementDay) continue;
     const st = cardStatus(card, txs, today);
-    if (st.remaining <= 0.005 || !st.dueDate) continue;
-    out.push({
-      key: `c:${card.id}:${st.lastStatement}`,
-      source: 'card',
-      refId: card.id,
-      label: `${card.name} statement`,
-      kind: 'card',
-      date: st.dueDate,
-      daysAway: diffDays(today, st.dueDate),
-      accountId: card.id,
-      reserveAccountId: card.payFromAccountId,
-      amount: st.remaining,
-      currency: card.currency,
-      reserved: !!card.payFromAccountId,
-      overdue: st.overdue,
-    });
+    if (st.remaining > 0.005 && st.dueDate) {
+      // the statement is due; keep ready everything owed, including spending since the statement
+      out.push({
+        key: `c:${card.id}:${st.lastStatement}`,
+        source: 'card',
+        refId: card.id,
+        label: `${card.name} statement`,
+        kind: 'card',
+        date: st.dueDate,
+        daysAway: diffDays(today, st.dueDate),
+        accountId: card.id,
+        reserveAccountId: card.payFromAccountId,
+        amount: st.remaining,
+        reserveAmount: Math.max(st.owedNow, st.remaining),
+        currency: card.currency,
+        reserved: !!card.payFromAccountId,
+        overdue: st.overdue,
+      });
+    } else if (st.owedNow > 0.005 && st.nextStatement && card.dueDay) {
+      // statement paid (or none yet): what was spent since goes on the next statement
+      const due = dueDateFor(st.nextStatement, card.dueDay);
+      out.push({
+        key: `c:${card.id}:next:${st.nextStatement}`,
+        source: 'card',
+        refId: card.id,
+        label: `${card.name} spending so far`,
+        kind: 'card',
+        date: due,
+        daysAway: diffDays(today, due),
+        accountId: card.id,
+        reserveAccountId: card.payFromAccountId,
+        amount: st.owedNow,
+        currency: card.currency,
+        reserved: !!card.payFromAccountId,
+      });
+    }
   }
 
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.label.localeCompare(b.label)));
@@ -85,7 +108,7 @@ export function reservedByAccount(items: UpcomingItem[], accounts: Account[]): M
   for (const it of items) {
     if (!it.reserved || !it.reserveAccountId) continue;
     if (cur.get(it.reserveAccountId) !== it.currency) continue;
-    m.set(it.reserveAccountId, (m.get(it.reserveAccountId) ?? 0) + it.amount);
+    m.set(it.reserveAccountId, (m.get(it.reserveAccountId) ?? 0) + (it.reserveAmount ?? it.amount));
   }
   return m;
 }

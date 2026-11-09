@@ -17,6 +17,10 @@ export interface BillInput {
   tipPct?: number;
   /** tip on the whole bill (food + service + VAT) instead of the food only */
   tipOnTotal?: boolean;
+  /** round up to this step (e.g. 10, 100); 0 or none = exact */
+  tipRoundTo?: number;
+  /** true: round the whole bill up (the extra is tip); false: round the tip itself up */
+  tipRoundTotal?: boolean;
   mode: 'itemised' | 'even';
   currency: string;
   /** round each person's share to a whole number */
@@ -65,7 +69,14 @@ export function computeBill(input: BillInput): BillResult {
   const subtotal = sum(items.map((i) => i.price || 0));
   const service = subtotal * s;
   const vat = (subtotal + (input.vatOnService ? service : 0)) * v;
-  const tip = (input.tipOnTotal ? subtotal + service + vat : subtotal) * ((input.tipPct || 0) / 100);
+  const beforeTip = subtotal + service + vat;
+  let tip = (input.tipOnTotal ? beforeTip : subtotal) * ((input.tipPct || 0) / 100);
+  // round up so it is easy to pay: either the tip itself, or the whole bill (the extra goes to the tip)
+  const step = input.tipRoundTo || 0;
+  if (step > 0) {
+    if (input.tipRoundTotal) tip = Math.ceil((beforeTip + tip) / step - 1e-9) * step - beforeTip;
+    else if (tip > 0) tip = Math.ceil(tip / step - 1e-9) * step;
+  }
   const total = subtotal + service + vat + tip;
 
   if (people.length === 0) {

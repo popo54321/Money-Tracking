@@ -325,9 +325,11 @@ export function AccountDetail({ id }: { id: string }) {
             {reservedHere.map((u) => (
               <div key={u.key} className="between small" style={{ padding: '4px 0' }}>
                 <span>
-                  {u.label} · {fmtDate(u.date, false)}
+                  {u.label}
+                  {u.reserveAmount !== undefined && u.reserveAmount > u.amount + 0.005 ? ' + spending since' : ''} ·{' '}
+                  {fmtDate(u.date, false)}
                 </span>
-                <b>{fmtMoney(u.amount, u.currency)}</b>
+                <b>{fmtMoney(u.reserveAmount ?? u.amount, u.currency)}</b>
               </div>
             ))}
           </div>

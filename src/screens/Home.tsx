@@ -335,6 +335,7 @@ export function Home() {
           <Sparkle k="home" />
           <div className="label">Net worth</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
+          <div className="small bold mt">💧 Liquid {fmtMoney(nw.liquid, currency)}</div>
           <div className="stat-row">
             <div className="stat">
               <div className="k">In this month</div>
