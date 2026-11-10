@@ -383,3 +383,45 @@ describe('saving targets share what their account really holds', () => {
     expect(rows.map((r) => r.saved)).toEqual([0, 3000]);
   });
 });
+
+describe('many saving targets with money in them: the drop is shared exactly', () => {
+  const g = (id: string, saved: number) =>
+    ({
+      id,
+      name: id,
+      emoji: '🎯',
+      price: 1e6,
+      currency: 'THB',
+      saved,
+      monthly: 0,
+      accountId: 'acc',
+      done: false,
+      countFrom: '2026-11-01',
+    }) as Goal;
+  const run = async (saved: number[], bal: number) => {
+    const { fitToAccounts } = await import('./goals');
+    return fitToAccounts(
+      saved.map((s, i) => g(String(i), s)),
+      '2026-11-10',
+      new Map([['acc', bal]]),
+    );
+  };
+  const total = (rows: { saved: number }[]) => Math.round(rows.reduce((x, r) => x + r.saved, 0) * 100) / 100;
+  it('30,000 / 15,000 / 5,000 in an account of 35,000 → 70 % each', async () => {
+    const rows = await run([30000, 15000, 5000], 35000);
+    expect(rows.map((r) => r.saved)).toEqual([21000, 10500, 3500]);
+  });
+  it('awkward amounts: same share for each, and they add up to exactly the account', async () => {
+    for (const [saved, bal] of [
+      [[28811.13, 9145, 120000, 0.01], 19666.13],
+      [[10000, 10000, 10000], 10000],
+      [[1234.56, 789.01, 2.03, 555.55], 1000],
+    ] as [number[], number][]) {
+      const rows = await run(saved, bal);
+      expect(total(rows)).toBe(bal);
+      // every target keeps the same share, to within a satang
+      for (const r of rows)
+        expect(Math.abs(r.saved - (r.recorded * bal) / saved.reduce((a, b) => a + b, 0))).toBeLessThanOrEqual(0.01);
+    }
+  });
+});
