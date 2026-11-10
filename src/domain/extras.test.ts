@@ -344,3 +344,42 @@ describe('liquid money', () => {
     expect(nw.liquid).toBe(900);
   });
 });
+
+describe('saving targets share what their account really holds', () => {
+  const g = (id: string, saved: number, accountId = 'acc') =>
+    ({
+      id,
+      name: id,
+      emoji: '🎯',
+      price: 100000,
+      currency: 'THB',
+      saved,
+      monthly: 0,
+      accountId,
+      done: false,
+      countFrom: '2026-11-01',
+    }) as Goal;
+  it('account holds at least all its targets: each keeps its amount', async () => {
+    const { fitToAccounts } = await import('./goals');
+    const rows = fitToAccounts([g('a', 20000), g('b', 8000)], '2026-11-10', new Map([['acc', 50000]]));
+    expect(rows.map((r) => r.saved)).toEqual([20000, 8000]);
+  });
+  it('account drops below: every target goes down by the same share, and the records stay', async () => {
+    const { fitToAccounts } = await import('./goals');
+    const rows = fitToAccounts([g('a', 20000), g('b', 8000), g('c', 0)], '2026-11-10', new Map([['acc', 14000]]));
+    expect(rows.map((r) => r.saved)).toEqual([10000, 4000, 0]);
+    expect(rows.map((r) => r.recorded)).toEqual([20000, 8000, 0]);
+  });
+  it('an empty or overdrawn account shows 0, targets in other accounts are untouched', async () => {
+    const { fitToAccounts } = await import('./goals');
+    const rows = fitToAccounts(
+      [g('a', 5000), g('x', 3000, 'other')],
+      '2026-11-10',
+      new Map([
+        ['acc', -200],
+        ['other', 9000],
+      ]),
+    );
+    expect(rows.map((r) => r.saved)).toEqual([0, 3000]);
+  });
+});
