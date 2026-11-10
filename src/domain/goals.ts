@@ -1,5 +1,6 @@
 // Saving targets (wishlist): how far along each one is and when it can be bought.
 import { addMonthsClamped, diffDays, parseISO, type ISODate } from './dates';
+import { allocate, decimalsFor } from './money';
 
 export interface Goal {
   id: string;
@@ -118,8 +119,13 @@ export function fitToAccounts(goals: Goal[], today: ISODate, room: Map<string, n
     const total = list.reduce((x, r) => x + r.recorded, 0);
     const there = Math.max(0, room.get(id) ?? 0);
     if (total <= there + 1e-9 || total <= 0) continue;
-    const factor = there / total;
-    for (const r of list) r.saved = r.recorded * factor;
+    // the same share for every target, rounded so the amounts add up to exactly what the account holds
+    const shares = allocate(
+      there,
+      list.map((r) => r.recorded),
+      decimalsFor(list[0].goal.currency),
+    );
+    list.forEach((r, i) => (r.saved = shares[i]));
   }
   return rows;
 }
