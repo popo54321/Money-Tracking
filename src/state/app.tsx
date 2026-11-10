@@ -211,6 +211,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [accounts, categories, txs, recurring, goalRows, today]);
 
+  // An account fell below its targets: save the lower amounts. Money that left is treated as spent,
+  // so targets do not come back by themselves when the account goes up again (Put back undoes a mistake).
+  useEffect(() => {
+    if (!data) return;
+    const cuts = data.goals.filter((r) => r.saved < r.recorded - 0.005);
+    if (!cuts.length) return;
+    void db.transaction('rw', db.goals, async () => {
+      for (const r of cuts)
+        await db.goals.update(r.goal.id, {
+          saved: r.saved,
+          countFrom: today,
+          // keep what it had before the first cut, so Put back restores all of it
+          lowered: { date: today, from: r.goal.lowered?.from ?? r.recorded },
+          updatedAt: Date.now(),
+        });
+    });
+  }, [data, today]);
+
   // navigation stack
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
   const route = stack[stack.length - 1];

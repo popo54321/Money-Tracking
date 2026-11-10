@@ -1598,3 +1598,13 @@ button.pill {
 .tip-callout b {
   font-size: 20px;
 }
+
+/* a saving target that was cut because its account fell below its targets */
+.lowered-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--danger);
+  font-weight: 600;
+}
