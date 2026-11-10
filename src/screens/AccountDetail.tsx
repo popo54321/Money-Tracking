@@ -225,7 +225,9 @@ export function AccountDetail({ id }: { id: string }) {
               </div>
               <div className="stat">
                 <div className="k">Free to use</div>
-                <div className="v">{fmtMoney(bal - reserved, a.currency, { compact: true })}</div>
+                <div className={`v ${bal - reserved < 0 ? 'neg' : ''}`}>
+                  {fmtMoney(bal - reserved, a.currency, { compact: true })}
+                </div>
               </div>
             </div>
           )}
