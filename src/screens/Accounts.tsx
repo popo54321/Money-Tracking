@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Topbar, Sparkle, SkinName } from '../components/ui';
 import { accountValue, netWorth } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
@@ -20,7 +20,7 @@ export function AccountLine({ a }: { a: Account }) {
   const bal = data.balances.get(a.id) ?? 0;
   const value = accountValue(a, bal, rates, currency);
   const reserved = data.reserved.get(a.id) ?? 0;
-  let sub: string = a.type === 'credit' ? 'Credit card' : a.group;
+  let sub: ReactNode = a.type === 'credit' ? 'Credit card' : a.group;
   let main = fmtMoney(bal, a.currency);
   let second: string | null = a.currency !== currency ? fmtMoney(value, currency) : null;
   let mainCls = bal < 0 ? 'neg' : '';
@@ -36,11 +36,24 @@ export function AccountLine({ a }: { a: Account }) {
     main = `${fmtMoney(bal, a.currency, { compact: true })}`;
     second = value === null ? 'set a price' : fmtMoney(value, currency);
   } else if (reserved > 0) {
-    sub = `🔒 ${fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free ${fmtMoney(bal - reserved, a.currency, { compact: true })}`;
+    // free money below zero means the bills need more than the account holds: show it in red
+    sub = (
+      <>
+        🔒 {fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free{' '}
+        <span className={bal - reserved < 0 ? 'neg' : ''} style={{ whiteSpace: 'nowrap' }}>
+          {fmtMoney(bal - reserved, a.currency, { compact: true })}
+        </span>
+      </>
+    );
   }
   const isCard = a.type === 'credit';
   const nSplits = a.splits?.length ?? 0;
-  if (nSplits) sub = `${sub} · 🧩 ${nSplits} ${nSplits === 1 ? 'split' : 'splits'}`;
+  if (nSplits)
+    sub = (
+      <>
+        {sub} · 🧩 {nSplits} {nSplits === 1 ? 'split' : 'splits'}
+      </>
+    );
   return (
     <>
       <button className="row" onClick={() => go({ name: 'account', id: a.id })} {...holdProps(() => setQuick(true))}>
