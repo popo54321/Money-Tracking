@@ -232,7 +232,8 @@ export function Goals() {
   const [addAmount, setAddAmount] = useState<number | null>(null);
   const list = (goals ?? []).slice().sort((a, b) => Number(a.done) - Number(b.done) || a.order - b.order);
 
-  const savedFor = (g: Goal): number => goalSaved(g, today);
+  const rowFor = (g: Goal) => data.goals.find((r) => r.goal.id === g.id);
+  const savedFor = (g: Goal): number => rowFor(g)?.saved ?? goalSaved(g, today);
 
   const create = () =>
     setEdit({
@@ -357,6 +358,12 @@ export function Goals() {
                     <div className="bold">{Math.round(st.progress * 100)}%</div>
                   </div>
                   <ProgressBar value={st.progress} colour={st.reached ? 'mint' : 'lav'} />
+                  {acc && (rowFor(g)?.saved ?? 0) < (rowFor(g)?.recorded ?? 0) - 0.005 && (
+                    <div className="small mt neg">
+                      ⬇️ Lowered from {fmtMoney(rowFor(g)!.recorded, g.currency)}: {acc.name} holds less than all its targets
+                      together, so each goes down by the same share
+                    </div>
+                  )}
                   {acc && (
                     <div className="small mt">
                       🏦 {acc.name}: <b>{fmtMoney(data.balances.get(acc.id) ?? 0, acc.currency)}</b> in the account

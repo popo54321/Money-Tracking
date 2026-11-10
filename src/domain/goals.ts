@@ -91,3 +91,35 @@ export function goalStatus(goal: Goal, savedNow: number, today: ISODate): GoalSt
   }
   return { saved, remaining, progress, reached, monthsLeft, eta, neededPerMonth, monthsToTarget };
 }
+
+export interface GoalRow {
+  goal: Goal;
+  /** saved amount shown: the record, lowered in proportion when its account holds less than all its targets */
+  saved: number;
+  /** the target's own record (what it would be with enough money in the account) */
+  recorded: number;
+}
+
+/**
+ * Targets kept in an account share what that account really holds.
+ * While the account holds at least the sum of its targets, every target keeps its record.
+ * When it holds less, every target goes down in the same proportion (and comes back when the account recovers).
+ * `room`: per account, what is there for targets (balance minus the account's own splits).
+ */
+export function fitToAccounts(goals: Goal[], today: ISODate, room: Map<string, number>): GoalRow[] {
+  const rows = goals.map((g) => ({ goal: g, recorded: goalSaved(g, today), saved: goalSaved(g, today) }));
+  const byAccount = new Map<string, GoalRow[]>();
+  for (const r of rows) {
+    const id = r.goal.accountId;
+    if (!id || r.goal.done || !room.has(id)) continue;
+    byAccount.set(id, [...(byAccount.get(id) ?? []), r]);
+  }
+  for (const [id, list] of byAccount) {
+    const total = list.reduce((x, r) => x + r.recorded, 0);
+    const there = Math.max(0, room.get(id) ?? 0);
+    if (total <= there + 1e-9 || total <= 0) continue;
+    const factor = there / total;
+    for (const r of list) r.saved = r.recorded * factor;
+  }
+  return rows;
+}

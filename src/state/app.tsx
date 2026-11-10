@@ -8,12 +8,18 @@ import { withBtc, type RateTable } from '../domain/fx';
 import { reservedByAccount, upcomingItems, type UpcomingItem } from '../domain/reserve';
 import type { Account, Category, PriceCache, Profile, Recurring, Settings, Tx } from '../domain/types';
 import { db } from '../db/db';
-import { goalSaved, type Goal } from '../domain/goals';
+import { fitToAccounts, type GoalRow } from '../domain/goals';
+import { splitAmount } from '../domain/splits';
 import { FALLBACK_PRICES, recordChanges, updateSettings } from '../db/repo';
 import { DEFAULT_SETTINGS } from '../db/seed';
 import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
 import { setQuietCheck } from '../services/autoUpdate';
 import { setHapticsEnabled } from '../services/haptics';
+
+/** Currency of an account (targets in another currency are not lowered). */
+function byIdCurrency(accounts: Account[], id: string | undefined): string | undefined {
+  return accounts.find((a) => a.id === id)?.currency;
+}
 
 // ---------- navigation ----------
 
@@ -72,7 +78,7 @@ export interface ProfileData {
   accountById: Map<string, Account>;
   categoryById: Map<string, Category>;
   /** saving targets, each with its saved amount today */
-  goals: { goal: Goal; saved: number }[];
+  goals: GoalRow[];
 }
 
 interface ConfirmOpts {
@@ -190,7 +196,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reserved,
       accountById: new Map(accs.map((a) => [a.id, a])),
       categoryById: new Map(cats.map((c) => [c.id, c])),
-      goals: goalRows.map((g) => ({ goal: g, saved: goalSaved(g, today) })),
+      goals: fitToAccounts(
+        goalRows,
+        today,
+        new Map(
+          accs.map((a) => {
+            // what the account holds for targets: its balance minus its own splits, in its own currency
+            const own = actual.filter((t) => t.accountId === a.id);
+            const splits = (a.splits ?? []).reduce((x, sp) => x + splitAmount(sp, own), 0);
+            return [a.id, (balances.get(a.id) ?? 0) - splits];
+          }),
+        ),
+      ).map((r) => (r.goal.currency === byIdCurrency(accs, r.goal.accountId) ? r : { ...r, saved: r.recorded })),
     };
   }, [accounts, categories, txs, recurring, goalRows, today]);
 
