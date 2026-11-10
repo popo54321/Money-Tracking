@@ -21,6 +21,8 @@ export interface Goal {
   addDay?: number;
   /** monthly additions count from the day after this date */
   countFrom?: ISODate;
+  /** the account fell below its targets and this target was cut: when, and what it had before (for Put back) */
+  lowered?: { date: ISODate; from: number };
   targetDate?: ISODate;
   note?: string;
   done: boolean;
@@ -104,7 +106,8 @@ export interface GoalRow {
 /**
  * Targets kept in an account share what that account really holds.
  * While the account holds at least the sum of its targets, every target keeps its record.
- * When it holds less, every target goes down in the same proportion (and comes back when the account recovers).
+ * When it holds less, every target goes down in the same proportion. The app then saves the lower amounts:
+ * money that left the account is treated as spent, so targets never go back up by themselves.
  * `room`: per account, what is there for targets (balance minus the account's own splits).
  */
 export function fitToAccounts(goals: Goal[], today: ISODate, room: Map<string, number>): GoalRow[] {

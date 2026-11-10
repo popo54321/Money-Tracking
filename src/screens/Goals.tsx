@@ -204,6 +204,8 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
               saved: fromAccount ? g.saved : savedNow,
               countFrom: today,
               source: 'manual',
+              // a typed amount replaces any automatic cut
+              lowered: fromAccount || savedNow !== goalSaved(goal, today) ? undefined : g.lowered,
             });
             toast('🎯 Saved');
             onClose();
@@ -233,6 +235,21 @@ export function Goals() {
   const list = (goals ?? []).slice().sort((a, b) => Number(a.done) - Number(b.done) || a.order - b.order);
 
   const rowFor = (g: Goal) => data.goals.find((r) => r.goal.id === g.id);
+  /** Undo a cut (e.g. a mistaken entry): only once the account holds enough again. */
+  const putBack = async (g: Goal) => {
+    if (!g.lowered) return;
+    const acc = g.accountId ? data.accountById.get(g.accountId) : undefined;
+    if (acc) {
+      const others = data.goals
+        .filter((r) => r.goal.accountId === acc.id && r.goal.id !== g.id && !r.goal.done)
+        .reduce((x, r) => x + r.saved, 0);
+      const room = splitView(acc, data.balances.get(acc.id) ?? 0, data.txs, []).left;
+      if (others + g.lowered.from > room + 0.005)
+        return toast(`${acc.name} still holds less than that. Fix the account first, then Put back.`);
+    }
+    await saveGoal({ ...g, saved: g.lowered.from, countFrom: today, lowered: undefined });
+    toast(`↩️ ${g.name} is back to ${fmtMoney(g.lowered.from, g.currency)}`);
+  };
   const savedFor = (g: Goal): number => rowFor(g)?.saved ?? goalSaved(g, today);
 
   const create = () =>
@@ -358,10 +375,23 @@ export function Goals() {
                     <div className="bold">{Math.round(st.progress * 100)}%</div>
                   </div>
                   <ProgressBar value={st.progress} colour={st.reached ? 'mint' : 'lav'} />
-                  {acc && (rowFor(g)?.saved ?? 0) < (rowFor(g)?.recorded ?? 0) - 0.005 && (
-                    <div className="small mt neg">
-                      ⬇️ Lowered from {fmtMoney(rowFor(g)!.recorded, g.currency)}: {acc.name} holds less than all its targets
-                      together, so each goes down by the same share
+                  {g.lowered && !g.done && (
+                    <div className="lowered-note mt">
+                      <span className="grow">
+                        ⬇️ Lowered on {fmtDate(g.lowered.date, false)} from {fmtMoney(g.lowered.from, g.currency)}
+                        {acc ? `: ${acc.name} fell below its targets` : ''}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="btn sm ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void putBack(g);
+                        }}
+                      >
+                        Put back
+                      </span>
                     </div>
                   )}
                   {acc && (
@@ -410,7 +440,7 @@ export function Goals() {
               className="btn primary block"
               onClick={async () => {
                 if (!addAmount) return;
-                await saveGoal({ ...addFor, saved: goalSaved(addFor, today) + addAmount, countFrom: today });
+                await saveGoal({ ...addFor, saved: goalSaved(addFor, today) + addAmount, countFrom: today, lowered: undefined });
                 toast(`🐷 +${fmtMoney(addAmount, addFor.currency)}`);
                 setAddFor(null);
               }}
@@ -442,10 +472,25 @@ export function Goals() {
               tone: 'sky',
               run: async () => {
                 // bought: keep the amount as it is now; back on the list: monthly savings start again from today
-                await saveGoal({ ...quick, saved: goalSaved(quick, today), countFrom: today, done: !quick.done });
+                await saveGoal({
+                  ...quick,
+                  saved: goalSaved(quick, today),
+                  countFrom: today,
+                  done: !quick.done,
+                  lowered: undefined,
+                });
                 toast(quick.done ? '↩️ Back on the list' : '🎉 Bought!');
               },
             },
+            ...(quick.lowered && !quick.done
+              ? [
+                  {
+                    label: `↩️ Put back ${fmtMoney(quick.lowered.from, quick.currency)}`,
+                    tone: 'mint' as const,
+                    run: () => putBack(quick),
+                  },
+                ]
+              : []),
             { label: '✏️ Edit', tone: 'plain', run: () => setEdit(quick) },
             {
               label: '🗑️ Delete',
