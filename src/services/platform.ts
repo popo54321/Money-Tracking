@@ -22,6 +22,7 @@ export async function shareFile(
   name: string,
   data: string | Uint8Array,
   mime: string,
+  text?: string,
 ): Promise<'shared' | 'downloaded' | 'cancelled'> {
   if (isNative()) {
     const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
@@ -31,7 +32,7 @@ export async function shareFile(
         ? await Filesystem.writeFile({ path: name, data, directory: Directory.Cache, encoding: Encoding.UTF8 })
         : await Filesystem.writeFile({ path: name, data: toBase64(data), directory: Directory.Cache });
     try {
-      await Share.share({ title: name, files: [res.uri] });
+      await Share.share({ title: name, text, files: [res.uri] });
       return 'shared';
     } catch {
       return 'cancelled';
@@ -43,7 +44,7 @@ export async function shareFile(
   const coarse = window.matchMedia?.('(pointer: coarse)').matches;
   if (coarse && nav.share && nav.canShare?.({ files: [file] })) {
     try {
-      await nav.share({ files: [file], title: name });
+      await nav.share({ files: [file], title: name, text });
       return 'shared';
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return 'cancelled';

@@ -15,6 +15,7 @@ import { Summary } from './screens/Summary';
 import { More } from './screens/More';
 import { RecurringList, RecurringEdit } from './screens/Recurring';
 import { PaydayEdit } from './screens/Payday';
+import { Retire } from './screens/Retire';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Screens used less often load on first visit (they are still kept for offline use).
@@ -72,6 +73,8 @@ function Screen() {
       return <RecurringEdit id={route.id} />;
     case 'payday':
       return <PaydayEdit />;
+    case 'retire':
+      return <Retire />;
     case 'monthClose':
       return <MonthClose />;
     case 'budget':
@@ -107,7 +110,9 @@ function TabBar() {
   const { route, tab, go, stackDepth, skin } = useApp();
   const root = stackDepth === 1 ? route.name : null;
   // forms keep their Save button at the bottom instead of the tab bar
-  if (route.name === 'entry' || route.name === 'accountEdit' || route.name === 'recurringEdit') return null;
+  // the calculator uses the whole screen
+  if (route.name === 'entry' || route.name === 'accountEdit' || route.name === 'recurringEdit' || route.name === 'retire')
+    return null;
   const t = (name: 'home' | 'accounts' | 'summary' | 'more', emoji: string, label: string) => (
     <button className={`tab ${root === name ? 'on' : ''}`} onClick={() => tab(name)} aria-label={label}>
       <span className="ti">{emoji}</span>

@@ -1,17 +1,14 @@
 import { SkinName, Topbar } from '../components/ui';
 import { useApp } from '../state/app';
-import { APP_VERSION, openExternal } from '../services/platform';
+import { APP_VERSION } from '../services/platform';
 
-/** The retirement calculator: a separate page that needs the internet. */
-const RETIRE_URL = 'https://claude.ai/artifact/JVjeD2og7NfJGhZGdC6DUG';
 import type { TileKey } from '../ui/skins';
 import { ProfileSwitch } from './Home';
 
 export function More() {
   const { go, skin } = useApp();
   const n = (k: 'budget' | 'goals' | 'wealth') => skin.names[k].replace(/\s*\p{Extended_Pictographic}.*$/u, '');
-  /** a tile opens a screen, or (with `url`) a page on the web */
-  type T = { k: TileKey; t: string; d: string; c: string; r?: Parameters<typeof go>[0]; url?: string };
+  type T = { k: TileKey; t: string; d: string; c: string; r: Parameters<typeof go>[0] };
   const groups: { label: string; tiles: T[] }[] = [
     {
       label: 'Everyday',
@@ -29,7 +26,6 @@ export function More() {
         { k: 'goals', t: n('goals'), d: 'Wishlist & when to buy', c: 'peach', r: { name: 'goals' } },
         { k: 'wealth', t: n('wealth'), d: 'BTC & gold (ทองบาทละ)', c: 'butter', r: { name: 'wealth' } },
         { k: 'monthClose', t: 'Month close', d: 'Numbers for the workbook', c: 'sky', r: { name: 'monthClose' } },
-        { k: 'retire', t: 'Will my money be enough?', d: 'Plan to retirement · opens online', c: 'lav', url: RETIRE_URL },
       ],
     },
     {
@@ -51,7 +47,7 @@ export function More() {
             <div className="group-label">{g.label}</div>
             <div className="tiles">
               {g.tiles.map((x) => (
-                <button key={x.k} className={`tile ${x.c}`} onClick={() => (x.url ? void openExternal(x.url) : x.r && go(x.r))}>
+                <button key={x.k} className={`tile ${x.c}`} onClick={() => go(x.r)}>
                   <span className="e">{skin.tiles[x.k]}</span>
                   <span>
                     <div className="t">{x.t}</div>
@@ -62,6 +58,14 @@ export function More() {
             </div>
           </div>
         ))}
+        <button className="big-tile" onClick={() => go({ name: 'retire' })}>
+          <span className="e">{skin.tiles.retire}</span>
+          <span>
+            <div className="t">Will my money be enough?</div>
+            <div className="d">Plan to retirement, check your money’s health and meet your adventurer</div>
+          </span>
+          <span className="go">›</span>
+        </button>
         <div className="center tiny muted mt">Money Tracking v{APP_VERSION}</div>
       </div>
     </>
