@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
 import { holdProps } from '../components/hold';
 import { CurrencySheet, ProgressBar, Sheet, Topbar, Sparkle, useFold } from '../components/ui';
-import { limitLines } from '../domain/limits';
+import { limitLines, plannedSpending } from '../domain/limits';
 import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { QuickActions } from '../components/QuickActions';
 import { moveItem } from '../domain/groups';
@@ -197,7 +197,8 @@ function LimitsCard() {
   const [open, toggle] = useFold('home.limits', true);
   const m = monthKey(today);
   const s = summarise(data.txs, data.categories, monthStart(m), monthEnd(m), currency, rates);
-  const lines = limitLines(s, data.categories, profile.groupLimits, today, monthEnd(m));
+  const planned = plannedSpending(data.recurring, data.scheduled, data.accounts, monthStart(m), monthEnd(m), currency, rates);
+  const lines = limitLines(s, data.categories, profile.groupLimits, today, monthEnd(m), planned);
   if (lines.length === 0) return null;
   const over = lines.filter((l) => l.level === 'over').length;
   return (
@@ -237,10 +238,15 @@ function LimitsCard() {
                 </div>
                 <div className="sub">
                   {fmtMoney(l.spent, currency)} of {fmtMoney(l.limit, currency)}
+                  {l.planned > 0 && ` · ${fmtMoney(l.planned, currency)} coming up`}
                   {l.perDay !== null &&
                     ` · about ${fmtMoney(l.perDay, currency, { dp: 0 })} a day for ${l.daysLeft} ${l.daysLeft === 1 ? 'day' : 'days'}`}
                 </div>
-                <ProgressBar value={l.used} colour={l.level === 'ok' ? 'mint' : l.level} />
+                <ProgressBar
+                  value={l.limit > 0 ? l.spent / l.limit : 0}
+                  planned={l.limit > 0 ? l.planned / l.limit : 0}
+                  colour={l.level === 'ok' ? 'mint' : l.level}
+                />
               </div>
             </button>
           ))}
@@ -366,7 +372,7 @@ export function Home() {
         </div>
 
         <LimitsCard />
-        <ScheduledList limit={5} foldKey="home.scheduled" />
+        <ScheduledList foldKey="home.scheduled" />
         <PriceChips />
         <MonthEntries />
       </div>

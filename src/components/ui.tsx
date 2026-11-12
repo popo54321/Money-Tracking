@@ -683,10 +683,13 @@ export function CategoryGrid({
   );
 }
 
-export function ProgressBar({ value, colour = '' }: { value: number; colour?: string }) {
+export function ProgressBar({ value, planned = 0, colour = '' }: { value: number; planned?: number; colour?: string }) {
+  const done = Math.max(0, Math.min(1, value));
+  const later = Math.max(0, Math.min(1 - done, planned));
   return (
     <div className={`bar ${colour}`}>
-      <div style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
+      <div style={{ width: `${done * 100}%` }} />
+      {later > 0 && <div className="planned" style={{ width: `${later * 100}%` }} />}
     </div>
   );
 }

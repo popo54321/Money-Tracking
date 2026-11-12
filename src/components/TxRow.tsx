@@ -187,7 +187,7 @@ export function ScheduledList({
         u.reserveAccountId && u.reserveAccountId !== u.accountId ? data.accountById.get(u.reserveAccountId) : undefined;
       const signed = u.kind === 'income' ? u.amount : u.kind === 'transfer' ? u.amount : -u.amount;
       const emoji = u.source === 'card' ? '💳' : u.kind === 'transfer' ? '🔄' : categoryEmoji(cat);
-      const when = u.overdue ? 'overdue!' : `${fmtDate(u.date, false)} (${relativeDays(today, u.date)})`;
+      const when = `${fmtDate(u.date, false)} (${relativeDays(today, u.date)})`;
       return {
         key: u.key,
         date: u.date,
@@ -207,7 +207,11 @@ export function ScheduledList({
             <div className="main">
               <div className="title">{u.label}</div>
               <div className="sub">
-                {[u.source === 'card' ? `Due ${when}` : `Scheduled · ${when}`, acc?.name, keep ? `keep in ${keep.name}` : '']
+                {[
+                  u.overdue ? 'Overdue!' : u.source === 'card' ? `Due ${when}` : `Scheduled · ${when}`,
+                  acc?.name,
+                  keep ? `keep in ${keep.name}` : '',
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </div>

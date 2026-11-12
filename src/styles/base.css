@@ -1012,6 +1012,17 @@ button.row:active {
   background: var(--danger);
   opacity: 0.85;
 }
+/* spending still to come this month: same colour, lighter, after what is spent */
+.bar {
+  display: flex;
+}
+.bar > div.planned {
+  opacity: 0.3;
+  border-radius: 0 999px 999px 0;
+}
+.bar > div:first-child:not(:last-child) {
+  border-radius: 999px 0 0 999px;
+}
 
 .tiles {
   display: grid;
