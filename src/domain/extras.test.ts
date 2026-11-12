@@ -119,10 +119,7 @@ import { holdingStatus } from './wealth';
 import { withBtc, GOLD_OZ_PER_BAHT } from './fx';
 import { accountValue, freeLiquid } from './balances';
 import { accountClaims } from './splits';
-<<<<<<< HEAD
 import { nextDateLooksOdd } from './recurring';
-=======
->>>>>>> origin/main
 import type { Account, Tx } from './types';
 
 describe('wealth preserve', () => {
@@ -480,7 +477,6 @@ describe('one true Free: set aside → splits → targets → Free', () => {
     expect(v).toBe(6500);
   });
 });
-<<<<<<< HEAD
 
 describe('a next payment date that does not fit the repeat', () => {
   const s = (freq: 'day' | 'week' | 'month' | 'year', startDate: string, every = 1) => ({ freq, every, startDate });
@@ -497,5 +493,3 @@ describe('a next payment date that does not fit the repeat', () => {
     expect(nextDateLooksOdd(s('week', '2026-11-01'), null, '2026-11-12')).toBe(false);
   });
 });
-=======
->>>>>>> origin/main
