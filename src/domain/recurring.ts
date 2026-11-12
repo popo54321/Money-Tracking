@@ -92,6 +92,33 @@ export function nextDateLooksOdd(s: Schedule, next: ISODate | null, today: ISODa
   return next > addDays(oneRepeat, 1);
 }
 
+/** Months in one repeat for bills that repeat less often than monthly (0 for monthly or more often). */
+export function monthsPerRepeat(s: Schedule): number {
+  const every = Math.max(1, Math.floor(s.every || 1));
+  if (s.freq === 'year') return 12 * every;
+  if (s.freq === 'month' && every > 1) return every;
+  return 0;
+}
+
+/** Whole months from `a` to `b` (a day-of-month not yet reached does not count). */
+export function wholeMonths(a: ISODate, b: ISODate): number {
+  const x = parseISO(a);
+  const y = parseISO(b);
+  return (y.y - x.y) * 12 + (y.m - x.m) - (y.d < x.d ? 1 : 0);
+}
+
+/**
+ * How many of a bill's months are set aside today: one share straight after it is paid, one more each month,
+ * so the whole amount is there one month before it is due. Monthly (or more often) bills: always all of it.
+ */
+export function buildUp(s: Schedule, next: ISODate, today: ISODate): { months: number; of: number } {
+  const of = monthsPerRepeat(s);
+  if (!of || today >= next) return { months: of, of };
+  const { y, m, d } = parseISO(next);
+  const previous = addMonthsClamped(y, m, d, -of);
+  return { months: Math.min(of, Math.max(1, wholeMonths(previous, today) + 1)), of };
+}
+
 /** Roughly how much this costs per month, to show how much to set aside. */
 export function monthlyEquivalent(amount: number, freq: Freq, every: number): number {
   const e = Math.max(1, every || 1);

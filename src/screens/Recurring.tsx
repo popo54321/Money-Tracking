@@ -13,7 +13,14 @@ import {
 } from '../components/ui';
 import { fmtDate, relativeDays } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
-import { describeSchedule, dueToPost, monthlyEquivalent, nextUnposted, nextDateLooksOdd } from '../domain/recurring';
+import {
+  describeSchedule,
+  dueToPost,
+  monthlyEquivalent,
+  nextUnposted,
+  nextDateLooksOdd,
+  monthsPerRepeat,
+} from '../domain/recurring';
 import type { Freq, Recurring } from '../domain/types';
 import { db, uid } from '../db/db';
 import { deleteRecurring, postOccurrence, saveRecurring, skipOccurrence } from '../db/repo';
@@ -103,6 +110,12 @@ export function RecurringList() {
                     {odd && (
                       <div className="tiny warn-ink">
                         ⚠️ Next payment is more than one repeat away. Check the start date or how often it repeats.
+                      </div>
+                    )}
+                    {up?.buildUp && !notSetAside && (
+                      <div className="tiny muted">
+                        🔒 {fmtMoney(up.reserveAmount ?? 0, up.currency)} set aside so far ({up.buildUp.months} of {up.buildUp.of}{' '}
+                        months)
                       </div>
                     )}
                     {notSetAside && (
@@ -345,10 +358,22 @@ export function RecurringEdit({ id }: { id?: string }) {
         />
         {r.kind !== 'income' && (
           <ToggleRow
-            title="🔒 Keep the next payment ready"
+            title="🔒 Set the next payment aside"
             desc="Sets the next payment aside in the paying account"
             on={r.reserve}
             onChange={(v) => set({ reserve: v })}
+          />
+        )}
+        {r.kind !== 'income' && r.reserve && monthsPerRepeat(r) > 0 && (
+          <ToggleRow
+            title="Hold in full"
+            desc={
+              r.holdInFull
+                ? 'The whole amount is set aside all the time.'
+                : `Builds up month by month: ${fmtMoney(r.amount / monthsPerRepeat(r), acc?.currency ?? currency)} a month, all of it one month before it is due. Switch on to set it all aside now.`
+            }
+            on={!!r.holdInFull}
+            onChange={(v) => set({ holdInFull: v })}
           />
         )}
         {existing && <ToggleRow title="Active" on={r.active} onChange={(v) => set({ active: v })} />}

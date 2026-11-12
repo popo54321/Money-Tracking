@@ -352,6 +352,7 @@ export function AccountDetail({ id }: { id: string }) {
                   {u.label}
                   {u.reserveAmount !== undefined && u.reserveAmount > u.amount + 0.005 ? ' + spending since' : ''} ·{' '}
                   {fmtDate(u.date, false)}
+                  {u.buildUp ? ` · ${u.buildUp.months} of ${u.buildUp.of} months (${fmtMoney(u.amount, u.currency)})` : ''}
                 </span>
                 <b>{fmtMoney(u.reserveAmount ?? u.amount, u.currency)}</b>
               </div>
