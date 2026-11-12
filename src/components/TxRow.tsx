@@ -1,5 +1,6 @@
+import { dueDateFor, statementAfter, statementOnOrBefore } from '../domain/creditCard';
 import { useState } from 'react';
-import { fmtDate, relativeDays, todayISO, addDays } from '../domain/dates';
+import { fmtDate, relativeDays, todayISO, addDays, diffDays } from '../domain/dates';
 import { deleteTx, postOccurrence, skipOccurrence } from '../db/repo';
 import type { UpcomingItem } from '../domain/reserve';
 import { db } from '../db/db';
@@ -149,6 +150,11 @@ export function TxGroups({ txs, contextAccountId, limit }: { txs: Tx[]; contextA
   );
 }
 
+function scheduleBucket(date: string, today: string): 'Overdue' | 'This week' | 'Later' {
+  if (date < today) return 'Overdue';
+  return diffDays(today, date) <= 6 ? 'This week' : 'Later';
+}
+
 /**
  * Faded placeholders for what is still to come: entries dated in the future, plus the next payment of
  * each repeating entry and unpaid card statements. Each becomes a normal entry on its day.
@@ -183,8 +189,12 @@ export function ScheduledList({
       const r = u.source === 'recurring' ? data.recurring.find((x) => x.id === u.refId) : undefined;
       const cat = r?.categoryId ? data.categoryById.get(r.categoryId) : undefined;
       const acc = data.accountById.get(u.accountId);
-      const keep =
-        u.reserveAccountId && u.reserveAccountId !== u.accountId ? data.accountById.get(u.reserveAccountId) : undefined;
+      // a charge on a card is paid with that card's statement: say when
+      let payBy: string | undefined;
+      if (u.source === 'recurring' && acc?.type === 'credit' && acc.statementDay && acc.dueDay) {
+        const stmt = statementOnOrBefore(u.date, acc.statementDay) === u.date ? u.date : statementAfter(u.date, acc.statementDay);
+        payBy = `pay by ${fmtDate(dueDateFor(stmt, acc.dueDay), false)}`;
+      }
       const signed = u.kind === 'income' ? u.amount : u.kind === 'transfer' ? u.amount : -u.amount;
       const emoji = u.source === 'card' ? '💳' : u.kind === 'transfer' ? '🔄' : categoryEmoji(cat);
       const when = `${fmtDate(u.date, false)} (${relativeDays(today, u.date)})`;
@@ -207,11 +217,7 @@ export function ScheduledList({
             <div className="main">
               <div className="title">{u.label}</div>
               <div className="sub">
-                {[
-                  u.overdue ? 'Overdue!' : u.source === 'card' ? `Due ${when}` : `Scheduled · ${when}`,
-                  acc?.name,
-                  keep ? `keep in ${keep.name}` : '',
-                ]
+                {[u.overdue ? 'Overdue!' : u.source === 'card' ? `Due ${when}` : when, acc?.name, payBy]
                   .filter(Boolean)
                   .join(' · ')}
               </div>
@@ -251,7 +257,16 @@ export function ScheduledList({
           {rows.length} coming up · next: {next.label} {relativeDays(today, next.date)}
         </button>
       ) : (
-        <div className="list">{shown.map((r) => r.node)}</div>
+        // headings: Overdue, This week (the next 7 days), Later
+        (['Overdue', 'This week', 'Later'] as const).map((h) => {
+          const part = shown.filter((r) => scheduleBucket(r.date, today) === h);
+          return part.length ? (
+            <div key={h}>
+              <div className="date-head">{h}</div>
+              <div className="list">{part.map((r) => r.node)}</div>
+            </div>
+          ) : null;
+        })
       )}
       {quick && (
         <QuickActions
