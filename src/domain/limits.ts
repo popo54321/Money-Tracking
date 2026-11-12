@@ -26,10 +26,71 @@ export interface LimitLine {
   perDay: number | null;
 }
 
+export interface PlannedItem {
+  key: string;
+  date: ISODate;
+  label: string;
+  categoryId: string;
+  accountId: string;
+  /** in the account's currency */
+  amount: number;
+  currency: string;
+  /** in `target` (null when it cannot be converted) */
+  value: number | null;
+  recurringId?: string;
+}
+
 /**
- * Spending still to come in the rest of this month, per category, in `target`:
- * every repeating expense occurrence not yet recorded (any account) and entries dated after today.
+ * Spending still to come between `from` and `to`: each repeating expense occurrence not yet recorded
+ * (any account) and each entry dated after today. Sorted by date.
  */
+export function plannedItems(
+  recurring: Recurring[],
+  scheduled: Tx[],
+  accounts: Account[],
+  from: ISODate,
+  to: ISODate,
+  target: string,
+  rates: RateTable,
+): PlannedItem[] {
+  const out: PlannedItem[] = [];
+  const currencyOf = new Map(accounts.map((a) => [a.id, a.currency]));
+  for (const r of recurring) {
+    if (!r.active || r.kind !== 'expense' || !r.categoryId) continue;
+    const cur = currencyOf.get(r.accountId);
+    if (!cur) continue;
+    let start = r.lastPosted ? addDays(r.lastPosted, 1) : r.startDate;
+    if (start < from) start = from;
+    if (start > to) continue;
+    for (const date of occurrencesBetween(r, start, to))
+      out.push({
+        key: `r:${r.id}:${date}`,
+        date,
+        label: r.name,
+        categoryId: r.categoryId,
+        accountId: r.accountId,
+        amount: r.amount,
+        currency: cur,
+        value: convert(r.amount, cur, target, rates),
+        recurringId: r.id,
+      });
+  }
+  for (const t of scheduled)
+    if (t.kind === 'expense' && t.categoryId && t.date >= from && t.date <= to)
+      out.push({
+        key: `t:${t.id}`,
+        date: t.date,
+        label: t.note || 'Entry',
+        categoryId: t.categoryId,
+        accountId: t.accountId,
+        amount: t.amount,
+        currency: currencyOf.get(t.accountId) ?? t.valueCurrency,
+        value: txValue(t, target, rates),
+      });
+  return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+/** Spending still to come in the rest of this month, per category, in `target` (see plannedItems). */
 export function plannedSpending(
   recurring: Recurring[],
   scheduled: Tx[],
@@ -40,23 +101,8 @@ export function plannedSpending(
   rates: RateTable,
 ): Map<string, number> {
   const out = new Map<string, number>();
-  const add = (cat: string | undefined, v: number | null) => {
-    if (!cat || v === null) return;
-    out.set(cat, (out.get(cat) ?? 0) + v);
-  };
-  const currencyOf = new Map(accounts.map((a) => [a.id, a.currency]));
-  for (const r of recurring) {
-    if (!r.active || r.kind !== 'expense' || !r.categoryId) continue;
-    const cur = currencyOf.get(r.accountId);
-    if (!cur) continue;
-    let from = r.lastPosted ? addDays(r.lastPosted, 1) : r.startDate;
-    if (from < monthFrom) from = monthFrom;
-    if (from > monthEnd) continue;
-    const times = occurrencesBetween(r, from, monthEnd).length;
-    if (times) add(r.categoryId, convert(r.amount * times, cur, target, rates));
-  }
-  for (const t of scheduled)
-    if (t.kind === 'expense' && t.date >= monthFrom && t.date <= monthEnd) add(t.categoryId, txValue(t, target, rates));
+  for (const it of plannedItems(recurring, scheduled, accounts, monthFrom, monthEnd, target, rates))
+    if (it.value !== null) out.set(it.categoryId, (out.get(it.categoryId) ?? 0) + it.value);
   return out;
 }
 

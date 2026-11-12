@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { limitLines, plannedSpending } from './limits';
+import { limitLines, plannedItems, plannedSpending } from './limits';
 import { summarise } from './summary';
 import type { Account, Category, Recurring, Tx } from './types';
 
@@ -126,5 +126,22 @@ describe('limits count spending still to come this month', () => {
       rates,
     );
     expect(planned.size).toBe(0);
+  });
+  it('lists each coming-up payment on its own date, for the category list', () => {
+    const weekly = rec({
+      id: 'w',
+      name: 'Car park',
+      freq: 'week',
+      startDate: '2026-11-02',
+      lastPosted: '2026-11-09',
+      amount: 100,
+    });
+    const items = plannedItems([weekly, rec({})], [], [acc('bank')], '2026-11-12', '2026-11-30', 'THB', rates);
+    expect(items.map((i) => [i.date, i.label, i.amount])).toEqual([
+      ['2026-11-16', 'Car park', 100],
+      ['2026-11-23', 'Car park', 100],
+      ['2026-11-28', 'Parking fees', 2500],
+      ['2026-11-30', 'Car park', 100],
+    ]);
   });
 });

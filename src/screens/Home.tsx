@@ -364,7 +364,7 @@ export function Home() {
           <LiquidLine liquid={nw.liquid} />
           <div className="stat-row">
             <div className="stat">
-              <div className="k">In this month</div>
+              <div className="k">Income</div>
               <div className="v pos">{fmtMoney(sum.income.total, currency, { compact: true })}</div>
             </div>
             <div className="stat">
@@ -372,7 +372,7 @@ export function Home() {
               <div className="v neg">{fmtMoney(sum.expense.total, currency, { compact: true })}</div>
             </div>
             <div className="stat">
-              <div className="k">Left over</div>
+              <div className="k">Left over so far</div>
               <div className="v">{fmtMoney(sum.surplus, currency, { compact: true })}</div>
             </div>
           </div>
