@@ -48,6 +48,13 @@ def main() -> None:
         if not p.exists():
             sys.exit(f'sync_retire: {p} is missing (download Chart.js 4.4.1 and html2canvas 1.4.1)')
         keep[lib] = p.read_bytes()
+    # the themes (themes/) are made in Money Tracking, not in the calculator: keep them
+    themes = None
+    if (OUT / 'themes').exists():
+        themes = ROOT / 'node_modules' / '.retire-themes-keep'
+        if themes.exists():
+            shutil.rmtree(themes)
+        shutil.copytree(OUT / 'themes', themes)
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / 'js' / 'i18n').mkdir(parents=True)
@@ -56,6 +63,9 @@ def main() -> None:
     (OUT / 'fonts').mkdir()
     for lib, data in keep.items():
         (OUT / 'vendor' / lib).write_bytes(data)
+    if themes:
+        shutil.copytree(themes, OUT / 'themes')
+        shutil.rmtree(themes)
     font = ROOT / 'node_modules' / '@fontsource-variable' / 'nunito' / 'files' / 'nunito-latin-wght-normal.woff2'
     shutil.copy(font, OUT / 'fonts' / 'nunito.woff2')
     shutil.copy(src / 'js' / 'icons.js', OUT / 'js' / 'icons.js')
@@ -73,6 +83,9 @@ def main() -> None:
     h = rep(h, re.search(r'  <div class="langbar".*?</div></div>\n', h, re.S).group(0), '', name)
     h = rep(h, '<script src="js/i18n/th.js"></script>\n', '', name)
     h = rep(h, '<script src="js/i18n/zh.js"></script>\n', '', name)
+    # the app's six themes: their look, and per theme the names, words and pictures (themes/loader.js picks one)
+    h = rep(h, '<link rel="stylesheet" href="css/styles.css">', '<link rel="stylesheet" href="css/styles.css">\n<link rel="stylesheet" href="themes/themes.css">', name)
+    h = rep(h, '<script src="js/icons.js"></script>\n', '<script src="js/icons.js"></script>\n<script src="themes/loader.js"></script>\n', name)
     (OUT / name).write_text(h, encoding='utf-8')
 
     # ---- css/styles.css
@@ -106,7 +119,14 @@ def main() -> None:
             "  LANG = ui.lang = 'en';\n"
             "  // inside Money Tracking: start in the app's light or dark look until the person picks a look here\n"
             "  const appLook = new URLSearchParams(location.search).get('look');\n"
-            "  if (!ui.lookSet && (appLook === 'night' || appLook === 'cream')) ui.look = appLook;\n", name)
+            "  if (appLook === 'night' || appLook === 'cream') ui.look = appLook;\n", name)
+    # each theme brings its own colours for the level pictures' circles
+    a = rep(a, "  const TIER_BG = ['#EFE6D8', '#F7DFCB', '#D3EEDC', '#F6E6B4'], GOD_BG = '#EAE2FA';",
+            "  const TH = window.MMA.theme || {};\n"
+            "  const TIER_BG = TH.tiers || ['#EFE6D8', '#F7DFCB', '#D3EEDC', '#F6E6B4'], GOD_BG = TH.godBg || '#EAE2FA';", name)
+    a = rep(a, "const tierBg = n => n === GOD ? GOD_BG : n === LABOUR ? '#EDE3D3' : TIER_BG",
+            "const tierBg = n => n === GOD ? GOD_BG : n === LABOUR ? (TH.labourBg || '#EDE3D3') : TIER_BG", name)
+    a = rep(a, "(qq.god ? GOD_BG : '#F6E6B4')", "(qq.god ? GOD_BG : TIER_BG[3])", name)
     a = rep(a, re.search(r"  \$\('langSeg'\)\.addEventListener\('click', e => \{.*?\n  \}\);\n", a, re.S).group(0), '', name)
     a = rep(a, "    ui.look = b.dataset.v === 'night' ? 'night' : 'cream'; applyLook();",
             "    ui.look = b.dataset.v === 'night' ? 'night' : 'cream'; ui.lookSet = true; applyLook();", name)

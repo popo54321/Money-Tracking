@@ -52,7 +52,8 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Who owes me** | Loans either way, repayments, simple or monthly-compounding interest worked out to today |
 | **Saving targets** | Wishlist with price and a monthly saving added by itself on the day you choose; a record only (spending never changes it); can be kept in an account, starting from 0 or from part of what is there; if the account falls below its targets they all drop by the same share and stay dropped (money that left counts as spent, even if moved to another of your accounts), so you add it back by hand, and a "Put back" button undoes a mistaken drop once the account holds enough again; the page shows how each account is split between its targets and What's left |
 | **Press and hold** | Hold a category, entry, account, user or Month close row to edit it (entries also offer Duplicate and Delete) |
-| **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
+| **Themes** | Financial (plain and serious), Queen Bee, Fantasy, Dinosaur, Wildlife and Space, each in light and dark; pick one in Settings (Cute moved to Queen Bee, Cat and Frog to Wildlife). The built-in calculator wears the same theme, louder, with its own 30 level names, words and drawn pictures per theme |
+| **How to use** | A short guide in eight pages: it opens by itself the first time (before any account is added) and again from More → How to use |
 | **Remembered notes** | While typing a note, earlier notes that start the same way drop up in a scrolling list (capitals ignored, Coffee = coffee). Tapping one fills in only the words |
 | **Splits** | Split an account into parts (Car, Emergency…) plus What's left; budget transfers fill their linked split when ticked and are taken back when unticked; when spending, choose how much comes from each split |
 | **Free** | Every account counts its money in one order: 🔒 set aside for bills, then splits, then saving targets; what is left is **Free** (red when below zero). The Accounts list shows Free, the account page shows the breakdown, and Home shows "Liquid · Free". Bills that are only planned never lower saving targets; they show a warning instead |
@@ -115,4 +116,5 @@ The code is laid out as follows:
 - `src/services/`: prices, backup, export, workbook import and updates.
 - `src/screens/` and `src/components/`: the screens and shared building blocks.
 - `src/styles/`: `themes.css` (colours for every theme), `base.css` (layout), `skins.css` (theme-only touches).
-- `src/ui/`: theme definitions (`skins.ts`), icons and the drawn dino and frog mascots.
+- `src/ui/`: theme definitions (`skins.ts`), icons and the drawn mascots (dino, bee, fox, astronaut).
+- `public/retire/themes/`: the calculator in each theme (`loader.js` picks one from `?skin=`; one file per theme with its words, colours and 30 pictures; `themes.css`). Kept when `scripts/sync_retire.py` brings in a newer calculator.

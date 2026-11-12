@@ -1690,7 +1690,7 @@ button.pill {
   width: 100%;
   border: 0;
   display: block;
-  background: #fbf6ea;
+  background: var(--bg);
 }
 /* More: the big button to the calculator */
 .big-tile {
@@ -1725,4 +1725,50 @@ button.pill {
   margin-left: auto;
   font-size: 26px;
   font-weight: 800;
+}
+
+/* "How to use this app" */
+.guide-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.guide-card {
+  text-align: center;
+  padding: 24px 20px;
+  animation: guide-in 0.25s ease-out;
+}
+.guide-card p {
+  text-align: left;
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+.guide-e {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+@keyframes guide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.guide-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+.guide-dots button {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--line);
+}
+.guide-dots button.on {
+  width: 22px;
+  border-radius: 999px;
+  background: var(--accent);
 }

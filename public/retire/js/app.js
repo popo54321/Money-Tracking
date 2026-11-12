@@ -1025,8 +1025,9 @@
   const rankOf = (r, h) => RANKS.findIndex(x => x && x.r === r && x.h === h);
   const EMPEROR = rankOf(4, HL);
   // icon backgrounds follow the level number, seven levels to a colour
-  const TIER_BG = ['#EFE6D8', '#F7DFCB', '#D3EEDC', '#F6E6B4'], GOD_BG = '#EAE2FA';
-  const tierBg = n => n === GOD ? GOD_BG : n === LABOUR ? '#EDE3D3' : TIER_BG[Math.min(3, Math.floor((n - 1) / HL))];
+  const TH = window.MMA.theme || {};
+  const TIER_BG = TH.tiers || ['#EFE6D8', '#F7DFCB', '#D3EEDC', '#F6E6B4'], GOD_BG = TH.godBg || '#EAE2FA';
+  const tierBg = n => n === GOD ? GOD_BG : n === LABOUR ? (TH.labourBg || '#EDE3D3') : TIER_BG[Math.min(3, Math.floor((n - 1) / HL))];
   let ITEMS = [], lastQuest;
   function steps(n, total){ let h = ''; for (let i = 1; i <= total; i++) h += '<span' + (i <= n ? ' class="on"' : '') + '></span>'; return h; }
   // how serious a Needs attention row is: 3 urgent, 2 important, 1 minor. Rows not listed are important;
@@ -1165,7 +1166,7 @@
       // when money today is in crisis, at risk or struggling, sort today out first, as the rank description says
       if (hl !== null && hl <= 3 && quests.length === 2 && quests[1].label === t('quest.health')) quests.reverse();
       $('rpgNextH').hidden = false;
-      $('rpgQuests').innerHTML = quests.map(qq => '<div class="quest"><div class="qicon" style="background:' + (qq.to ? tierBg(RANKS.indexOf(qq.to)) : (qq.god ? GOD_BG : '#F6E6B4')) + '">' +
+      $('rpgQuests').innerHTML = quests.map(qq => '<div class="quest"><div class="qicon" style="background:' + (qq.to ? tierBg(RANKS.indexOf(qq.to)) : (qq.god ? GOD_BG : TIER_BG[3])) + '">' +
         (qq.to ? ICONS[qq.to.k] : (qq.god ? ICONS.god : ICONS.emperor)) + '</div><div><p class="qt">' + esc(qq.label) + '</p>' +
         (qq.to ? '<p class="qn">' + esc(t('quest.to', {name: t('rk.' + qq.to.k)})) + '</p>' : '') + '<p class="qa">' + esc(qq.text) + '</p></div></div>').join('');
     }
@@ -1967,7 +1968,7 @@
   LANG = ui.lang = 'en';
   // inside Money Tracking: start in the app's light or dark look until the person picks a look here
   const appLook = new URLSearchParams(location.search).get('look');
-  if (!ui.lookSet && (appLook === 'night' || appLook === 'cream')) ui.look = appLook;
+  if (appLook === 'night' || appLook === 'cream') ui.look = appLook;
   applyStatic();
   const applyLook = () => {
     document.documentElement.dataset.look = ui.look;

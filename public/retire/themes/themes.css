@@ -1,0 +1,130 @@
+/* The app's six themes for the built-in calculator. themes/loader.js sets html[data-skin] from the app.
+   Each theme sets the calculator's colours (light and night) and makes it a little louder than the original:
+   a theme background, bolder headings and buttons, a glowing level card, and a pop when the level changes. */
+
+/* ---------- Financial: calm navy and teal ---------- */
+:root[data-skin="financial"]{
+  --bg:#F3F6F9; --surface:#FFFFFF; --ink:#1E2A38; --muted:#5A6878; --line:#DCE3EA; --grid:rgba(30,42,56,0.07);
+  --keep:#1F8A70; --keep-soft:#CBEDE2; --keep-ink:#15654F; --keep-fill:rgba(31,138,112,0.16); --stop:#AEBFCC; --stop-ink:#566B7C;
+  --s1:#F5DDB5; --s1-ink:#94560F; --s2:#F5CAD0; --s2-ink:#A2384A; --s3:#D5DCF3; --s3-ink:#3E4F8E; --coast:#C8EBDE; --coast-ink:#1B765C;
+  --on-pastel:#1E2A38; --gold:#E8CF7C; --gold-ink:#86610E; --dyn:#D6DCF2;
+  --th-hero:linear-gradient(135deg,#1E2A38 0%,#24435A 100%); --th-hero-ink:#F3F6F9; --th-glow:rgba(31,138,112,0.25);
+  --th-pattern:linear-gradient(180deg,rgba(30,42,56,0.035) 1px,transparent 1px) 0 0/100% 28px;
+}
+:root[data-skin="financial"][data-look="night"]{
+  --bg:#0F1620; --surface:#17212D; --ink:#E4EBF2; --muted:#9AA9B8; --line:#2A3746; --grid:rgba(228,235,242,0.07);
+  --keep:#3CC29F; --keep-soft:#7FD6BE; --keep-ink:#8EE0C7; --keep-fill:rgba(60,194,159,0.14); --stop:#6F8294; --stop-ink:#A6B6C4;
+  --s1:#E6BF85; --s1-ink:#F0CC97; --s2:#E8A9B4; --s2-ink:#F1B9C3; --s3:#A9B5E8; --s3-ink:#C0C9F0; --coast:#7FD6BE; --coast-ink:#9FE2CF;
+  --on-pastel:#0F1620; --gold:#E2C266; --gold-ink:#EED38A; --dyn:#A9B5E8;
+  --th-hero:linear-gradient(135deg,#17212D 0%,#1D3A4A 100%); --th-hero-ink:#E4EBF2; --th-glow:rgba(60,194,159,0.22);
+  --th-pattern:linear-gradient(180deg,rgba(228,235,242,0.03) 1px,transparent 1px) 0 0/100% 28px;
+}
+
+/* ---------- Queen Bee: hot pink, gold and gloss ---------- */
+:root[data-skin="queenbee"]{
+  --bg:#FFF2F8; --surface:#FFFFFF; --ink:#4A1838; --muted:#8C5878; --line:#F7D0E4; --grid:rgba(74,24,56,0.07);
+  --keep:#E3368A; --keep-soft:#FFD1E7; --keep-ink:#B0186B; --keep-fill:rgba(227,54,138,0.16); --stop:#E9B9D2; --stop-ink:#9A5C80;
+  --s1:#FFE2B0; --s1-ink:#9A5A00; --s2:#FFCBC4; --s2-ink:#B3362A; --s3:#E7D6FF; --s3-ink:#6E3FBF; --coast:#FFE9A6; --coast-ink:#8A6200;
+  --on-pastel:#4A1838; --gold:#FFD25E; --gold-ink:#9A6A00; --dyn:#F3D3FF;
+  --th-hero:linear-gradient(135deg,#FF5FA8 0%,#FF9BC9 50%,#FFD25E 100%); --th-hero-ink:#4A1838; --th-glow:rgba(255,95,168,0.35);
+  --th-pattern:radial-gradient(2px 2px at 14% 20%,rgba(255,210,94,.7) 50%,transparent 51%),radial-gradient(1.6px 1.6px at 70% 12%,rgba(227,54,138,.35) 50%,transparent 51%),radial-gradient(2.4px 2.4px at 88% 60%,rgba(255,210,94,.6) 50%,transparent 51%),radial-gradient(1.4px 1.4px at 36% 70%,rgba(227,54,138,.3) 50%,transparent 51%) 0 0/220px 220px;
+}
+:root[data-skin="queenbee"][data-look="night"]{
+  --bg:#1C0D19; --surface:#2A1426; --ink:#FFE8F4; --muted:#D5A2C0; --line:#4A2342; --grid:rgba(255,232,244,0.07);
+  --keep:#FF6FB1; --keep-soft:#FF9ECB; --keep-ink:#FFA9D2; --keep-fill:rgba(255,111,177,0.15); --stop:#9B6A88; --stop-ink:#D9B1C8;
+  --s1:#F2C47E; --s1-ink:#F7D29A; --s2:#F2A69C; --s2-ink:#F7B8AF; --s3:#C9AAF2; --s3-ink:#D8C0F6; --coast:#F2D27A; --coast-ink:#F7DE98;
+  --on-pastel:#1C0D19; --gold:#FFD25E; --gold-ink:#FFDE85; --dyn:#C9AAF2;
+  --th-hero:linear-gradient(135deg,#5C1B48 0%,#7A2A5E 55%,#6B5216 100%); --th-hero-ink:#FFE8F4; --th-glow:rgba(255,111,177,0.3);
+  --th-pattern:radial-gradient(2px 2px at 14% 20%,rgba(255,210,94,.55) 50%,transparent 51%),radial-gradient(1.6px 1.6px at 70% 12%,rgba(255,111,177,.4) 50%,transparent 51%),radial-gradient(2.4px 2.4px at 88% 60%,rgba(255,210,94,.45) 50%,transparent 51%) 0 0/220px 220px;
+}
+
+/* ---------- Fantasy: lavender, rose and fairy gold ---------- */
+:root[data-skin="fantasy"]{
+  --bg:#FBF5FF; --surface:#FFFFFF; --ink:#3B2F52; --muted:#73648E; --line:#EADDF6; --grid:rgba(59,47,82,0.07);
+  --keep:#8B5CF6; --keep-soft:#E3D6FF; --keep-ink:#6A3FD6; --keep-fill:rgba(139,92,246,0.15); --stop:#CDBFE6; --stop-ink:#77689A;
+  --s1:#FFE0BE; --s1-ink:#9A5A1A; --s2:#FFCCD8; --s2-ink:#AD3A5E; --s3:#D6E4FF; --s3-ink:#3E5FA8; --coast:#CFF0E6; --coast-ink:#24806A;
+  --on-pastel:#3B2F52; --gold:#F0D58A; --gold-ink:#8E6A10; --dyn:#F3D6F6;
+  --th-hero:linear-gradient(135deg,#FFC8DD 0%,#E0D4FF 55%,#CFE8FF 100%); --th-hero-ink:#3B2F52; --th-glow:rgba(139,92,246,0.3);
+  --th-pattern:radial-gradient(1.8px 1.8px at 12% 18%,rgba(201,160,255,.6) 50%,transparent 51%),radial-gradient(1.3px 1.3px at 78% 9%,rgba(240,213,138,.8) 50%,transparent 51%),radial-gradient(2px 2px at 61% 63%,rgba(201,160,255,.5) 50%,transparent 51%),radial-gradient(1.5px 1.5px at 31% 82%,rgba(240,213,138,.7) 50%,transparent 51%) 0 0/180px 180px;
+}
+:root[data-skin="fantasy"][data-look="night"]{
+  --bg:#17122B; --surface:#221A3D; --ink:#F4EDFF; --muted:#BCAEDB; --line:#3D3263; --grid:rgba(244,237,255,0.07);
+  --keep:#A98BFF; --keep-soft:#C2ADFF; --keep-ink:#C7B5FF; --keep-fill:rgba(169,139,255,0.15); --stop:#7C6E9F; --stop-ink:#B9ADD6;
+  --s1:#EDC08E; --s1-ink:#F3CFA5; --s2:#EFA6BD; --s2-ink:#F4BACC; --s3:#A8BEF0; --s3-ink:#BFD0F5; --coast:#8FDCC6; --coast-ink:#A9E5D3;
+  --on-pastel:#17122B; --gold:#F0D58A; --gold-ink:#F5E0A8; --dyn:#E0B5EE;
+  --th-hero:linear-gradient(135deg,#3B2462 0%,#2A2052 55%,#1E3459 100%); --th-hero-ink:#F4EDFF; --th-glow:rgba(169,139,255,0.3);
+  --th-pattern:radial-gradient(1.8px 1.8px at 12% 18%,rgba(255,240,200,.7) 50%,transparent 51%),radial-gradient(1.3px 1.3px at 78% 9%,rgba(201,160,255,.6) 50%,transparent 51%),radial-gradient(2px 2px at 61% 63%,rgba(255,240,200,.5) 50%,transparent 51%) 0 0/180px 180px;
+}
+
+/* ---------- Dinosaur: mint, leaf green and cream ---------- */
+:root[data-skin="dino"]{
+  --bg:#F1FAF4; --surface:#FFFFFF; --ink:#26392B; --muted:#5A705D; --line:#D6ECDD; --grid:rgba(38,57,43,0.07);
+  --keep:#3F9A70; --keep-soft:#CDEEDC; --keep-ink:#277150; --keep-fill:rgba(63,154,112,0.16); --stop:#B5CDBC; --stop-ink:#5E7E68;
+  --s1:#FFE3B8; --s1-ink:#94580F; --s2:#FFCDBF; --s2-ink:#A8432A; --s3:#D8E8D0; --s3-ink:#3F6B2E; --coast:#FFF0BF; --coast-ink:#86690B;
+  --on-pastel:#26392B; --gold:#F5D36B; --gold-ink:#86690B; --dyn:#DCEFC8;
+  --th-hero:linear-gradient(135deg,#C6ECD8 0%,#E3F6EA 50%,#FFF3CC 100%); --th-hero-ink:#26392B; --th-glow:rgba(63,154,112,0.3);
+  --th-pattern:radial-gradient(9px 5px at 20% 30%,rgba(95,191,147,.13) 50%,transparent 52%),radial-gradient(6px 4px at 74% 72%,rgba(245,211,107,.18) 50%,transparent 52%) 0 0/160px 160px;
+}
+:root[data-skin="dino"][data-look="night"]{
+  --bg:#122019; --surface:#1A2C22; --ink:#E6F5EA; --muted:#A3BFAA; --line:#2C4535; --grid:rgba(230,245,234,0.07);
+  --keep:#6FD6A0; --keep-soft:#8FE0B5; --keep-ink:#9BE5BD; --keep-fill:rgba(111,214,160,0.14); --stop:#6F8D78; --stop-ink:#A8C3AF;
+  --s1:#EBC084; --s1-ink:#F2CE9C; --s2:#EDA996; --s2-ink:#F3BBAA; --s3:#B5D6A6; --s3-ink:#C7E1BA; --coast:#E9D37E; --coast-ink:#F0DE9C;
+  --on-pastel:#122019; --gold:#E9CC6A; --gold-ink:#F0DA8E; --dyn:#B5D6A6;
+  --th-hero:linear-gradient(135deg,#24472C 0%,#1F4540 55%,#3F4319 100%); --th-hero-ink:#E6F5EA; --th-glow:rgba(111,214,160,0.25);
+  --th-pattern:radial-gradient(9px 5px at 20% 30%,rgba(111,214,160,.08) 50%,transparent 52%),radial-gradient(6px 4px at 74% 72%,rgba(233,204,106,.1) 50%,transparent 52%) 0 0/160px 160px;
+}
+
+/* ---------- Wildlife: savannah gold, forest green and river blue ---------- */
+:root[data-skin="wildlife"]{
+  --bg:#FAF5E8; --surface:#FFFDF7; --ink:#3A3324; --muted:#75694F; --line:#EADFC3; --grid:rgba(58,51,36,0.07);
+  --keep:#5E8A2E; --keep-soft:#DDE9C2; --keep-ink:#466B1C; --keep-fill:rgba(94,138,46,0.16); --stop:#C9BE9E; --stop-ink:#7A6E52;
+  --s1:#F6D9A6; --s1-ink:#94560F; --s2:#F2C3B2; --s2-ink:#A2412A; --s3:#C9DDEA; --s3-ink:#2F5F7E; --coast:#D3E6B5; --coast-ink:#4C6E1E;
+  --on-pastel:#3A3324; --gold:#E3B448; --gold-ink:#86600E; --dyn:#E6DCC0;
+  --th-hero:linear-gradient(135deg,#E9C77B 0%,#C9D9A0 55%,#A8CFD6 100%); --th-hero-ink:#3A3324; --th-glow:rgba(227,180,72,0.35);
+  --th-pattern:radial-gradient(14px 3px at 18% 40%,rgba(94,138,46,.08) 50%,transparent 52%),radial-gradient(10px 2.5px at 68% 78%,rgba(227,180,72,.12) 50%,transparent 52%),radial-gradient(3px 3px at 84% 22%,rgba(117,105,79,.12) 50%,transparent 52%) 0 0/200px 140px;
+}
+:root[data-skin="wildlife"][data-look="night"]{
+  --bg:#17160F; --surface:#222016; --ink:#F2ECDC; --muted:#BDB091; --line:#3A3624; --grid:rgba(242,236,220,0.07);
+  --keep:#9CC764; --keep-soft:#B3D483; --keep-ink:#BADA8C; --keep-fill:rgba(156,199,100,0.14); --stop:#837A5E; --stop-ink:#BDB394;
+  --s1:#E8BF7C; --s1-ink:#F0CD96; --s2:#E8A893; --s2-ink:#F0BAA8; --s3:#9CC2DA; --s3-ink:#B5D3E5; --coast:#B3D483; --coast-ink:#C6DF9F;
+  --on-pastel:#17160F; --gold:#E8C062; --gold-ink:#F0D085; --dyn:#B9AE8C;
+  --th-hero:linear-gradient(135deg,#4A3A16 0%,#33451F 55%,#1F3E46 100%); --th-hero-ink:#F2ECDC; --th-glow:rgba(232,192,98,0.25);
+  --th-pattern:radial-gradient(14px 3px at 18% 40%,rgba(156,199,100,.06) 50%,transparent 52%),radial-gradient(3px 3px at 84% 22%,rgba(232,192,98,.12) 50%,transparent 52%) 0 0/200px 140px;
+}
+
+/* ---------- Space: deep navy, violet and neon cyan ---------- */
+:root[data-skin="space"]{
+  --bg:#F2F1FF; --surface:#FFFFFF; --ink:#211C4A; --muted:#625C91; --line:#DEDBF7; --grid:rgba(33,28,74,0.07);
+  --keep:#5B4BFF; --keep-soft:#DCD8FF; --keep-ink:#3A2FC4; --keep-fill:rgba(91,75,255,0.14); --stop:#BEB9E6; --stop-ink:#625C91;
+  --s1:#FFE0B5; --s1-ink:#985A10; --s2:#FFC9D6; --s2-ink:#B0345A; --s3:#C8F1F6; --s3-ink:#0F7383; --coast:#C5F3F7; --coast-ink:#0F7C8A;
+  --on-pastel:#211C4A; --gold:#FFD66B; --gold-ink:#8E6A00; --dyn:#E6D6FF;
+  --th-hero:linear-gradient(135deg,#2B1F7A 0%,#5B4BFF 55%,#2FD3E8 100%); --th-hero-ink:#FFFFFF; --th-glow:rgba(91,75,255,0.35);
+  --th-pattern:radial-gradient(1.5px 1.5px at 10% 15%,rgba(91,75,255,.35) 50%,transparent 51%),radial-gradient(1px 1px at 60% 8%,rgba(47,211,232,.5) 50%,transparent 51%),radial-gradient(2px 2px at 82% 55%,rgba(91,75,255,.3) 50%,transparent 51%),radial-gradient(1.2px 1.2px at 32% 75%,rgba(47,211,232,.45) 50%,transparent 51%) 0 0/170px 170px;
+}
+:root[data-skin="space"][data-look="night"]{
+  --bg:#0B0A1F; --surface:#15143A; --ink:#ECEBFF; --muted:#A7A3D9; --line:#2A2860; --grid:rgba(236,235,255,0.08);
+  --keep:#8A7DFF; --keep-soft:#A69CFF; --keep-ink:#B2A9FF; --keep-fill:rgba(138,125,255,0.16); --stop:#6D69A6; --stop-ink:#ABA7DA;
+  --s1:#EDC283; --s1-ink:#F4D09D; --s2:#EFA1B6; --s2-ink:#F5B6C7; --s3:#5FE3F2; --s3-ink:#8DEBF6; --coast:#3FE0F0; --coast-ink:#7FEAF5;
+  --on-pastel:#0B0A1F; --gold:#FFD66B; --gold-ink:#FFE08F; --dyn:#C3B0FF;
+  --th-hero:linear-gradient(135deg,#1A1452 0%,#2F2490 55%,#0E5A70 100%); --th-hero-ink:#ECEBFF; --th-glow:rgba(63,224,240,0.3);
+  --th-pattern:radial-gradient(1.5px 1.5px at 10% 15%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 60% 8%,rgba(127,234,245,.9) 50%,transparent 51%),radial-gradient(2px 2px at 82% 55%,rgba(255,255,255,.8) 50%,transparent 51%),radial-gradient(1.2px 1.2px at 32% 75%,rgba(178,169,255,.9) 50%,transparent 51%),radial-gradient(1px 1px at 48% 40%,rgba(255,255,255,.6) 50%,transparent 51%) 0 0/170px 170px;
+}
+
+/* ---------- louder, in every theme ---------- */
+:root[data-skin] body{background:var(--th-pattern),var(--bg);}
+:root[data-skin] h1{color:var(--keep-ink);}
+:root[data-skin] .panel,:root[data-skin] .stopper,:root[data-skin] .decision{box-shadow:0 10px 28px -10px var(--th-glow),0 1px 2px rgba(0,0,0,.04);}
+:root[data-skin] .tabs button[aria-selected="true"]{background:var(--th-hero);color:var(--th-hero-ink);box-shadow:0 6px 16px -6px var(--th-glow);}
+:root[data-skin] .btn2.big{background:var(--th-hero);color:var(--th-hero-ink);border-color:transparent;box-shadow:0 8px 20px -8px var(--th-glow);}
+:root[data-skin] .btn2.big:active{transform:scale(.97);}
+/* the level card: the theme's colours behind the picture, and a glow */
+:root[data-skin] .rpgtop{background:var(--th-hero);color:var(--th-hero-ink);border-radius:22px;padding:14px;box-shadow:0 12px 30px -12px var(--th-glow);}
+:root[data-skin] .rpgtop *{color:inherit;}
+:root[data-skin] .rpgicon{box-shadow:inset 0 0 0 4px rgba(255,255,255,.7),0 0 0 4px rgba(255,255,255,.25),0 10px 24px -6px var(--th-glow);}
+:root[data-skin] .rk.me .ri{box-shadow:0 0 0 3px var(--keep),0 6px 14px -4px var(--th-glow);}
+/* a pop when the level changes (loader.js adds .th-pop) */
+@keyframes th-pop{0%{transform:scale(.6) rotate(-8deg);}55%{transform:scale(1.12) rotate(3deg);}100%{transform:scale(1) rotate(0);}}
+:root[data-skin] .rpgicon.th-pop{animation:th-pop .55s cubic-bezier(.3,1.4,.5,1);}
+@media (prefers-reduced-motion:reduce){:root[data-skin] .rpgicon.th-pop{animation:none;}}
+/* inside the app the look follows the app's light or dark setting */
+:root[data-in-app] .showas:has(#lookSeg){display:none;}

@@ -35,6 +35,7 @@ export function More() {
         { k: 'entries', t: 'All entries', d: 'Search every entry', c: 'peach', r: { name: 'txList', title: 'All entries' } },
         { k: 'categories', t: 'Categories', d: 'Add, rename, emoji', c: 'lav', r: { name: 'categories' } },
         { k: 'settings', t: 'Settings', d: 'Theme, users, backup, update', c: 'sky', r: { name: 'settings' } },
+        { k: 'guide', t: 'How to use', d: 'A quick tour of the app', c: 'butter', r: { name: 'guide' } },
       ],
     },
   ];
