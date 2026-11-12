@@ -53,7 +53,7 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Themes** | Financial (plain and serious), Cute, Fantasy, Dinosaur, Cat and Frog, each in light and dark; pick one in Settings |
 | **Remembered notes** | While typing a note, earlier notes that start the same way drop up in a scrolling list (capitals ignored, Coffee = coffee). Tapping one fills in only the words |
 | **Splits** | Split an account into parts (Car, Emergency…) plus What's left; budget transfers fill their linked split when ticked and are taken back when unticked; when spending, choose how much comes from each split |
-| **Monthly limits** | Optional, per category or group: Home shows what is left and about how much a day |
+| **Monthly limits** | Optional, per category or group: Home shows what is left and about how much a day; repeating payments still to come this month (from any account) and entries dated later this month count as "coming up" and come off what is left |
 | **Home** | Fold Scheduled; this month's entries with ‹ › for other months; price strip with BTC, gold and any currencies you watch (add or remove them there or in Settings → Live prices) |
 | **Vibration** | A light buzz on each calculator key and on press and hold (Android; switch off in Settings → Theme) |
 | **Liquid money** | Tick which accounts are spendable now; Home and Accounts show net worth and the liquid part (bank, cash and cards by default) |
