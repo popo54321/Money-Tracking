@@ -1,8 +1,10 @@
 // "How to use": a tour that points at the real buttons. It switches to the right tab, dims the screen, rings the
 // button and says where to tap. It starts by itself for someone new and again from More → How to use.
-import { useCallback, useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { updateSettings } from '../db/repo';
 import { useApp } from '../state/app';
+import { isNative, openExternal } from '../services/platform';
+import { canInstallNow, installNow } from '../services/press';
 
 type Tab = 'home' | 'accounts' | 'summary' | 'more';
 interface Step {
@@ -11,9 +13,22 @@ interface Step {
   target: string;
   title: string;
   text: string;
+  /** the "install it on your phone" card (only when the app is open in a browser, not installed) */
+  install?: boolean;
 }
 
+/** Open in a phone or computer browser, not yet installed (the Android app and a home-screen app skip the step). */
+function needsInstall(): boolean {
+  if (isNative()) return false;
+  const nav = navigator as Navigator & { standalone?: boolean };
+  return !(window.matchMedia?.('(display-mode: standalone)').matches || nav.standalone);
+}
+const isIPhone = () =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
+const isAndroid = () => /Android/.test(navigator.userAgent);
+
 const STEPS: Step[] = [
+  { tab: 'home', target: '', title: 'Install it on your phone', text: '', install: true },
   { tab: 'home', target: '[data-tour="tab-home"]', title: 'This is Home', text: 'Tap Home any time to come back here.' },
   {
     tab: 'home',
@@ -119,10 +134,12 @@ const visible = (el: Element) => {
 
 export function Tour() {
   const on = useSyncExternalStore(subscribe, () => running);
-  const { tab, stackDepth, route } = useApp();
+  const { tab, stackDepth, route, settings } = useApp();
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const step = STEPS[i];
+  // the steps for this run: the install card only for someone using the app in a browser
+  const steps = useMemo(() => (on ? STEPS.filter((s) => !s.install || needsInstall()) : STEPS), [on]);
+  const step = steps[Math.min(i, steps.length - 1)];
 
   const finish = useCallback(() => {
     setRunning(false);
@@ -136,6 +153,10 @@ export function Tour() {
   useEffect(() => {
     if (!on) return;
     if (stackDepth !== 1 || route.name !== step.tab) tab(step.tab);
+    if (step.install) {
+      setRect(null);
+      return;
+    }
     let tries = 0;
     let timer = 0;
     const find = () => {
@@ -146,7 +167,7 @@ export function Tour() {
         return;
       }
       if (++tries < 20) timer = window.setTimeout(find, 60);
-      else if (i < STEPS.length - 1) setI(i + 1);
+      else if (i < steps.length - 1) setI(i + 1);
       else finish();
     };
     setRect(null);
@@ -157,7 +178,7 @@ export function Tour() {
 
   // keep the ring on the button when the screen moves
   useLayoutEffect(() => {
-    if (!on || !rect) return;
+    if (!on || !rect || !step.target) return;
     const again = () => {
       const el = [...document.querySelectorAll(step.target)].find(visible);
       if (el) setRect(el.getBoundingClientRect());
@@ -176,7 +197,8 @@ export function Tour() {
   const below = rect ? rect.bottom + 190 < vh : true;
   const bubbleTop = rect ? (below ? rect.bottom + pad + 12 : undefined) : vh / 2 - 90;
   const bubbleBottom = rect && !below ? vh - rect.top + pad + 12 : undefined;
-  const last = i === STEPS.length - 1;
+  const last = i === steps.length - 1;
+  const androidApp = `https://github.com/${settings.githubRepo}/releases/latest`;
   return (
     <div className="tour" role="dialog" aria-label="How to use this app" onClick={(e) => e.stopPropagation()}>
       {rect ? (
@@ -187,13 +209,18 @@ export function Tour() {
       ) : (
         <div className="tour-dim" />
       )}
-      {rect && (
-        <div className={`tour-bubble ${below ? 'below' : 'above'}`} style={{ top: bubbleTop, bottom: bubbleBottom }}>
+      {(rect || step.install) && (
+        <div
+          className={`tour-bubble ${step.install ? 'centre' : below ? 'below' : 'above'}`}
+          style={step.install ? undefined : { top: bubbleTop, bottom: bubbleBottom }}
+        >
           <div className="tour-count">
-            {i + 1} of {STEPS.length}
+            {i + 1} of {steps.length}
           </div>
-          <div className="tour-title">👆 {step.title}</div>
-          <div className="tour-text">{step.text}</div>
+          <div className="tour-title">
+            {step.install ? '📲' : '👆'} {step.title}
+          </div>
+          {step.install ? <InstallSteps androidApp={androidApp} /> : <div className="tour-text">{step.text}</div>}
           <div className="tour-buttons">
             <button className="btn sm ghost" onClick={finish}>
               Skip
@@ -209,6 +236,87 @@ export function Tour() {
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** How to put the app on this phone: iPhone (Safari), Android (install now, Chrome's menu, or the Android app). */
+function InstallSteps({ androidApp }: { androidApp: string }) {
+  const [canNow, setCanNow] = useState(canInstallNow());
+  const iphone = isIPhone();
+  const android = isAndroid();
+  return (
+    <div className="tour-text">
+      {iphone ? (
+        <ol className="tour-steps">
+          <li>
+            Open this page in <b>Safari</b>.
+          </li>
+          <li>
+            Tap the <b>Share</b> button <span className="tour-key">⬆︎</span> at the bottom of the screen.
+          </li>
+          <li>
+            Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.
+          </li>
+          <li>Open Money Tracking from your home screen. It works offline.</li>
+        </ol>
+      ) : android ? (
+        <>
+          {canNow ? (
+            <button
+              className="btn primary block"
+              onClick={async () => {
+                await installNow();
+                setCanNow(false);
+              }}
+            >
+              📲 Install now
+            </button>
+          ) : (
+            <ol className="tour-steps">
+              <li>
+                In Chrome, tap the menu <span className="tour-key">⋮</span> at the top right.
+              </li>
+              <li>
+                Tap <b>Install app</b> (or <b>Add to Home screen</b>).
+              </li>
+            </ol>
+          )}
+          <p className="tour-or">
+            Or get the full Android app:{' '}
+            <a
+              href={androidApp}
+              onClick={(e) => {
+                e.preventDefault();
+                void openExternal(androidApp);
+              }}
+            >
+              download it here
+            </a>
+            , then open the file and allow the install.
+          </p>
+        </>
+      ) : (
+        <ol className="tour-steps">
+          <li>
+            Open this page on your phone. <b>iPhone:</b> in Safari, tap Share <span className="tour-key">⬆︎</span>, then{' '}
+            <b>Add to Home Screen</b>.
+          </li>
+          <li>
+            <b>Android:</b> in Chrome, tap <span className="tour-key">⋮</span>, then <b>Install app</b>, or{' '}
+            <a
+              href={androidApp}
+              onClick={(e) => {
+                e.preventDefault();
+                void openExternal(androidApp);
+              }}
+            >
+              download the Android app
+            </a>
+            .
+          </li>
+        </ol>
       )}
     </div>
   );

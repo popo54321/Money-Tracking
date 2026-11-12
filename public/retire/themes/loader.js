@@ -33,6 +33,21 @@
   // a classic script written here runs before app.js, which comes next in the page
   document.write('<script src="themes/' + skin + '.js"><\/script>');
   // the level picture pops whenever the level changes
+  // pressing a button shows: it stays darker for a moment, even after a quick tap
+  document.addEventListener('pointerdown', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!b || b.disabled) return;
+    b.classList.add('is-pressed');
+    var since = Date.now();
+    var off = function () {
+      window.removeEventListener('pointerup', off);
+      window.removeEventListener('pointercancel', off);
+      setTimeout(function () { b.classList.remove('is-pressed'); }, Math.max(0, 160 - (Date.now() - since)));
+    };
+    window.addEventListener('pointerup', off);
+    window.addEventListener('pointercancel', off);
+  }, { passive: true });
+  document.addEventListener('touchstart', function () {}, { passive: true });
   document.addEventListener('DOMContentLoaded', function () {
     // the leaf at the top becomes the theme's own picture (its level 28)
     var sprout = document.querySelector('.hero svg.sprout'), top = window.MMA.icons && window.MMA.icons.emperor;

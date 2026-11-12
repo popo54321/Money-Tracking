@@ -1727,6 +1727,25 @@ button.pill {
   font-weight: 800;
 }
 
+/* More: the slim "How to use" button at the top */
+.guide-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--butter-ink);
+  background: var(--butter);
+}
+.guide-strip .e {
+  font-size: 20px;
+}
 /* "How to use": the tour that points at the real buttons */
 .tour {
   position: fixed;
@@ -1774,6 +1793,31 @@ button.pill {
     transform: translateY(6px);
   }
 }
+.tour-bubble.centre {
+  top: 50%;
+  translate: 0 -50%;
+}
+.tour-steps {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.tour-steps li {
+  margin: 6px 0;
+}
+.tour-key {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 800;
+  background: var(--bg2);
+}
+.tour-or {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
 .tour-count {
   font-size: 12px;
   color: var(--muted);
@@ -1799,4 +1843,61 @@ button.pill {
     animation: none;
     transition: none;
   }
+}
+
+/* pressed: every button turns darker while held (and for a moment after a quick tap), lighter in dark mode */
+button,
+[role='button'] {
+  transition:
+    filter 0.08s ease,
+    scale 0.08s ease,
+    background-color 0.08s ease;
+}
+button:not(:disabled):active,
+[role='button']:active,
+button.is-pressed,
+[role='button'].is-pressed {
+  filter: brightness(0.8);
+  scale: 0.97;
+}
+.keypad button:not(:disabled):active,
+.keypad button.is-pressed {
+  filter: brightness(0.7);
+  scale: 0.92;
+}
+button.row:not(:disabled):active,
+button.row.is-pressed {
+  background: color-mix(in srgb, var(--ink) 12%, var(--card));
+  filter: none;
+  scale: 0.99;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) button:not(:disabled):active,
+  :root:not([data-theme='light']) button.is-pressed,
+  :root:not([data-theme='light']) [role='button'].is-pressed {
+    filter: brightness(1.35);
+  }
+  :root:not([data-theme='light']) .keypad button:not(:disabled):active,
+  :root:not([data-theme='light']) .keypad button.is-pressed {
+    filter: brightness(1.55);
+  }
+  :root:not([data-theme='light']) button.row.is-pressed,
+  :root:not([data-theme='light']) button.row:not(:disabled):active {
+    background: color-mix(in srgb, var(--ink) 16%, var(--card));
+    filter: none;
+  }
+}
+:root[data-theme='dark'] button:not(:disabled):active,
+:root[data-theme='dark'] button.is-pressed,
+:root[data-theme='dark'] [role='button'].is-pressed {
+  filter: brightness(1.35);
+}
+:root[data-theme='dark'] .keypad button:not(:disabled):active,
+:root[data-theme='dark'] .keypad button.is-pressed {
+  filter: brightness(1.55);
+}
+:root[data-theme='dark'] button.row.is-pressed,
+:root[data-theme='dark'] button.row:not(:disabled):active {
+  background: color-mix(in srgb, var(--ink) 16%, var(--card));
+  filter: none;
 }
