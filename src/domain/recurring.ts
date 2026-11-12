@@ -74,6 +74,24 @@ export function nextUnposted(s: Schedule, lastPosted: ISODate | undefined): ISOD
   return lastPosted ? firstAfter(s, lastPosted) : firstOnOrAfter(s, s.startDate);
 }
 
+/**
+ * The next payment is more than one repeat away from today (a monthly bill due in 11 months):
+ * usually a start date typed with the wrong year, or the wrong "how often".
+ */
+export function nextDateLooksOdd(s: Schedule, next: ISODate | null, today: ISODate): boolean {
+  if (!next || next <= today) return false;
+  const every = Math.max(1, Math.floor(s.every || 1));
+  const { y, m, d } = parseISO(today);
+  const oneRepeat =
+    s.freq === 'day'
+      ? addDays(today, every)
+      : s.freq === 'week'
+        ? addDays(today, 7 * every)
+        : addMonthsClamped(y, m, d, (s.freq === 'year' ? 12 : 1) * every);
+  // a first payment that starts later on purpose is fine for the first time only when it is within one repeat
+  return next > addDays(oneRepeat, 1);
+}
+
 /** Roughly how much this costs per month, to show how much to set aside. */
 export function monthlyEquivalent(amount: number, freq: Freq, every: number): number {
   const e = Math.max(1, every || 1);

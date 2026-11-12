@@ -38,8 +38,8 @@ How it works: each build writes `version.json` (the version, the oldest Android 
 | **Entries** | Spend / income / move money with a phone-style calculator (`(120+80)×2`), any currency (converted with live rates), your own categories |
 | **Accounts** | Bank, cash, debit, credit card, top-up card, investments, BTC, gold, insurance: add, edit, archive, reorder; BTC and gold sit in their own Wealth preserve group |
 | **Set new balance** | Type the new total; choose **just adjust** or **log the difference as income/spending** (for example Interest) |
-| **Credit cards** | Statement day, due day, credit limit, paying account, amount still to pay, **Pay now**; everything owed (statement plus spending since) is kept ready in the paying account |
-| **Repeating** | Daily / weekly / monthly / yearly (every N); recorded automatically on the day; the next payment is **kept ready** (reserved) in its account |
+| **Credit cards** | Statement day, due day, credit limit, paying account, amount still to pay, **Pay now**; everything owed (statement plus spending since) is set aside in the paying account; an overdue statement shows at the top of Home with **Pay** and **Already paid** (records the payment on the due date, with Undo) |
+| **Repeating** | Daily / weekly / monthly / yearly (every N); recorded automatically on the day; the next payment is **set aside** in its account; a warning shows when the next date is more than one repeat away (wrong year or wrong "how often") or when a bill in another currency cannot be set aside |
 | **Wealth preserve** | BTC (amount × live price) and Thai gold in baht-weight (ทองบาทละ, live 96.5% bar price), cost, average cost and profit |
 | **Summary** | Income and spending by category and group, per month, year or dates, with the change against all of last month (or last year) |
 | **Month close** | Opens on the current month (numbers so far), in the year sheet's order, each category with its share of spending or income (and spending as % of income), tap to copy, or export to Excel / CSV; foldable charts of income against spending (6 months) and net worth (12 months) |

@@ -119,6 +119,7 @@ import { holdingStatus } from './wealth';
 import { withBtc, GOLD_OZ_PER_BAHT } from './fx';
 import { accountValue, freeLiquid } from './balances';
 import { accountClaims } from './splits';
+import { nextDateLooksOdd } from './recurring';
 import type { Account, Tx } from './types';
 
 describe('wealth preserve', () => {
@@ -474,5 +475,21 @@ describe('one true Free: set aside → splits → targets → Free', () => {
       'THB',
     );
     expect(v).toBe(6500);
+  });
+});
+
+describe('a next payment date that does not fit the repeat', () => {
+  const s = (freq: 'day' | 'week' | 'month' | 'year', startDate: string, every = 1) => ({ freq, every, startDate });
+  it('flags a monthly bill whose next date is 11 months away (start date typed with the wrong year)', () => {
+    expect(nextDateLooksOdd(s('month', '2027-10-05'), '2027-10-05', '2026-11-12')).toBe(true);
+  });
+  it('a yearly bill 11 months away, or a monthly one next month, is fine', () => {
+    expect(nextDateLooksOdd(s('year', '2026-10-05'), '2027-10-05', '2026-11-12')).toBe(false);
+    expect(nextDateLooksOdd(s('month', '2026-10-05'), '2026-12-05', '2026-11-12')).toBe(false);
+    expect(nextDateLooksOdd(s('month', '2026-12-12'), '2026-12-12', '2026-11-12')).toBe(false);
+  });
+  it('weekly bills more than a week away are flagged; past or missing dates are not', () => {
+    expect(nextDateLooksOdd(s('week', '2026-12-01'), '2026-12-01', '2026-11-12')).toBe(true);
+    expect(nextDateLooksOdd(s('week', '2026-11-01'), null, '2026-11-12')).toBe(false);
   });
 });

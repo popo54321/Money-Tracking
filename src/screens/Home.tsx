@@ -7,7 +7,7 @@ import { limitLines, plannedSpending } from '../domain/limits';
 import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { QuickActions } from '../components/QuickActions';
 import { moveItem } from '../domain/groups';
-import { updateSettings } from '../db/repo';
+import { saveTx, updateSettings } from '../db/repo';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { freeLiquid, netWorth } from '../domain/balances';
 import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
@@ -355,6 +355,7 @@ export function Home() {
           setupDue={!!setupDue}
           backupDays={showBackup ? backupDays : null}
         />
+        <OverdueCards />
 
         <div className="hero">
           <Sparkle k="home" />
@@ -395,6 +396,73 @@ export function Home() {
         <PriceChips />
         <MonthEntries />
       </div>
+    </>
+  );
+}
+
+/** Card statements past their due date: Pay opens the payment; Already paid records it in one tap (with Undo). */
+function OverdueCards() {
+  const { go, rates, currency, removeWithUndo, profile } = useApp();
+  const data = useData();
+  const overdue = data.upcoming.filter((u) => u.source === 'card' && u.overdue);
+  if (overdue.length === 0) return null;
+  return (
+    <>
+      {overdue.map((u) => {
+        const card = data.accountById.get(u.refId);
+        const from = card?.payFromAccountId ? data.accountById.get(card.payFromAccountId) : undefined;
+        const pay = () =>
+          go({
+            name: 'entry',
+            kind: 'transfer',
+            accountId: card?.payFromAccountId,
+            toAccountId: u.refId,
+            amount: u.amount,
+            note: `${card?.name ?? 'Card'} payment`,
+          });
+        // one tap only when the paying account is known and in the same currency; otherwise open the payment
+        const quick = !!from && from.currency === u.currency;
+        return (
+          <div key={u.key} className="banner pink overdue">
+            <span>💳</span>
+            <span className="grow">
+              {card?.name}: {fmtMoney(u.amount, u.currency)} was due {fmtDate(u.date, false)}
+            </span>
+            <span className="overdue-actions">
+              <button className="btn sm" onClick={pay}>
+                Pay
+              </button>
+              <button
+                className="btn sm ghost"
+                onClick={() =>
+                  quick
+                    ? void removeWithUndo(
+                        () =>
+                          saveTx(
+                            {
+                              profileId: profile.id,
+                              date: u.date,
+                              kind: 'transfer',
+                              accountId: from!.id,
+                              toAccountId: u.refId,
+                              amount: u.amount,
+                              toAmount: u.amount,
+                              note: `${card?.name ?? 'Card'} payment`,
+                            },
+                            rates,
+                            currency,
+                          ).then(() => undefined),
+                        `✅ Recorded: paid from ${from!.name} on ${fmtDate(u.date, false)}`,
+                      )
+                    : pay()
+                }
+              >
+                Already paid
+              </button>
+            </span>
+          </div>
+        );
+      })}
     </>
   );
 }

@@ -1650,3 +1650,16 @@ button.pill {
 .warn-ink {
   color: #c98f00;
 }
+
+/* an overdue card statement on Home */
+.banner.overdue {
+  flex-wrap: wrap;
+}
+.banner.overdue .grow {
+  flex: 1 1 60%;
+}
+.overdue-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
