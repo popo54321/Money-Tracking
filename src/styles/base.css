@@ -1676,3 +1676,53 @@ button.pill {
   padding-top: 10px;
   margin-top: 10px;
 }
+
+/* the built-in calculator: the topbar, then the calculator filling the rest of the screen */
+.retire-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  margin-bottom: calc(-86px - var(--sab));
+}
+.retire-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  display: block;
+  background: #fbf6ea;
+}
+/* More: the big button to the calculator */
+.big-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 18px;
+  padding: 20px 18px;
+  border: none;
+  border-radius: 24px;
+  text-align: left;
+  font: inherit;
+  color: var(--mint-ink);
+  background: linear-gradient(135deg, var(--mint), var(--sky));
+  box-shadow: 0 8px 18px -10px rgba(60, 120, 90, 0.5);
+}
+.big-tile .e {
+  font-size: 40px;
+  line-height: 1;
+}
+.big-tile .t {
+  font-size: 19px;
+  font-weight: 800;
+}
+.big-tile .d {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+.big-tile .go {
+  margin-left: auto;
+  font-size: 26px;
+  font-weight: 800;
+}

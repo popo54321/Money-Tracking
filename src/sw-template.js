@@ -27,10 +27,17 @@ self.addEventListener('fetch', (event) => {
   // exchange rates, BTC price and GitHub always go to the internet
   if (url.origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
+    // the built-in calculator (retire/) is a page of its own; every other page opens the app
+    const own = url.pathname.includes('/retire/');
     event.respondWith(
-      caches
-        .match('./index.html', { ignoreVary: true })
-        .then((hit) => hit || fetch(req).catch(() => caches.match('./', { ignoreVary: true }))),
+      (own
+        ? caches.match(req, { ignoreSearch: true, ignoreVary: true })
+        : caches.match('./index.html', { ignoreVary: true })
+      ).then(
+        (hit) =>
+          hit ||
+          fetch(req).catch(() => caches.match(own ? './retire/index.html' : './', { ignoreSearch: true, ignoreVary: true })),
+      ),
     );
     return;
   }
