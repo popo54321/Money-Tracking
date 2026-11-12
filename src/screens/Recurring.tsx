@@ -1,3 +1,4 @@
+import { PaydayRow } from './Payday';
 import { useState } from 'react';
 import {
   AccountPickerButton,
@@ -58,6 +59,7 @@ export function RecurringList() {
           <div className="big">{fmtMoney(monthlyOut, currency)}</div>
           <div className="small">🔒 {fmtMoney(reservedTotal, currency)} set aside for the next payments</div>
         </div>
+        <PaydayRow />
         {list.length === 0 ? (
           <div className="card center">
             <div style={{ fontSize: 40 }}>🔁</div>
