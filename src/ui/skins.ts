@@ -7,6 +7,7 @@ export type TileKey =
   | 'entries'
   | 'recurring'
   | 'monthClose'
+  | 'retire'
   | 'budget'
   | 'wealth'
   | 'goals'
@@ -67,6 +68,7 @@ const CUTE: SkinDef = {
     entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
+    retire: '🔭',
     budget: '🗂️',
     wealth: '🪙',
     goals: '🎯',
@@ -112,6 +114,7 @@ const FANTASY: SkinDef = {
     entries: '🔎',
     recurring: '🌙',
     monthClose: '📖',
+    retire: '🔭',
     budget: '📜',
     wealth: '🐉',
     goals: '🌠',
@@ -157,6 +160,7 @@ const DINO: SkinDef = {
     entries: '🔎',
     recurring: '🔁',
     monthClose: '🦴',
+    retire: '🔭',
     budget: '🦖',
     wealth: '🪨',
     goals: '🦕',
@@ -205,6 +209,7 @@ const FROG: SkinDef = {
     entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
+    retire: '🔭',
     budget: '🐸',
     wealth: '👑',
     goals: '🌼',
@@ -264,6 +269,7 @@ const CAT: SkinDef = {
     entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
+    retire: '🔭',
     budget: '😺',
     wealth: '👑',
     goals: '🐈',
@@ -298,6 +304,7 @@ const FINANCIAL: SkinDef = {
     entries: '⌕',
     recurring: '↻',
     monthClose: '≡',
+    retire: '↗',
     budget: '◫',
     wealth: '◆',
     goals: '◎',
