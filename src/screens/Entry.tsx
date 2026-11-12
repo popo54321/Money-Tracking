@@ -421,7 +421,7 @@ export function Entry({ route }: { route: EntryRoute }) {
                 {kind !== 'income' && (
                   <ToggleRow
                     title="🔒 Keep the next payment ready"
-                    desc="Shows it as reserved in the paying account"
+                    desc="Sets the next payment aside in the paying account"
                     on={reserve}
                     onChange={setReserve}
                   />

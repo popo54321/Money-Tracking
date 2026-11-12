@@ -9,7 +9,7 @@ import { reservedByAccount, upcomingItems, type UpcomingItem } from '../domain/r
 import type { Account, Category, PriceCache, Profile, Recurring, Settings, Tx } from '../domain/types';
 import { db } from '../db/db';
 import { fitToAccounts, type GoalRow } from '../domain/goals';
-import { splitAmount } from '../domain/splits';
+import { accountClaims, splitAmount, type AccountClaims } from '../domain/splits';
 import { FALLBACK_PRICES, recordChanges, updateSettings } from '../db/repo';
 import { DEFAULT_SETTINGS } from '../db/seed';
 import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
@@ -79,6 +79,10 @@ export interface ProfileData {
   categoryById: Map<string, Category>;
   /** saving targets, each with its saved amount today */
   goals: GoalRow[];
+  /** per account: set aside for bills → splits → targets → Free */
+  claims: Map<string, AccountClaims>;
+  /** per card: how much of its debt a paying account has set aside */
+  cardCovered: Map<string, number>;
 }
 
 interface ConfirmOpts {
@@ -184,7 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const balances = balancesByAccount(accs, actual);
     const upcoming = upcomingItems(accs, recurring, actual, today);
     const reserved = reservedByAccount(upcoming, accs);
-    return {
+    const out: ProfileData = {
       accounts: accs,
       categories: cats,
       txs: actual,
@@ -196,6 +200,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reserved,
       accountById: new Map(accs.map((a) => [a.id, a])),
       categoryById: new Map(cats.map((c) => [c.id, c])),
+      claims: new Map(),
+      cardCovered: new Map(),
       goals: fitToAccounts(
         goalRows,
         today,
@@ -209,6 +215,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ),
       ).map((r) => (r.goal.currency === byIdCurrency(accs, r.goal.accountId) ? r : { ...r, saved: r.recorded })),
     };
+    for (const a of accs)
+      out.claims.set(a.id, accountClaims(a, balances.get(a.id) ?? 0, reserved.get(a.id) ?? 0, actual, out.goals));
+    for (const u of upcoming) {
+      if (u.source !== 'card' || !u.reserved || !u.reserveAccountId) continue;
+      if (accs.find((a) => a.id === u.reserveAccountId)?.currency !== u.currency) continue;
+      out.cardCovered.set(u.refId, (out.cardCovered.get(u.refId) ?? 0) + (u.reserveAmount ?? u.amount));
+    }
+    return out;
   }, [accounts, categories, txs, recurring, goalRows, today]);
 
   // An account fell below its targets: save the lower amounts. Money that left is treated as spent,

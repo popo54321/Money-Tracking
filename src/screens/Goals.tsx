@@ -47,6 +47,8 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
           data.balances.get(keptIn.id) ?? 0,
           data.txs,
           data.goals.filter((x) => x.goal.id !== g.id),
+          // bills set aside come first, so a new target never counts on bill money
+          data.reserved.get(keptIn.id) ?? 0,
         ).left,
       )
     : 0;
@@ -235,6 +237,11 @@ export function Goals() {
   const list = (goals ?? []).slice().sort((a, b) => Number(a.done) - Number(b.done) || a.order - b.order);
 
   const rowFor = (g: Goal) => data.goals.find((r) => r.goal.id === g.id);
+  /** how much of the targets' money an account's upcoming bills need (0 when Free is not below zero) */
+  const billsNeed = (accountId: string) => {
+    const c = data.claims.get(accountId);
+    return c && c.free < 0 && c.setAside > 0 ? Math.min(-c.free, c.targets, c.setAside) : 0;
+  };
   /** Undo a cut (e.g. a mistaken entry): only once the account holds enough again. */
   const putBack = async (g: Goal) => {
     if (!g.lowered) return;
@@ -305,7 +312,7 @@ export function Goals() {
         )}
         {accOpen &&
           keptIn.map((a) => {
-            const v = splitView(a, data.balances.get(a.id) ?? 0, data.txs, data.goals);
+            const v = splitView(a, data.balances.get(a.id) ?? 0, data.txs, data.goals, data.reserved.get(a.id) ?? 0);
             return (
               <button
                 key={a.id}
@@ -320,7 +327,7 @@ export function Goals() {
                 <div className="tiny muted mb">is split into</div>
                 {v.rows.map((r) => (
                   <div key={r.key} className="between small" style={{ padding: '2px 0' }}>
-                    <span>{r.goal ? r.name : `🧩 ${r.name}`}</span>
+                    <span>{r.goal || r.bills ? r.name : `🧩 ${r.name}`}</span>
                     <span>{fmtMoney(r.amount, a.currency)}</span>
                   </div>
                 ))}
@@ -397,6 +404,12 @@ export function Goals() {
                   {acc && (
                     <div className="small mt">
                       🏦 {acc.name}: <b>{fmtMoney(data.balances.get(acc.id) ?? 0, acc.currency)}</b> in the account
+                    </div>
+                  )}
+                  {acc && !g.done && billsNeed(acc.id) > 0.005 && (
+                    <div className="tiny warn-ink mt">
+                      ⚠️ Bills set aside in {acc.name} need {fmtMoney(billsNeed(acc.id), acc.currency)} of this money. Targets
+                      only go down if money really leaves.
                     </div>
                   )}
                   <div className="small mt">

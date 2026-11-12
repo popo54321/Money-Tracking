@@ -56,7 +56,7 @@ export function RecurringList() {
           <Sparkle k="recurring" />
           <div className="label">Fixed spending, per month</div>
           <div className="big">{fmtMoney(monthlyOut, currency)}</div>
-          <div className="small">🔒 Keeping {fmtMoney(reservedTotal, currency)} ready for the next payments</div>
+          <div className="small">🔒 {fmtMoney(reservedTotal, currency)} set aside for the next payments</div>
         </div>
         {list.length === 0 ? (
           <div className="card center">
@@ -325,7 +325,7 @@ export function RecurringEdit({ id }: { id?: string }) {
         {r.kind !== 'income' && (
           <ToggleRow
             title="🔒 Keep the next payment ready"
-            desc="Shown as reserved in the paying account"
+            desc="Sets the next payment aside in the paying account"
             on={r.reserve}
             onChange={(v) => set({ reserve: v })}
           />

@@ -17,28 +17,67 @@ export interface SplitRow {
   amount: number;
   split?: AccountSplit;
   goal?: Goal;
+  /** the row for money set aside for upcoming bills */
+  bills?: boolean;
 }
 
 export interface SplitView {
   rows: SplitRow[];
-  /** balance minus every split and saving target (negative = earmarked more than is there) */
+  /** balance minus bills set aside (when given), every split and saving target (negative = more is claimed than is there) */
   left: number;
   leftName: string;
 }
 
-/** Everything earmarked in one account: its splits, the saving targets kept in it, then What's left. */
-export function splitView(account: Account, balance: number, txs: Tx[], goals: { goal: Goal; saved: number }[]): SplitView {
+/**
+ * Everything that claims money in one account, in order: bills set aside (when `setAside` is given),
+ * its splits, the saving targets kept in it, then What's left (= Free).
+ */
+export function splitView(
+  account: Account,
+  balance: number,
+  txs: Tx[],
+  goals: { goal: Goal; saved: number }[],
+  setAside = 0,
+): SplitView {
   const own = txs.filter((t) => t.accountId === account.id);
-  const rows: SplitRow[] = (account.splits ?? []).map((s) => ({
-    key: `s:${s.id}`,
-    name: s.name,
-    amount: splitAmount(s, own),
-    split: s,
-  }));
+  const rows: SplitRow[] = [];
+  if (setAside > 0.005) rows.push({ key: 'bills', name: '🔒 Set aside for bills', amount: setAside, bills: true });
+  for (const s of account.splits ?? []) rows.push({ key: `s:${s.id}`, name: s.name, amount: splitAmount(s, own), split: s });
   for (const g of goals)
     if (g.goal.accountId === account.id && !g.goal.done && g.goal.currency === account.currency)
       rows.push({ key: `g:${g.goal.id}`, name: `${g.goal.emoji} ${g.goal.name}`, amount: g.saved, goal: g.goal });
   return { rows, left: balance - sum(rows.map((r) => r.amount)), leftName: account.leftName || "What's left" };
+}
+
+export interface AccountClaims {
+  balance: number;
+  /** money set aside for upcoming bills */
+  setAside: number;
+  /** the account's own splits */
+  splits: number;
+  /** saving targets kept in the account */
+  targets: number;
+  /** what nothing claims: balance − set aside − splits − targets (negative = short) */
+  free: number;
+}
+
+/** One order for every account: bills set aside first, then splits, then saving targets; the rest is Free. */
+export function accountClaims(
+  account: Account,
+  balance: number,
+  setAside: number,
+  txs: Tx[],
+  goals: { goal: Goal; saved: number }[],
+): AccountClaims {
+  const v = splitView(account, balance, txs, goals, setAside);
+  const part = (f: (r: SplitRow) => boolean) => sum(v.rows.filter(f).map((r) => r.amount));
+  return {
+    balance,
+    setAside: part((r) => !!r.bills),
+    splits: part((r) => !!r.split),
+    targets: part((r) => !!r.goal),
+    free: v.left,
+  };
 }
 
 /** Accounts with splits or saving targets in them show the split view. */

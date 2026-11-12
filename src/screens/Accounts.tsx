@@ -7,7 +7,7 @@ import { fmtMoney } from '../domain/money';
 import { ACCOUNT_GROUPS, type Account } from '../domain/types';
 import { useApp, useData } from '../state/app';
 import { accountColour, accountEmoji } from '../ui/emoji';
-import { ProfileSwitch } from './Home';
+import { LiquidLine, ProfileSwitch } from './Home';
 import { holdProps } from '../components/hold';
 import { QuickActions } from '../components/QuickActions';
 import { moveItem, orderGroups } from '../domain/groups';
@@ -19,7 +19,8 @@ export function AccountLine({ a }: { a: Account }) {
   const data = useData();
   const bal = data.balances.get(a.id) ?? 0;
   const value = accountValue(a, bal, rates, currency);
-  const reserved = data.reserved.get(a.id) ?? 0;
+  const claims = data.claims.get(a.id);
+  const claimed = claims ? claims.setAside + claims.splits + claims.targets : 0;
   let sub: ReactNode = a.type === 'credit' ? 'Credit card' : a.group;
   let main = fmtMoney(bal, a.currency);
   let second: string | null = a.currency !== currency ? fmtMoney(value, currency) : null;
@@ -35,13 +36,13 @@ export function AccountLine({ a }: { a: Account }) {
   } else if (a.type === 'units') {
     main = `${fmtMoney(bal, a.currency, { compact: true })}`;
     second = value === null ? 'set a price' : fmtMoney(value, currency);
-  } else if (reserved > 0) {
-    // free money below zero means the bills need more than the account holds: show it in red
+  } else if (claims && claimed > 0.005) {
+    // Free = balance − set aside for bills − splits − targets; below zero (red) means more is claimed than is there
     sub = (
       <>
-        🔒 {fmtMoney(reserved, a.currency, { compact: true })} kept for bills · free{' '}
-        <span className={bal - reserved < 0 ? 'neg' : ''} style={{ whiteSpace: 'nowrap' }}>
-          {fmtMoney(bal - reserved, a.currency, { compact: true })}
+        Free{' '}
+        <span className={claims.free < 0 ? 'neg' : ''} style={{ whiteSpace: 'nowrap' }}>
+          {fmtMoney(claims.free, a.currency, { compact: true })}
         </span>
       </>
     );
@@ -134,7 +135,7 @@ export function Accounts() {
           <Sparkle k="accounts" />
           <div className="label">Total (net worth)</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
-          <div className="small bold mt">💧 Liquid {fmtMoney(nw.liquid, currency)}</div>
+          <LiquidLine liquid={nw.liquid} />
           <div className="chips">
             {groups
               .filter((g) => nw.byGroup.has(g))

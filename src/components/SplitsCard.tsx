@@ -24,10 +24,10 @@ export function SplitsCard({ account }: { account: Account }) {
   const [moveTo, setMoveTo] = useState<string>('left');
 
   const balance = data.balances.get(account.id) ?? 0;
-  const view = splitView(account, balance, data.txs, data.goals);
+  const view = splitView(account, balance, data.txs, data.goals, data.reserved.get(account.id) ?? 0);
   const cur = account.currency;
   const splits = account.splits ?? [];
-  const has = view.rows.length > 0;
+  const has = view.rows.some((r) => !r.bills);
 
   // budget categories whose transfer goes into this account, not yet a split here
   const planCats = plan?.categories ?? [];
@@ -69,11 +69,22 @@ export function SplitsCard({ account }: { account: Account }) {
         <>
           <div className="list flat-list">
             {view.rows.map((r) => (
-              <button key={r.key} className="row" onClick={() => (r.split ? openEdit(r.split, r.amount) : go({ name: 'goals' }))}>
+              <button
+                key={r.key}
+                className="row"
+                disabled={r.bills}
+                onClick={() => (r.split ? openEdit(r.split, r.amount) : r.goal ? go({ name: 'goals' }) : undefined)}
+              >
                 <div className="main">
                   <div className="title">{r.name}</div>
                   <div className="sub">
-                    {r.goal ? 'saving target' : r.split?.budgetCategoryId ? '🔗 budget plan' : 'tap to change'}
+                    {r.bills
+                      ? 'upcoming bills, listed below'
+                      : r.goal
+                        ? 'saving target'
+                        : r.split?.budgetCategoryId
+                          ? '🔗 budget plan'
+                          : 'tap to change'}
                   </div>
                 </div>
                 <div className="end">
@@ -100,7 +111,7 @@ export function SplitsCard({ account }: { account: Account }) {
             </button>
           </div>
           {view.left < 0 && (
-            <div className="tiny neg mt">More is set aside than the account holds. Lower a split or add money.</div>
+            <div className="tiny neg mt">More is claimed than the account holds. Lower a split or add money.</div>
           )}
           <div className="btn-row mt">
             <button className="btn sm ghost" onClick={() => openAdd()}>
