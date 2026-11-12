@@ -1,5 +1,5 @@
-// Original chubby mascots for the Dinosaur and Frog themes, drawn as small SVGs.
-export type MascotKind = 'dino' | 'frog';
+// Original chubby mascots for the Dinosaur, Queen Bee, Wildlife and Space themes, drawn as small SVGs.
+export type MascotKind = 'dino' | 'bee' | 'fox' | 'astronaut';
 export type Pose = 'happy' | 'love' | 'coin' | 'sleep' | 'wow';
 
 const INK = '#2f3a33';
@@ -103,59 +103,109 @@ function Dino({ pose }: { pose: Pose }) {
   );
 }
 
-function Frog({ pose }: { pose: Pose }) {
-  const body = '#8fd16a';
-  const dark = '#5a9e3c';
+function Arms({ pose, dark, y = 38 }: { pose: Pose; dark: string; y?: number }) {
+  return pose === 'happy' || pose === 'wow' ? (
+    <>
+      <path d={`M13 ${y} q-6 -5 -4 -10`} stroke={dark} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+      <path d={`M51 ${y} q6 -5 4 -10`} stroke={dark} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+    </>
+  ) : (
+    <>
+      <path d={`M16 ${y + 2} q6 3 9 0`} stroke={dark} strokeWidth="4" strokeLinecap="round" fill="none" />
+      <path d={`M48 ${y + 2} q-6 3 -9 0`} stroke={dark} strokeWidth="4" strokeLinecap="round" fill="none" />
+    </>
+  );
+}
+
+/** Queen Bee: a round bee with a little gold crown. */
+function Bee({ pose }: { pose: Pose }) {
+  const body = '#ffd25e';
+  const dark = '#4a1838';
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
-      {/* eye bumps */}
-      <circle cx="21" cy="18" r="9" fill={body} stroke={dark} strokeWidth="1.8" />
-      <circle cx="43" cy="18" r="9" fill={body} stroke={dark} strokeWidth="1.8" />
+      {/* wings */}
+      <ellipse
+        cx="16"
+        cy="20"
+        rx="10"
+        ry="7"
+        fill="#ffffff"
+        stroke={dark}
+        strokeWidth="1.5"
+        opacity="0.92"
+        transform="rotate(-25 16 20)"
+      />
+      <ellipse
+        cx="48"
+        cy="20"
+        rx="10"
+        ry="7"
+        fill="#ffffff"
+        stroke={dark}
+        strokeWidth="1.5"
+        opacity="0.92"
+        transform="rotate(25 48 20)"
+      />
+      {/* body with stripes */}
+      <path d="M12 40 q-2 -26 20 -27 q22 1 20 27 q1 16 -20 16 q-21 0 -20 -16z" fill={body} stroke={dark} strokeWidth="1.8" />
+      <path d="M13 44 q19 6 38 0 M16 51 q16 5 32 0" stroke={dark} strokeWidth="3.2" fill="none" strokeLinecap="round" />
+      {/* crown */}
+      <path d="M23 13 l-1 -9 5 4 5 -6 5 6 5 -4 -1 9z" fill="#ffd25e" stroke="#9a6a00" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="32" cy="9" r="1.6" fill="#e3368a" />
+      <Arms pose={pose} dark={dark} y={34} />
+      <Face pose={pose} eyeY={27} />
+      <Prop pose={pose} x={pose === 'coin' ? 32 : 56} y={pose === 'coin' ? 40 : 10} />
+    </svg>
+  );
+}
+
+/** Wildlife: a young fox. */
+function Fox({ pose }: { pose: Pose }) {
+  const body = '#e07b39';
+  const dark = '#9a4a1c';
+  return (
+    <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+      {/* tail */}
+      <path d="M48 50 q16 -2 12 -18 q-4 8 -12 8z" fill={body} stroke={dark} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M58 36 q-2 4 -6 5" stroke="#fff6ea" strokeWidth="3" strokeLinecap="round" fill="none" />
+      {/* ears */}
+      <path d="M14 22 l2 -16 12 10z" fill={body} stroke={dark} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M50 22 l-2 -16 -12 10z" fill={body} stroke={dark} strokeWidth="1.5" strokeLinejoin="round" />
       {/* body */}
-      <path d="M8 40 q0 -20 24 -20 q24 0 24 20 q0 16 -24 16 q-24 0 -24 -16z" fill={body} stroke={dark} strokeWidth="1.8" />
-      <ellipse cx="32" cy="45" rx="13" ry="8" fill="#e9f8c9" />
-      {/* big eyes */}
-      <circle cx="21" cy="18" r="6" fill="#fff" />
-      <circle cx="43" cy="18" r="6" fill="#fff" />
-      {pose === 'sleep' ? (
-        <>
-          <path d="M17 19 q4 3 8 0" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-          <path d="M39 19 q4 3 8 0" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-        </>
-      ) : pose === 'wow' ? (
-        <>
-          <path d="M21 13 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6z" fill="#f6c343" />
-          <path d="M43 13 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6z" fill="#f6c343" />
-        </>
-      ) : (
-        <>
-          <circle cx="22" cy="19" r="3.6" fill={INK} />
-          <circle cx="44" cy="19" r="3.6" fill={INK} />
-          <circle cx="23.3" cy="17.6" r="1.2" fill="#fff" />
-          <circle cx="45.3" cy="17.6" r="1.2" fill="#fff" />
-        </>
-      )}
-      {/* cheeks and mouth */}
-      <ellipse cx="17" cy="33" rx="4" ry="2.4" fill="#ff9fb3" opacity="0.85" />
-      <ellipse cx="47" cy="33" rx="4" ry="2.4" fill="#ff9fb3" opacity="0.85" />
-      {pose === 'sleep' ? (
-        <path d="M28 34 q4 2 8 0" stroke={INK} strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      ) : (
-        <path d="M25 32 q7 6 14 0" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      )}
-      {/* hands */}
-      {pose === 'happy' || pose === 'wow' ? (
-        <>
-          <path d="M10 38 q-6 -4 -5 -10" stroke={dark} strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          <path d="M54 38 q6 -4 5 -10" stroke={dark} strokeWidth="4.5" strokeLinecap="round" fill="none" />
-        </>
-      ) : (
-        <>
-          <ellipse cx="24" cy="42" rx="4" ry="3" fill={body} stroke={dark} strokeWidth="1.4" />
-          <ellipse cx="40" cy="42" rx="4" ry="3" fill={body} stroke={dark} strokeWidth="1.4" />
-        </>
-      )}
-      <Prop pose={pose} x={pose === 'coin' ? 32 : 56} y={pose === 'coin' ? 42 : 8} />
+      <path d="M12 40 q-2 -26 20 -27 q22 1 20 27 q1 16 -20 16 q-21 0 -20 -16z" fill={body} stroke={dark} strokeWidth="1.8" />
+      {/* white muzzle and tummy */}
+      <path d="M20 30 q12 14 24 0 q-2 12 -12 12 q-10 0 -12 -12z" fill="#fff6ea" />
+      <ellipse cx="32" cy="48" rx="9" ry="6" fill="#fff6ea" />
+      <Arms pose={pose} dark={dark} />
+      <ellipse cx="23" cy="56" rx="5" ry="2.6" fill={dark} />
+      <ellipse cx="41" cy="56" rx="5" ry="2.6" fill={dark} />
+      <Face pose={pose} eyeY={26} />
+      <Prop pose={pose} x={pose === 'coin' ? 32 : 56} y={pose === 'coin' ? 46 : 10} />
+    </svg>
+  );
+}
+
+/** Space: a small round astronaut. */
+function Astronaut({ pose }: { pose: Pose }) {
+  const suit = '#f4f3ff';
+  const dark = '#2b1f7a';
+  return (
+    <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+      {/* antenna */}
+      <path d="M32 9 v-5" stroke={dark} strokeWidth="1.6" />
+      <circle cx="32" cy="4" r="2.4" fill="#ff6b6b" />
+      {/* suit */}
+      <path d="M12 40 q-2 -26 20 -27 q22 1 20 27 q1 16 -20 16 q-21 0 -20 -16z" fill={suit} stroke={dark} strokeWidth="1.8" />
+      {/* visor */}
+      <rect x="15" y="17" width="34" height="22" rx="11" fill="#2fd3e8" stroke={dark} strokeWidth="1.6" />
+      <rect x="17.5" y="19.5" width="29" height="17" rx="8.5" fill="#ffd9b5" />
+      {/* chest panel */}
+      <rect x="27" y="44" width="10" height="6" rx="1.5" fill="#5b4bff" />
+      <Arms pose={pose} dark="#625c91" y={40} />
+      <ellipse cx="23" cy="56" rx="5" ry="2.6" fill="#625c91" />
+      <ellipse cx="41" cy="56" rx="5" ry="2.6" fill="#625c91" />
+      <Face pose={pose} eyeY={26} gap={7} />
+      <Prop pose={pose} x={pose === 'coin' ? 32 : 56} y={pose === 'coin' ? 47 : 10} />
     </svg>
   );
 }
@@ -163,7 +213,15 @@ function Frog({ pose }: { pose: Pose }) {
 export function Mascot({ kind, pose = 'happy', size = 34 }: { kind: MascotKind; pose?: Pose; size?: number }) {
   return (
     <span style={{ display: 'inline-block', width: size, height: size, lineHeight: 0 }}>
-      {kind === 'dino' ? <Dino pose={pose} /> : <Frog pose={pose} />}
+      {kind === 'dino' ? (
+        <Dino pose={pose} />
+      ) : kind === 'bee' ? (
+        <Bee pose={pose} />
+      ) : kind === 'fox' ? (
+        <Fox pose={pose} />
+      ) : (
+        <Astronaut pose={pose} />
+      )}
     </span>
   );
 }

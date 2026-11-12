@@ -1,5 +1,5 @@
 // Themes: colours live in styles.css ([data-skin]); icons and wording live here.
-export type Skin = 'financial' | 'cute' | 'fantasy' | 'dino' | 'cat' | 'frog';
+export type Skin = 'financial' | 'queenbee' | 'fantasy' | 'dino' | 'wildlife' | 'space';
 import type { MascotKind, Pose } from './Mascot';
 
 export type TileKey =
@@ -8,6 +8,7 @@ export type TileKey =
   | 'recurring'
   | 'monthClose'
   | 'retire'
+  | 'guide'
   | 'budget'
   | 'wealth'
   | 'goals'
@@ -36,50 +37,54 @@ export interface SkinDef {
   poses?: Record<string, Pose>;
 }
 
-const CUTE: SkinDef = {
-  id: 'cute',
-  label: 'Cute',
-  desc: 'Soft pastels and cheerful icons',
-  icon: '🌸',
+const QUEENBEE: SkinDef = {
+  id: 'queenbee',
+  label: 'Queen Bee',
+  desc: 'Hot pink, gold and a little attitude',
+  icon: '👑',
   plain: false,
-  tabs: { home: '🏡', accounts: '👛', summary: '📊', more: '🧁' },
+  tabs: { home: '👑', accounts: '👛', summary: '💅', more: '✨' },
   names: {
     accounts: 'Accounts 👛',
-    more: 'More 🧁',
-    summary: 'Summary 📊',
-    budget: 'Budget plan 🗂️',
-    goals: 'Saving targets 🎯',
-    wealth: 'Wealth preserve 🪙',
+    more: 'More ✨',
+    summary: 'Summary 💅',
+    budget: 'Budget plan 📋',
+    goals: 'Saving targets 💖',
+    wealth: 'Wealth preserve 💎',
   },
-  sparkle: {
-    home: '🌸',
-    accounts: '💖',
-    summary: '🍰',
-    wealth: '🏺',
-    goals: '🛍️',
-    debts: '💌',
-    recurring: '🔔',
-    budget: '🗂️',
-    trips: '🤝',
-    bills: '🧮',
-  },
+  sparkle: {},
   tiles: {
     convert: '💱',
     entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
     retire: '🔭',
-    budget: '🗂️',
-    wealth: '🪙',
-    goals: '🎯',
-    bills: '🍽️',
+    guide: '📖',
+    budget: '📋',
+    wealth: '💎',
+    goals: '💖',
+    bills: '🥂',
     trips: '🧳',
-    debts: '🤝',
+    debts: '💌',
     categories: '🏷️',
     settings: '⚙️',
   },
-  empty: '🐣',
-  greeting: 'Hi',
+  empty: '💅',
+  greeting: 'Hey,',
+  mascot: 'bee',
+  poses: {
+    home: 'happy',
+    accounts: 'coin',
+    summary: 'wow',
+    wealth: 'coin',
+    goals: 'love',
+    debts: 'happy',
+    recurring: 'sleep',
+    budget: 'coin',
+    trips: 'happy',
+    bills: 'love',
+    empty: 'happy',
+  },
 };
 
 const FANTASY: SkinDef = {
@@ -115,6 +120,7 @@ const FANTASY: SkinDef = {
     recurring: '🌙',
     monthClose: '📖',
     retire: '🔭',
+    guide: '📖',
     budget: '📜',
     wealth: '🐉',
     goals: '🌠',
@@ -161,6 +167,7 @@ const DINO: SkinDef = {
     recurring: '🔁',
     monthClose: '🦴',
     retire: '🔭',
+    guide: '📖',
     budget: '🦖',
     wealth: '🪨',
     goals: '🦕',
@@ -188,20 +195,20 @@ const DINO: SkinDef = {
   },
 };
 
-const FROG: SkinDef = {
-  id: 'frog',
-  label: 'Frog',
-  desc: 'Round little frogs on a lily pond',
-  icon: '🐸',
+const WILDLIFE: SkinDef = {
+  id: 'wildlife',
+  label: 'Wildlife',
+  desc: 'Wild animals in their natural homes',
+  icon: '🦁',
   plain: false,
-  tabs: { home: '🐸', accounts: '🪷', summary: '🍃', more: '💧' },
+  tabs: { home: '🏕️', accounts: '🪺', summary: '🐾', more: '🌿' },
   names: {
-    accounts: 'Lily pond 🪷',
-    more: 'Pond 💧',
-    summary: 'Summary 🍃',
-    budget: 'Budget plan 🐸',
-    goals: 'Saving targets 🌼',
-    wealth: 'Wealth preserve 👑',
+    accounts: 'Accounts 🪺',
+    more: 'More 🌿',
+    summary: 'Summary 🐾',
+    budget: 'Budget plan 🗺️',
+    goals: 'Saving targets 🎯',
+    wealth: 'Wealth preserve 🪙',
   },
   sparkle: {},
   tiles: {
@@ -210,18 +217,19 @@ const FROG: SkinDef = {
     recurring: '🔁',
     monthClose: '📋',
     retire: '🔭',
-    budget: '🐸',
-    wealth: '👑',
-    goals: '🌼',
-    bills: '🍰',
+    guide: '📖',
+    budget: '🗺️',
+    wealth: '🪙',
+    goals: '🎯',
+    bills: '🍽️',
     trips: '🧳',
-    debts: '🐛',
+    debts: '🤝',
     categories: '🍃',
-    settings: '💧',
+    settings: '⚙️',
   },
-  empty: '🐸',
-  greeting: 'Ribbit,',
-  mascot: 'frog',
+  empty: '🦊',
+  greeting: 'Hello,',
+  mascot: 'fox',
   poses: {
     home: 'happy',
     accounts: 'coin',
@@ -237,50 +245,54 @@ const FROG: SkinDef = {
   },
 };
 
-const CAT: SkinDef = {
-  id: 'cat',
-  label: 'Cat',
-  desc: 'Cosy kitties, paws and yarn',
-  icon: '🐱',
+const SPACE: SkinDef = {
+  id: 'space',
+  label: 'Space',
+  desc: 'Rockets, planets and starlight',
+  icon: '🚀',
   plain: false,
-  tabs: { home: '🏠', accounts: '🐟', summary: '🧶', more: '🐾' },
+  tabs: { home: '🚀', accounts: '🛰️', summary: '🪐', more: '✨' },
   names: {
-    accounts: 'Fish bowl 🐟',
-    more: 'More 🐾',
-    summary: 'Summary 🧶',
-    budget: 'Budget plan 😺',
-    goals: 'Saving targets 🐈',
-    wealth: 'Wealth preserve 👑',
+    accounts: 'Accounts 🛰️',
+    more: 'More ✨',
+    summary: 'Summary 🪐',
+    budget: 'Budget plan 🗺️',
+    goals: 'Saving targets 🌟',
+    wealth: 'Wealth preserve 💫',
   },
-  sparkle: {
-    home: '🐱',
-    accounts: '🐟',
-    summary: '🧶',
-    wealth: '👑',
-    goals: '🐈',
-    debts: '😼',
-    recurring: '🌙',
-    budget: '😺',
-    trips: '🧳',
-    bills: '🍣',
-  },
+  sparkle: {},
   tiles: {
     convert: '💱',
     entries: '🔎',
     recurring: '🔁',
     monthClose: '📋',
     retire: '🔭',
-    budget: '😺',
-    wealth: '👑',
-    goals: '🐈',
-    bills: '🍣',
+    guide: '📖',
+    budget: '🗺️',
+    wealth: '💫',
+    goals: '🌟',
+    bills: '🍽️',
     trips: '🧳',
-    debts: '😼',
-    categories: '🧶',
-    settings: '🐾',
+    debts: '🤝',
+    categories: '🏷️',
+    settings: '⚙️',
   },
-  empty: '🐈',
-  greeting: 'Meow,',
+  empty: '🪐',
+  greeting: 'Greetings,',
+  mascot: 'astronaut',
+  poses: {
+    home: 'happy',
+    accounts: 'coin',
+    summary: 'wow',
+    wealth: 'coin',
+    goals: 'love',
+    debts: 'happy',
+    recurring: 'sleep',
+    budget: 'coin',
+    trips: 'happy',
+    bills: 'love',
+    empty: 'happy',
+  },
 };
 
 const FINANCIAL: SkinDef = {
@@ -305,6 +317,7 @@ const FINANCIAL: SkinDef = {
     recurring: '↻',
     monthClose: '≡',
     retire: '↗',
+    guide: '?',
     budget: '◫',
     wealth: '◆',
     goals: '◎',
@@ -318,10 +331,14 @@ const FINANCIAL: SkinDef = {
   greeting: 'Welcome,',
 };
 
-export const SKINS: SkinDef[] = [FINANCIAL, CUTE, FANTASY, DINO, CAT, FROG];
+export const SKINS: SkinDef[] = [FINANCIAL, QUEENBEE, FANTASY, DINO, WILDLIFE, SPACE];
+
+/** Themes that were retired, and the theme that took their place. */
+const RETIRED: Record<string, Skin> = { cute: 'queenbee', frog: 'wildlife', cat: 'wildlife' };
 
 export function getSkin(id: string | undefined): SkinDef {
-  return SKINS.find((s) => s.id === id) ?? CUTE;
+  const real = (id && RETIRED[id]) || id;
+  return SKINS.find((s) => s.id === real) ?? QUEENBEE;
 }
 
 let plainIcons = false;

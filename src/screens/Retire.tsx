@@ -16,7 +16,7 @@ declare global {
 }
 
 export function Retire() {
-  const { settings, toast } = useApp();
+  const { settings, skin, toast } = useApp();
   useEffect(() => {
     const hand = async (blob: Blob, name: string, text?: string) => {
       const res = await shareFile(name, new Uint8Array(await blob.arrayBuffer()), blob.type || 'image/png', text);
@@ -27,7 +27,7 @@ export function Retire() {
       delete window.mtCalcHost;
     };
   }, [toast]);
-  // start in the app's light or dark look; the calculator remembers a look picked inside it
+  // the calculator wears the app's theme, in the app's light or dark look
   const dark =
     settings.theme === 'dark' || (settings.theme === 'system' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   return (
@@ -35,7 +35,7 @@ export function Retire() {
       <Topbar title="🔭 Will my money be enough?" />
       <iframe
         className="retire-frame"
-        src={`retire/index.html?look=${dark ? 'night' : 'cream'}`}
+        src={`retire/index.html?look=${dark ? 'night' : 'cream'}&skin=${skin.id}`}
         title="Will my money be enough?"
       />
     </div>

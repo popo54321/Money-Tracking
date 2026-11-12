@@ -325,6 +325,9 @@ function MonthEntries() {
   );
 }
 
+/** The guide opens by itself at most once per app start (closing it must not bring it straight back). */
+let guideAutoShown = false;
+
 export function Home() {
   const { profile, currency, rates, go, today, settings, skin } = useApp();
   const data = useData();
@@ -332,6 +335,14 @@ export function Home() {
   const [webUpdate, setWebUpdate] = useState(false);
   const [nativeUpdate, setNativeUpdate] = useState<NativeUpdateState>('none');
   useEffect(() => onWebUpdateReady(() => setWebUpdate(true)), []);
+  // someone new (nothing set up yet) sees the guide once; it can be reopened from More
+  const isNew = !settings.guideSeen && data.accounts.length === 0;
+  useEffect(() => {
+    if (isNew && !guideAutoShown) {
+      guideAutoShown = true;
+      go({ name: 'guide' });
+    }
+  }, [isNew, go]);
   useEffect(() => onNativeUpdateState(setNativeUpdate), []);
 
   const nw = netWorth(data.accounts, data.balances, rates, currency);

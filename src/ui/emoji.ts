@@ -1,4 +1,4 @@
-// Cute default icons for categories and accounts (can be changed per category).
+// Default icons for categories and accounts (can be changed per category).
 import type { AccountType, Category } from '../domain/types';
 import { isPlainIcons } from './skins';
 

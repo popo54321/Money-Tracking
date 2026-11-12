@@ -304,7 +304,7 @@ export interface Settings {
   favouriteCurrencies: string[];
   activeProfileId: string;
   theme: 'system' | 'light' | 'dark';
-  /** look: financial, cute, fantasy, dino or cat */
+  /** look: financial, queenbee, fantasy, dino, wildlife or space (cute, frog and cat move to queenbee or wildlife) */
   skin?: string;
   lastBackupAt?: number;
   lastAutoBackupAt?: number;
@@ -315,6 +315,8 @@ export interface Settings {
   watchCurrencies?: string[];
   /** buzz on key presses (default on) */
   vibrate?: boolean;
+  /** the “How to use this app” guide has been read (or skipped) */
+  guideSeen?: boolean;
 }
 
 export interface PriceCache {
