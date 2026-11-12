@@ -4,6 +4,7 @@ import { APP_VERSION } from '../services/platform';
 
 import type { TileKey } from '../ui/skins';
 import { ProfileSwitch } from './Home';
+import { startTour } from '../components/Tour';
 
 export function More() {
   const { go, skin } = useApp();
@@ -35,7 +36,7 @@ export function More() {
         { k: 'entries', t: 'All entries', d: 'Search every entry', c: 'peach', r: { name: 'txList', title: 'All entries' } },
         { k: 'categories', t: 'Categories', d: 'Add, rename, emoji', c: 'lav', r: { name: 'categories' } },
         { k: 'settings', t: 'Settings', d: 'Theme, users, backup, update', c: 'sky', r: { name: 'settings' } },
-        { k: 'guide', t: 'How to use', d: 'A quick tour of the app', c: 'butter', r: { name: 'guide' } },
+        { k: 'guide', t: 'How to use', d: 'Shows you where to tap', c: 'butter', r: { name: 'more' } },
       ],
     },
   ];
@@ -48,7 +49,12 @@ export function More() {
             <div className="group-label">{g.label}</div>
             <div className="tiles">
               {g.tiles.map((x) => (
-                <button key={x.k} className={`tile ${x.c}`} onClick={() => go(x.r)}>
+                <button
+                  key={x.k}
+                  className={`tile ${x.c}`}
+                  data-tour={`tile-${x.k}`}
+                  onClick={() => (x.k === 'guide' ? startTour() : go(x.r))}
+                >
                   <span className="e">{skin.tiles[x.k]}</span>
                   <span>
                     <div className="t">{x.t}</div>
@@ -59,7 +65,7 @@ export function More() {
             </div>
           </div>
         ))}
-        <button className="big-tile" onClick={() => go({ name: 'retire' })}>
+        <button className="big-tile" data-tour="retire" onClick={() => go({ name: 'retire' })}>
           <span className="e">{skin.tiles.retire}</span>
           <span>
             <div className="t">Will my money be enough?</div>

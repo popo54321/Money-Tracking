@@ -1727,48 +1727,76 @@ button.pill {
   font-weight: 800;
 }
 
-/* "How to use this app" */
-.guide-screen {
-  min-height: 100vh;
-  min-height: 100dvh;
+/* "How to use": the tour that points at the real buttons */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
 }
-.guide-card {
-  text-align: center;
-  padding: 24px 20px;
-  animation: guide-in 0.25s ease-out;
+.tour-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 20, 0.6);
 }
-.guide-card p {
-  text-align: left;
-  margin: 10px 0 0;
-  line-height: 1.5;
+.tour-ring {
+  position: fixed;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 4px var(--accent),
+    0 0 0 9999px rgba(10, 8, 20, 0.6);
+  transition: all 0.25s ease;
+  pointer-events: none;
+  animation: tour-pulse 1.4s ease-in-out infinite;
 }
-.guide-e {
-  font-size: 56px;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-@keyframes guide-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+@keyframes tour-pulse {
+  50% {
+    box-shadow:
+      0 0 0 9px color-mix(in srgb, var(--accent) 50%, transparent),
+      0 0 0 9999px rgba(10, 8, 20, 0.6);
   }
 }
-.guide-dots {
+.tour-bubble {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  animation: tour-in 0.2s ease-out;
+}
+@keyframes tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.tour-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tour-title {
+  font-weight: 800;
+  font-size: 17px;
+  margin: 2px 0 4px;
+}
+.tour-text {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.tour-buttons {
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin: 16px 0;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
 }
-.guide-dots button {
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--line);
-}
-.guide-dots button.on {
-  width: 22px;
-  border-radius: 999px;
-  background: var(--accent);
+@media (prefers-reduced-motion: reduce) {
+  .tour-ring,
+  .tour-bubble {
+    animation: none;
+    transition: none;
+  }
 }
