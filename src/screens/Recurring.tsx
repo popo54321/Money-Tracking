@@ -12,7 +12,7 @@ import {
 } from '../components/ui';
 import { fmtDate, relativeDays } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
-import { describeSchedule, dueToPost, monthlyEquivalent, nextUnposted } from '../domain/recurring';
+import { describeSchedule, dueToPost, monthlyEquivalent, nextUnposted, nextDateLooksOdd } from '../domain/recurring';
 import type { Freq, Recurring } from '../domain/types';
 import { db, uid } from '../db/db';
 import { deleteRecurring, postOccurrence, saveRecurring, skipOccurrence } from '../db/repo';
@@ -73,6 +73,10 @@ export function RecurringList() {
               const next = nextUnposted(r, r.lastPosted);
               const acc = data.accountById.get(r.accountId);
               const cat = r.categoryId ? data.categoryById.get(r.categoryId) : undefined;
+              const odd = r.active && nextDateLooksOdd(r, next, today);
+              const up = data.upcoming.find((u) => u.key === `r:${r.id}`);
+              const keepIn = up?.reserveAccountId ? data.accountById.get(up.reserveAccountId) : undefined;
+              const notSetAside = r.active && !!keepIn && keepIn.currency !== up?.currency;
               return (
                 <button
                   key={r.id}
@@ -94,6 +98,16 @@ export function RecurringList() {
                           ? ` · next ${fmtDate(next, false)} (${relativeDays(today, next)})`
                           : ' · finished'}
                     </div>
+                    {odd && (
+                      <div className="tiny warn-ink">
+                        ⚠️ Next payment is more than one repeat away. Check the start date or how often it repeats.
+                      </div>
+                    )}
+                    {notSetAside && (
+                      <div className="tiny warn-ink">
+                        ⚠️ Not set aside: {keepIn!.name} is in {keepIn!.currency}, this bill is in {up!.currency}.
+                      </div>
+                    )}
                   </div>
                   <div className="end">
                     <div className={`amt ${r.kind === 'income' ? 'pos' : ''}`}>
@@ -313,6 +327,11 @@ export function RecurringEdit({ id }: { id?: string }) {
             ? ` · ≈ ${fmtMoney(monthlyEquivalent(r.amount, r.freq, r.every), acc?.currency ?? currency)} a month`
             : ''}
         </div>
+        {nextDateLooksOdd(r, next, today) && (
+          <div className="tiny warn-ink mb">
+            ⚠️ The next payment is more than one repeat away. Is the year of the first date right, and how often it repeats?
+          </div>
+        )}
         <Field label="Note">
           <input value={r.note ?? ''} onChange={(e) => set({ note: e.target.value || undefined })} placeholder="Optional" />
         </Field>
