@@ -154,6 +154,11 @@ export interface Recurring {
   autoPost: boolean;
   /** keep the next payment reserved in the paying account */
   reserve: boolean;
+  /**
+   * bills that repeat less often than monthly build up month by month (all of it one month before it is due);
+   * true sets the whole amount aside straight away
+   */
+  holdInFull?: boolean;
   active: boolean;
   createdAt: number;
 }

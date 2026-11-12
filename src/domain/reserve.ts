@@ -2,7 +2,7 @@
 // (the statement due plus what was spent since), kept in the card's paying account.
 import { diffDays, type ISODate } from './dates';
 import { cardStatus, dueDateFor } from './creditCard';
-import { monthlyEquivalent, nextUnposted } from './recurring';
+import { monthlyEquivalent, nextUnposted, buildUp } from './recurring';
 import type { Account, Recurring, Tx } from './types';
 
 export interface UpcomingItem {
@@ -18,8 +18,10 @@ export interface UpcomingItem {
   /** account where the money should be kept ready (a card's paying account for card charges) */
   reserveAccountId?: string;
   amount: number;
-  /** amount to keep ready when it differs from `amount` (a card: all that is owed, not just the statement) */
+  /** amount to keep ready when it differs from `amount` (a card: all that is owed; a yearly bill: what has built up) */
   reserveAmount?: number;
+  /** a bill that repeats less often than monthly, building up: months set aside so far, of how many */
+  buildUp?: { months: number; of: number };
   currency: string;
   reserved: boolean;
   perMonth?: number;
@@ -40,6 +42,9 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
     if (r.reserve && r.kind !== 'income') {
       reserveAccountId = acc.type === 'credit' && acc.payFromAccountId ? acc.payFromAccountId : acc.id;
     }
+    // yearly (and other longer) bills build up month by month unless held in full
+    const grow = !r.holdInFull ? buildUp(r, next, today) : { months: 0, of: 0 };
+    const growing = grow.of > 0 && grow.months < grow.of;
     out.push({
       key: `r:${r.id}`,
       source: 'recurring',
@@ -51,6 +56,8 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
       accountId: acc.id,
       reserveAccountId,
       amount: r.amount,
+      reserveAmount: growing ? Math.round(((r.amount * grow.months) / grow.of) * 100) / 100 : undefined,
+      buildUp: growing ? grow : undefined,
       currency: acc.currency,
       reserved: !!reserveAccountId,
       perMonth: monthlyEquivalent(r.amount, r.freq, r.every),

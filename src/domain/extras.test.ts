@@ -119,7 +119,7 @@ import { holdingStatus } from './wealth';
 import { withBtc, GOLD_OZ_PER_BAHT } from './fx';
 import { accountValue, freeLiquid } from './balances';
 import { accountClaims } from './splits';
-import { nextDateLooksOdd } from './recurring';
+import { buildUp, monthsPerRepeat, nextDateLooksOdd } from './recurring';
 import type { Account, Tx } from './types';
 
 describe('wealth preserve', () => {
@@ -491,5 +491,22 @@ describe('a next payment date that does not fit the repeat', () => {
   it('weekly bills more than a week away are flagged; past or missing dates are not', () => {
     expect(nextDateLooksOdd(s('week', '2026-12-01'), '2026-12-01', '2026-11-12')).toBe(true);
     expect(nextDateLooksOdd(s('week', '2026-11-01'), null, '2026-11-12')).toBe(false);
+  });
+});
+
+describe('yearly bills build up month by month', () => {
+  const aia = { freq: 'year' as const, every: 1, startDate: '2025-11-26' };
+  it('one share straight after paying, one more each month, all of it one month before', () => {
+    expect(buildUp(aia, '2026-11-26', '2025-11-26')).toEqual({ months: 1, of: 12 });
+    expect(buildUp(aia, '2026-11-26', '2026-04-30')).toEqual({ months: 6, of: 12 });
+    expect(buildUp(aia, '2026-11-26', '2026-10-25')).toEqual({ months: 11, of: 12 });
+    expect(buildUp(aia, '2026-11-26', '2026-10-26')).toEqual({ months: 12, of: 12 });
+  });
+  it('monthly bills are always set aside in full; every 3 months builds up in thirds', () => {
+    expect(monthsPerRepeat({ freq: 'month', every: 1, startDate: '2026-01-01' })).toBe(0);
+    expect(buildUp({ freq: 'month', every: 3, startDate: '2026-11-01' }, '2027-02-01', '2026-12-15')).toEqual({
+      months: 2,
+      of: 3,
+    });
   });
 });
