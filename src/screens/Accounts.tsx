@@ -152,7 +152,7 @@ export function Accounts() {
         </div>
 
         <div className="hstack mb">
-          <button className="btn primary grow" onClick={() => go({ name: 'accountEdit' })}>
+          <button className="btn primary grow" data-tour="add-account" onClick={() => go({ name: 'accountEdit' })}>
             ＋ Add account, card or purse
           </button>
           <button className={`btn ${arrange ? 'mint' : ''}`} onClick={() => setArrange(!arrange)}>

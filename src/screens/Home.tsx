@@ -9,6 +9,7 @@ import { QuickActions } from '../components/QuickActions';
 import { moveItem } from '../domain/groups';
 import { saveTx, updateSettings } from '../db/repo';
 import { PaydayCard } from './Payday';
+import { startTour } from '../components/Tour';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { freeLiquid, netWorth } from '../domain/balances';
 import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
@@ -325,7 +326,7 @@ function MonthEntries() {
   );
 }
 
-/** The guide opens by itself at most once per app start (closing it must not bring it straight back). */
+/** The tour starts by itself at most once per app start (closing it must not bring it straight back). */
 let guideAutoShown = false;
 
 export function Home() {
@@ -340,9 +341,9 @@ export function Home() {
   useEffect(() => {
     if (isNew && !guideAutoShown) {
       guideAutoShown = true;
-      go({ name: 'guide' });
+      startTour();
     }
-  }, [isNew, go]);
+  }, [isNew]);
   useEffect(() => onNativeUpdateState(setNativeUpdate), []);
 
   const nw = netWorth(data.accounts, data.balances, rates, currency);
@@ -369,7 +370,7 @@ export function Home() {
         />
         <OverdueCards />
 
-        <div className="hero">
+        <div className="hero" data-tour="hero">
           <Sparkle k="home" />
           <div className="label">Net worth</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
@@ -391,7 +392,7 @@ export function Home() {
           {nw.missing.length > 0 && <div className="tiny mt">Not counted (no price): {nw.missing.join(', ')}</div>}
         </div>
 
-        <div className="quick-actions">
+        <div className="quick-actions" data-tour="quick">
           <button className="btn pink" onClick={() => go({ name: 'entry', kind: 'expense' })}>
             − Spend
           </button>

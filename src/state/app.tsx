@@ -45,7 +45,6 @@ export type Route =
   | { name: 'recurringEdit'; id?: string }
   | { name: 'payday' }
   | { name: 'retire' }
-  | { name: 'guide' }
   | { name: 'monthClose' }
   | { name: 'budget' }
   | { name: 'bills' }

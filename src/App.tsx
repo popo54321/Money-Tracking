@@ -16,7 +16,7 @@ import { More } from './screens/More';
 import { RecurringList, RecurringEdit } from './screens/Recurring';
 import { PaydayEdit } from './screens/Payday';
 import { Retire } from './screens/Retire';
-import { Guide } from './screens/Guide';
+import { Tour } from './components/Tour';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Screens used less often load on first visit (they are still kept for offline use).
@@ -76,8 +76,6 @@ function Screen() {
       return <PaydayEdit />;
     case 'retire':
       return <Retire />;
-    case 'guide':
-      return <Guide />;
     case 'monthClose':
       return <MonthClose />;
     case 'budget':
@@ -114,16 +112,10 @@ function TabBar() {
   const root = stackDepth === 1 ? route.name : null;
   // forms keep their Save button at the bottom instead of the tab bar
   // the calculator uses the whole screen
-  if (
-    route.name === 'entry' ||
-    route.name === 'accountEdit' ||
-    route.name === 'recurringEdit' ||
-    route.name === 'retire' ||
-    route.name === 'guide'
-  )
+  if (route.name === 'entry' || route.name === 'accountEdit' || route.name === 'recurringEdit' || route.name === 'retire')
     return null;
   const t = (name: 'home' | 'accounts' | 'summary' | 'more', emoji: string, label: string) => (
-    <button className={`tab ${root === name ? 'on' : ''}`} onClick={() => tab(name)} aria-label={label}>
+    <button className={`tab ${root === name ? 'on' : ''}`} onClick={() => tab(name)} aria-label={label} data-tour={`tab-${name}`}>
       <span className="ti">{emoji}</span>
       {label}
     </button>
@@ -133,7 +125,7 @@ function TabBar() {
       <div className="tabbar-inner">
         {t('home', skin.tabs.home, 'Home')}
         {t('accounts', skin.tabs.accounts, 'Accounts')}
-        <button className="tab-add" aria-label="Add entry" onClick={() => go({ name: 'entry', kind: 'expense' })}>
+        <button className="tab-add" data-tour="add" aria-label="Add entry" onClick={() => go({ name: 'entry', kind: 'expense' })}>
           +
         </button>
         {t('summary', skin.tabs.summary, 'Summary')}
@@ -215,6 +207,7 @@ export default function App() {
         </ErrorBoundary>
       </div>
       <TabBar />
+      <Tour />
     </AppProvider>
   );
 }
