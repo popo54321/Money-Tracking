@@ -2,7 +2,16 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
-import { postDueRecurring, postOccurrence, recordOwed, saveNewEntry, setAccountBalance, type TxDraft } from './repo';
+import {
+  postDuePaydays,
+  postDueRecurring,
+  postOccurrence,
+  recordOwed,
+  recordPayday,
+  saveNewEntry,
+  setAccountBalance,
+  type TxDraft,
+} from './repo';
 import { balanceOf } from '../domain/balances';
 import type { Account } from '../domain/types';
 
@@ -260,5 +269,50 @@ describe('category groups', () => {
     // delete with moving
     await deleteCategoryGroup('gp', 'expense', 'Fixed', 'Other');
     expect((await db.categories.get('g3'))!.group).toBe('Other');
+  });
+});
+
+describe('payday', () => {
+  const setup = async (payday: Partial<import('../domain/payday').Payday> = {}) => {
+    await db.profiles.put({
+      id: 'u1',
+      name: 'Popo',
+      order: 0,
+      payday: {
+        active: true,
+        accountId: 'bank',
+        incomeCategoryId: 'salary',
+        gross: 60000,
+        takeHome: 51920,
+        deductCategoryId: 'tax',
+        extras: [{ id: 'pf', name: 'Provident fund', amount: 1800, toAccountId: 'pvd' }],
+        rule: 'day',
+        day: 25,
+        fromMonth: '2026-11',
+        ...payday,
+      },
+    });
+    await db.accounts.put({ ...bank, id: 'pvd', name: 'Provident fund', openingBalance: 0 });
+  };
+  it('records itself on the day: the account goes up by the take-home pay, never twice', async () => {
+    await setup();
+    expect(await postDuePaydays(rates, 'THB', '2026-11-24')).toBe(0);
+    expect(await postDuePaydays(rates, 'THB', '2026-11-25')).toBe(1);
+    expect(await postDuePaydays(rates, 'THB', '2026-11-25')).toBe(0);
+    const txs = await db.txs.toArray();
+    expect(balanceOf(bank, txs)).toBe(1000 + 51920);
+    expect(balanceOf({ ...bank, id: 'pvd', openingBalance: 0 }, txs)).toBe(1800);
+    expect(txs.every((t) => t.date === '2026-11-25')).toBe(true);
+    expect((await db.profiles.get('u1'))?.payday?.paidMonth).toBe('2026-11');
+  });
+  it('"Payday\'s here" records it early, and that month does not record itself again', async () => {
+    await setup();
+    await recordPayday('u1', '2026-11', '2026-11-21', rates, 'THB', { gross: 62000, takeHome: 53500 });
+    expect(await postDuePaydays(rates, 'THB', '2026-11-25')).toBe(0);
+    const txs = await db.txs.toArray();
+    expect(balanceOf(bank, txs)).toBe(1000 + 53500);
+    expect(txs.every((t) => t.date === '2026-11-21')).toBe(true);
+    // the next month records itself as usual
+    expect(await postDuePaydays(rates, 'THB', '2026-12-25')).toBe(1);
   });
 });

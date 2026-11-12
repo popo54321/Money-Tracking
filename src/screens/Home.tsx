@@ -8,6 +8,7 @@ import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { QuickActions } from '../components/QuickActions';
 import { moveItem } from '../domain/groups';
 import { saveTx, updateSettings } from '../db/repo';
+import { PaydayCard } from './Payday';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { freeLiquid, netWorth } from '../domain/balances';
 import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
@@ -391,6 +392,7 @@ export function Home() {
           </button>
         </div>
 
+        <PaydayCard />
         <LimitsCard />
         <ScheduledList foldKey="home.scheduled" />
         <PriceChips />

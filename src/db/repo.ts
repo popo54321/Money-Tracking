@@ -1,8 +1,9 @@
 // Reading and writing app data.
-import { todayISO, type ISODate } from '../domain/dates';
+import { todayISO, type ISODate, type MonthKey } from '../domain/dates';
 import { unitValue, balanceOf } from '../domain/balances';
 import type { RateTable } from '../domain/fx';
 import { dueToPost } from '../domain/recurring';
+import { dueMonths, payDate, payEntries, type Payday } from '../domain/payday';
 import type {
   Freq,
   Account,
@@ -402,6 +403,61 @@ export async function deleteRecurring(id: string, alsoEntries: boolean): Promise
     if (alsoEntries) await db.txs.where('recurringId').equals(id).delete();
     await db.recurring.delete(id);
   });
+}
+
+/**
+ * Record one month's payday: full salary in, deductions out (the account goes up by the take-home pay).
+ * Dated `date` (the pay date, or today when "Payday's here" is tapped early). Marks that month as done.
+ */
+export async function recordPayday(
+  profileId: string,
+  month: MonthKey,
+  date: ISODate,
+  rates: RateTable,
+  defaultCurrency: string,
+  amounts?: { gross: number; takeHome: number },
+): Promise<void> {
+  const prof = await db.profiles.get(profileId);
+  const p = prof?.payday;
+  if (!p) return;
+  for (const e of payEntries(p, profileId, month, amounts)) {
+    if (await db.txs.get(e.id)) continue;
+    await saveTx(
+      {
+        id: e.id,
+        profileId,
+        date,
+        kind: e.kind,
+        accountId: e.accountId,
+        toAccountId: e.toAccountId,
+        amount: e.amount,
+        toAmount: e.kind === 'transfer' ? e.amount : undefined,
+        categoryId: e.categoryId,
+        note: e.note,
+      },
+      rates,
+      defaultCurrency,
+    );
+  }
+  if (!p.paidMonth || p.paidMonth < month) await db.profiles.update(profileId, { payday: { ...p, paidMonth: month } });
+}
+
+/** Record every payday that has come (catching up missed months), for every user. */
+export async function postDuePaydays(rates: RateTable, defaultCurrency: string, today = todayISO()): Promise<number> {
+  let n = 0;
+  for (const prof of await db.profiles.toArray()) {
+    if (!prof.payday) continue;
+    for (const m of dueMonths(prof.payday, today)) {
+      await recordPayday(prof.id, m, payDate(prof.payday, m), rates, defaultCurrency);
+      n++;
+    }
+  }
+  return n;
+}
+
+/** Save (or remove, with undefined) a user's payday. */
+export async function savePayday(profileId: string, payday: Payday | undefined): Promise<void> {
+  await db.profiles.update(profileId, { payday });
 }
 
 /**

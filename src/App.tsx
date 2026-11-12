@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, type ComponentType } from 'react';
 import { AppProvider, useApp } from './state/app';
-import { postDueRecurring } from './db/repo';
+import { postDuePaydays, postDueRecurring } from './db/repo';
 import { refreshPrices } from './services/prices';
 import { autoBackupIfDue } from './services/backup';
 import { appInBackground, checkNativeUpdate, confirmRunningFiles } from './services/autoUpdate';
@@ -14,6 +14,7 @@ import { TxList } from './screens/TxList';
 import { Summary } from './screens/Summary';
 import { More } from './screens/More';
 import { RecurringList, RecurringEdit } from './screens/Recurring';
+import { PaydayEdit } from './screens/Payday';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Screens used less often load on first visit (they are still kept for offline use).
@@ -69,6 +70,8 @@ function Screen() {
       return <RecurringList />;
     case 'recurringEdit':
       return <RecurringEdit id={route.id} />;
+    case 'payday':
+      return <PaydayEdit />;
     case 'monthClose':
       return <MonthClose />;
     case 'budget':
@@ -137,6 +140,8 @@ function Housekeeping() {
     const run = async () => {
       const n = await postDueRecurring(ratesRef.current, currency, today);
       if (alive && n > 0) toast(`🔁 Recorded ${n} repeating ${n === 1 ? 'entry' : 'entries'}`);
+      const paid = await postDuePaydays(ratesRef.current, currency, today);
+      if (alive && paid > 0) toast(`💰 Payday recorded${paid > 1 ? ` (${paid} months)` : ''}`);
     };
     run();
     return () => {

@@ -43,6 +43,7 @@ export type Route =
   | { name: 'txList'; categoryId?: string; accountId?: string; from?: string; to?: string; title?: string }
   | { name: 'recurring' }
   | { name: 'recurringEdit'; id?: string }
+  | { name: 'payday' }
   | { name: 'monthClose' }
   | { name: 'budget' }
   | { name: 'bills' }

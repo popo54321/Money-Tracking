@@ -1,3 +1,4 @@
+import type { Payday } from './payday';
 // Data shapes shared by the calculations, the database and the screens.
 import type { ISODate, MonthKey } from './dates';
 
@@ -12,6 +13,8 @@ export interface Profile {
   categoryGroupOrder?: string[];
   /** monthly spending limits on whole groups, by group name */
   groupLimits?: Record<string, number>;
+  /** a fixed salary recorded once a month (full salary in, deductions out) */
+  payday?: Payday;
 }
 
 export type AccountType =
