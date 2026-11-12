@@ -5,6 +5,7 @@ import { SplitsCard } from '../components/SplitsCard';
 import { accountValue } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
 import { fmtAgo, fmtDate, relativeDays } from '../domain/dates';
+import type { AccountClaims } from '../domain/splits';
 import { fmtMoney } from '../domain/money';
 import type { Account } from '../domain/types';
 import { db } from '../db/db';
@@ -157,6 +158,38 @@ function UnitPriceSheet({ account, open, onClose }: { account: Account; open: bo
   );
 }
 
+/** Where an account's money goes, in order: set aside for bills, splits, saving targets, then Free. */
+function ClaimsBreakdown({ claims, currency }: { claims: AccountClaims; currency: string }) {
+  const parts = [
+    { k: '🔒 Set aside', v: claims.setAside, cls: 'pink' },
+    { k: '🧩 Splits', v: claims.splits, cls: 'sky' },
+    { k: '🎯 Targets', v: claims.targets, cls: 'lav' },
+  ].filter((p) => p.v > 0.005);
+  const whole = Math.max(claims.balance, claims.setAside + claims.splits + claims.targets, 0.01);
+  return (
+    <>
+      <div className="claims-bar mt" aria-hidden>
+        {parts.map((p) => (
+          <div key={p.k} className={p.cls} style={{ width: `${(Math.max(0, p.v) / whole) * 100}%` }} />
+        ))}
+        {claims.free > 0 && <div className="mint" style={{ width: `${(claims.free / whole) * 100}%` }} />}
+      </div>
+      <div className="stat-row mt" style={{ gridTemplateColumns: `repeat(${parts.length + 1}, 1fr)` }}>
+        {parts.map((p) => (
+          <div key={p.k} className="stat">
+            <div className="k">{p.k}</div>
+            <div className="v">{fmtMoney(p.v, currency, { compact: true })}</div>
+          </div>
+        ))}
+        <div className="stat">
+          <div className="k">Free</div>
+          <div className={`v ${claims.free < 0 ? 'neg' : ''}`}>{fmtMoney(claims.free, currency, { compact: true })}</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function AccountDetail({ id }: { id: string }) {
   const { go, rates, currency, today, prices } = useApp();
   const data = useData();
@@ -166,7 +199,7 @@ export function AccountDetail({ id }: { id: string }) {
   if (!a) return <Topbar title="Account not found" />;
   const bal = data.balances.get(a.id) ?? 0;
   const value = accountValue(a, bal, rates, currency);
-  const reserved = data.reserved.get(a.id) ?? 0;
+  const claims = data.claims.get(a.id);
   const txs = data.txs.filter((t) => t.accountId === a.id || t.toAccountId === a.id);
   const isCard = a.type === 'credit';
   const st = isCard ? cardStatus(a, data.txs, today) : null;
@@ -217,19 +250,8 @@ export function AccountDetail({ id }: { id: string }) {
               {a.unitPriceUpdatedAt ? ` · set ${fmtAgo(a.unitPriceUpdatedAt)}` : ''}
             </div>
           )}
-          {reserved > 0 && !isCard && (
-            <div className="stat-row mt" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <div className="stat">
-                <div className="k">🔒 Keep for bills</div>
-                <div className="v">{fmtMoney(reserved, a.currency, { compact: true })}</div>
-              </div>
-              <div className="stat">
-                <div className="k">Free to use</div>
-                <div className={`v ${bal - reserved < 0 ? 'neg' : ''}`}>
-                  {fmtMoney(bal - reserved, a.currency, { compact: true })}
-                </div>
-              </div>
-            </div>
+          {claims && !isCard && claims.setAside + claims.splits + claims.targets > 0.005 && (
+            <ClaimsBreakdown claims={claims} currency={a.currency} />
           )}
         </div>
 
@@ -323,7 +345,7 @@ export function AccountDetail({ id }: { id: string }) {
 
         {reservedHere.length > 0 && (
           <div className="card">
-            <h2>🔒 Keeping ready in this account</h2>
+            <h2>🔒 Set aside for bills</h2>
             {reservedHere.map((u) => (
               <div key={u.key} className="between small" style={{ padding: '4px 0' }}>
                 <span>

@@ -195,7 +195,7 @@ export function AccountEdit({ id }: { id?: string }) {
                 />
               </Field>
             </div>
-            <Field label="Usually paid from" hint="This account keeps the statement amount reserved until it’s paid.">
+            <Field label="Usually paid from" hint="This account sets aside what the card owes until it’s paid.">
               <AccountPickerButton
                 accounts={others}
                 value={a.payFromAccountId}

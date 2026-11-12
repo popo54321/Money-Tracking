@@ -9,7 +9,7 @@ import { QuickActions } from '../components/QuickActions';
 import { moveItem } from '../domain/groups';
 import { updateSettings } from '../db/repo';
 import { ScheduledList, TxGroups } from '../components/TxRow';
-import { netWorth } from '../domain/balances';
+import { freeLiquid, netWorth } from '../domain/balances';
 import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { rateBetween } from '../domain/fx';
@@ -190,6 +190,25 @@ function PriceChips() {
   );
 }
 
+/** "💧 Liquid ฿… · Free ฿…": liquid money, and the part of it nothing is set aside for (bills, splits, targets). */
+export function LiquidLine({ liquid }: { liquid: number }) {
+  const { rates, currency } = useApp();
+  const data = useData();
+  const free = freeLiquid(
+    data.accounts,
+    data.balances,
+    new Map([...data.claims].map(([id, c]) => [id, c.free])),
+    data.cardCovered,
+    rates,
+    currency,
+  );
+  return (
+    <div className="small bold mt">
+      💧 Liquid {fmtMoney(liquid, currency)} · Free <span className={free < 0 ? 'neg' : ''}>{fmtMoney(free, currency)}</span>
+    </div>
+  );
+}
+
 /** Monthly limits you have set (none set = nothing shown): what is left and about how much a day. */
 function LimitsCard() {
   const { currency, rates, today, profile, go } = useApp();
@@ -341,7 +360,7 @@ export function Home() {
           <Sparkle k="home" />
           <div className="label">Net worth</div>
           <div className="big">{fmtMoney(nw.total, currency)}</div>
-          <div className="small bold mt">💧 Liquid {fmtMoney(nw.liquid, currency)}</div>
+          <LiquidLine liquid={nw.liquid} />
           <div className="stat-row">
             <div className="stat">
               <div className="k">In this month</div>

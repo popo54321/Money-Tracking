@@ -1619,3 +1619,34 @@ button.pill {
   color: var(--danger);
   font-weight: 600;
 }
+
+/* where an account's money goes: set aside, splits, targets, free */
+.claims-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg2);
+}
+.claims-bar > div {
+  height: 100%;
+}
+.claims-bar > .pink {
+  background: var(--pink-ink);
+  opacity: 0.6;
+}
+.claims-bar > .sky {
+  background: var(--sky-ink);
+  opacity: 0.6;
+}
+.claims-bar > .lav {
+  background: var(--lav-ink);
+  opacity: 0.6;
+}
+.claims-bar > .mint {
+  background: var(--mint-ink);
+  opacity: 0.6;
+}
+.warn-ink {
+  color: #c98f00;
+}

@@ -117,7 +117,8 @@ describe('saving targets', () => {
 
 import { holdingStatus } from './wealth';
 import { withBtc, GOLD_OZ_PER_BAHT } from './fx';
-import { accountValue } from './balances';
+import { accountValue, freeLiquid } from './balances';
+import { accountClaims } from './splits';
 import type { Account, Tx } from './types';
 
 describe('wealth preserve', () => {
@@ -423,5 +424,55 @@ describe('many saving targets with money in them: the drop is shared exactly', (
       for (const r of rows)
         expect(Math.abs(r.saved - (r.recorded * bal) / saved.reduce((a, b) => a + b, 0))).toBeLessThanOrEqual(0.01);
     }
+  });
+});
+
+describe('one true Free: set aside → splits → targets → Free', () => {
+  const acc = {
+    id: 'k',
+    profileId: 'p',
+    name: 'Kbank',
+    type: 'bank',
+    group: 'Bank',
+    currency: 'THB',
+    openingBalance: 0,
+    openingDate: '2026-01-01',
+    includeInNetWorth: true,
+    archived: false,
+    order: 0,
+    splits: [{ id: 's1', name: 'Car', base: 5000 }],
+  } as unknown as Account;
+  const goal = {
+    goal: { id: 'g', accountId: 'k', currency: 'THB', done: false, name: 'Trip', emoji: '🎯' } as Goal,
+    saved: 8000,
+  };
+  it('takes bills, then splits, then targets off the balance', () => {
+    const c = accountClaims(acc, 30000, 10000, [], [goal]);
+    expect(c).toEqual({ balance: 30000, setAside: 10000, splits: 5000, targets: 8000, free: 7000 });
+  });
+  it('goes below zero when more is claimed than the account holds', () => {
+    expect(accountClaims(acc, 20000, 10000, [], [goal]).free).toBe(-3000);
+  });
+  it('free liquid never takes a card debt off twice', () => {
+    const card = { ...acc, id: 'cc', type: 'credit', splits: [] } as unknown as Account;
+    const loose = { ...acc, id: 'cc2', type: 'credit', splits: [] } as unknown as Account;
+    const invest = { ...acc, id: 'inv', type: 'investment', splits: [] } as unknown as Account;
+    const balances = new Map([
+      ['k', 30000],
+      ['cc', -4000],
+      ['cc2', -500],
+      ['inv', 100000],
+    ]);
+    const free = new Map([['k', 7000]]);
+    // the paying account already set aside the 4,000 the first card owes; the second card has no paying account
+    const v = freeLiquid(
+      [acc, card, loose, invest],
+      balances,
+      free,
+      new Map([['cc', 4000]]),
+      { perUsd: { USD: 1, THB: 33 } },
+      'THB',
+    );
+    expect(v).toBe(6500);
   });
 });

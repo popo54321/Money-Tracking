@@ -82,6 +82,29 @@ export function isLiquid(a: Account): boolean {
   return a.liquid ?? LIQUID_TYPES.has(a.type);
 }
 
+/**
+ * The free part of liquid money, in `target`: each liquid account's Free (after bills, splits and targets).
+ * A card's debt counts only for the part no paying account has set aside, so it is never taken off twice.
+ */
+export function freeLiquid(
+  accounts: Account[],
+  balances: Map<string, number>,
+  free: Map<string, number>,
+  cardCovered: Map<string, number>,
+  rates: RateTable,
+  target: string,
+): number {
+  let total = 0;
+  for (const a of accounts) {
+    if (a.archived || !a.includeInNetWorth || !isLiquid(a)) continue;
+    const bal = balances.get(a.id) ?? 0;
+    const own = a.type === 'credit' ? Math.min(0, bal + (cardCovered.get(a.id) ?? 0)) : (free.get(a.id) ?? bal);
+    const v = accountValue(a, own, rates, target);
+    if (v !== null) total += v;
+  }
+  return total;
+}
+
 export function netWorth(accounts: Account[], balances: Map<string, number>, rates: RateTable, target: string): NetWorth {
   let total = 0;
   let liquid = 0;
