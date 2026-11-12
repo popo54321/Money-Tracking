@@ -128,3 +128,7 @@
 @media (prefers-reduced-motion:reduce){:root[data-skin] .rpgicon.th-pop{animation:none;}}
 /* inside the app the look follows the app's light or dark setting */
 :root[data-in-app] .showas:has(#lookSeg){display:none;}
+/* pressed: buttons turn darker while held (and for a moment after a quick tap), lighter in the Night look */
+:root[data-skin] button{transition:filter .08s ease,scale .08s ease;}
+:root[data-skin] button:not(:disabled):active,:root[data-skin] button.is-pressed{filter:brightness(.8);scale:.97;}
+:root[data-skin][data-look="night"] button:not(:disabled):active,:root[data-skin][data-look="night"] button.is-pressed{filter:brightness(1.35);}

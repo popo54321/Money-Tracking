@@ -36,7 +36,6 @@ export function More() {
         { k: 'entries', t: 'All entries', d: 'Search every entry', c: 'peach', r: { name: 'txList', title: 'All entries' } },
         { k: 'categories', t: 'Categories', d: 'Add, rename, emoji', c: 'lav', r: { name: 'categories' } },
         { k: 'settings', t: 'Settings', d: 'Theme, users, backup, update', c: 'sky', r: { name: 'settings' } },
-        { k: 'guide', t: 'How to use', d: 'Shows you where to tap', c: 'butter', r: { name: 'more' } },
       ],
     },
   ];
@@ -44,17 +43,19 @@ export function More() {
     <>
       <Topbar title={<SkinName k="more" />} right={<ProfileSwitch />} noBack />
       <div className="page">
+        <button className="guide-strip" data-tour="tile-guide" onClick={startTour}>
+          <span className="e">{skin.tiles.guide}</span>
+          <span className="grow">
+            <b>How to use</b> · shows you where to tap
+          </span>
+          <span>›</span>
+        </button>
         {groups.map((g) => (
           <div key={g.label}>
             <div className="group-label">{g.label}</div>
             <div className="tiles">
               {g.tiles.map((x) => (
-                <button
-                  key={x.k}
-                  className={`tile ${x.c}`}
-                  data-tour={`tile-${x.k}`}
-                  onClick={() => (x.k === 'guide' ? startTour() : go(x.r))}
-                >
+                <button key={x.k} className={`tile ${x.c}`} data-tour={`tile-${x.k}`} onClick={() => go(x.r)}>
                   <span className="e">{skin.tiles[x.k]}</span>
                   <span>
                     <div className="t">{x.t}</div>

@@ -8,6 +8,10 @@ import './styles/skins.css';
 import App from './App';
 import { ensureSeeded, migrate } from './db/seed';
 import { registerServiceWorker } from './services/updater';
+import { keepInstallPrompt, showPresses } from './services/press';
+
+showPresses();
+keepInstallPrompt();
 
 async function start() {
   try {
