@@ -2,7 +2,7 @@
 // (the statement due plus what was spent since). Anything paid by card is kept in the card's paying account,
 // never on the card itself, so it does not eat into the card's limit.
 import { diffDays, type ISODate } from './dates';
-import { cardStatus, dueDateFor } from './creditCard';
+import { cardStatus } from './creditCard';
 import { aheadMonths, buildUp, holdStart, monthlyEquivalent, nextUnposted } from './recurring';
 import type { Account, Recurring, Tx } from './types';
 
@@ -76,8 +76,8 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
   for (const card of accounts) {
     if (card.type !== 'credit' || card.archived || !card.statementDay) continue;
     const st = cardStatus(card, txs, today);
+    // the last statement, while some of it is unpaid
     if (st.remaining > 0.005 && st.dueDate) {
-      // the statement is due; keep ready everything owed, including spending since the statement
       out.push({
         key: `c:${card.id}:${st.lastStatement}`,
         source: 'card',
@@ -89,25 +89,24 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
         accountId: card.id,
         reserveAccountId: card.payFromAccountId,
         amount: st.remaining,
-        reserveAmount: Math.max(st.owedNow, st.remaining),
         currency: card.currency,
         reserved: !!card.payFromAccountId,
         overdue: st.overdue,
       });
-    } else if (st.owedNow > 0.005 && st.nextStatement && card.dueDay) {
-      // statement paid (or none yet): what was spent since goes on the next statement
-      const due = dueDateFor(st.nextStatement, card.dueDay);
+    }
+    // spent since the statement: on the next statement, due the month after
+    if (st.nextSoFar > 0.005 && st.nextStatement && st.nextDue) {
       out.push({
         key: `c:${card.id}:next:${st.nextStatement}`,
         source: 'card',
         refId: card.id,
-        label: `${card.name} spending so far`,
+        label: `${card.name} next statement (so far)`,
         kind: 'card',
-        date: due,
-        daysAway: diffDays(today, due),
+        date: st.nextDue,
+        daysAway: diffDays(today, st.nextDue),
         accountId: card.id,
         reserveAccountId: card.payFromAccountId,
-        amount: st.owedNow,
+        amount: st.nextSoFar,
         currency: card.currency,
         reserved: !!card.payFromAccountId,
       });

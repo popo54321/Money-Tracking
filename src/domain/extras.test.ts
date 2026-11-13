@@ -285,8 +285,38 @@ describe('credit card: keep everything owed ready in the paying account', () => 
       tx('pay', '2026-11-05', { kind: 'transfer', accountId: 'bank', toAccountId: 'card', amount: 10000, toAmount: 10000 }),
     ];
     const items = upcomingItems([bank, card], [], txs, '2026-11-07');
-    expect(items.find((i) => i.source === 'card')!.label).toBe('Card spending so far');
+    expect(items.find((i) => i.source === 'card')!.label).toBe('Card next statement (so far)');
     expect(reservedByAccount(items, [bank, card]).get('bank')).toBe(2000);
+  });
+  it('spending after the statement goes on the next one: 4,000 due 10 Nov, then 11,000 due 10 Dec', async () => {
+    const { cardStatus } = await import('./creditCard');
+    const { upcomingItems } = await import('./reserve');
+    const fresh = { ...card, openingBalance: 0 };
+    const spends = [
+      tx('a', '2026-10-20', { amount: 4000 }), // before the 25 Oct statement
+      tx('b', '2026-11-01', { amount: 5000 }), // between the statement and the due day
+    ];
+    const between = cardStatus(fresh, spends, '2026-11-05');
+    expect([between.remaining, between.dueDate]).toEqual([4000, '2026-11-10']);
+    expect([between.nextSoFar, between.nextDue]).toEqual([5000, '2026-12-10']);
+    const items = upcomingItems([bank, fresh], [], spends, '2026-11-05').filter((i) => i.source === 'card');
+    expect(items.map((i) => [i.date, i.amount])).toEqual([
+      ['2026-11-10', 4000],
+      ['2026-12-10', 5000],
+    ]);
+    const paid = [
+      ...spends,
+      tx('pay', '2026-11-09', { kind: 'transfer', accountId: 'bank', toAccountId: 'card', amount: 4000, toAmount: 4000 }),
+      tx('c', '2026-11-20', { amount: 6000 }), // before the 25 Nov statement
+    ];
+    const next = cardStatus(fresh, paid, '2026-11-26');
+    expect([next.lastStatement, next.owedAtStatement, next.remaining, next.dueDate]).toEqual([
+      '2026-11-25',
+      11000,
+      11000,
+      '2026-12-10',
+    ]);
+    expect(next.nextSoFar).toBe(0);
   });
   const yearly = (p: Partial<Recurring>): Recurring =>
     ({
