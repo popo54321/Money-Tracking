@@ -1,8 +1,9 @@
 // Money to keep ready: the next payment of each repeating bill, and everything owed on credit cards
-// (the statement due plus what was spent since), kept in the card's paying account.
+// (the statement due plus what was spent since). Anything paid by card is kept in the card's paying account,
+// never on the card itself, so it does not eat into the card's limit.
 import { diffDays, type ISODate } from './dates';
 import { cardStatus, dueDateFor } from './creditCard';
-import { monthlyEquivalent, nextUnposted, buildUp } from './recurring';
+import { aheadMonths, buildUp, holdStart, monthlyEquivalent, nextUnposted } from './recurring';
 import type { Account, Recurring, Tx } from './types';
 
 export interface UpcomingItem {
@@ -22,6 +23,8 @@ export interface UpcomingItem {
   reserveAmount?: number;
   /** a bill that repeats less often than monthly, building up: months set aside so far, of how many */
   buildUp?: { months: number; of: number };
+  /** a small bill set aside only shortly before it is due: nothing yet, the whole amount from this day */
+  holdFrom?: ISODate;
   currency: string;
   reserved: boolean;
   perMonth?: number;
@@ -40,11 +43,16 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
     if (!acc) continue;
     let reserveAccountId: string | undefined;
     if (r.reserve && r.kind !== 'income') {
-      reserveAccountId = acc.type === 'credit' && acc.payFromAccountId ? acc.payFromAccountId : acc.id;
+      // paid by card: kept in the card's paying account (a card without one has nowhere to keep it)
+      reserveAccountId = acc.type === 'credit' ? acc.payFromAccountId : acc.id;
     }
+    // small bills: set aside in full only in the last months before they are due
+    const ahead = aheadMonths(r);
+    const from = ahead ? holdStart(next, ahead) : undefined;
+    const waiting = !!from && today < from;
     // yearly (and other longer) bills build up month by month unless held in full
-    const grow = !r.holdInFull ? buildUp(r, next, today) : { months: 0, of: 0 };
-    const growing = grow.of > 0 && grow.months < grow.of;
+    const grow = !r.holdInFull && !ahead ? buildUp(r, next, today) : { months: 0, of: 0 };
+    const growing = !!reserveAccountId && grow.of > 0 && grow.months < grow.of;
     out.push({
       key: `r:${r.id}`,
       source: 'recurring',
@@ -58,8 +66,9 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
       amount: r.amount,
       reserveAmount: growing ? Math.round(((r.amount * grow.months) / grow.of) * 100) / 100 : undefined,
       buildUp: growing ? grow : undefined,
+      holdFrom: reserveAccountId && waiting ? from : undefined,
       currency: acc.currency,
-      reserved: !!reserveAccountId,
+      reserved: !!reserveAccountId && !waiting,
       perMonth: monthlyEquivalent(r.amount, r.freq, r.every),
     });
   }

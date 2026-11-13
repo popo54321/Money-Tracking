@@ -20,6 +20,9 @@ import {
   nextUnposted,
   nextDateLooksOdd,
   monthsPerRepeat,
+  aheadMonths,
+  holdStart,
+  MAX_AHEAD,
 } from '../domain/recurring';
 import type { Freq, Recurring } from '../domain/types';
 import { db, uid } from '../db/db';
@@ -117,6 +120,10 @@ export function RecurringList() {
                         🔒 {fmtMoney(up.reserveAmount ?? 0, up.currency)} set aside so far ({up.buildUp.months} of {up.buildUp.of}{' '}
                         months)
                       </div>
+                    )}
+                    {up?.holdFrom && <div className="tiny muted">🔒 Set aside in full from {fmtDate(up.holdFrom, false)}</div>}
+                    {r.active && r.reserve && r.kind !== 'income' && acc?.type === 'credit' && !acc.payFromAccountId && (
+                      <div className="tiny warn-ink">⚠️ Not set aside: this card has no paying account.</div>
                     )}
                     {notSetAside && (
                       <div className="tiny warn-ink">
@@ -364,17 +371,14 @@ export function RecurringEdit({ id }: { id?: string }) {
             onChange={(v) => set({ reserve: v })}
           />
         )}
+        {r.kind !== 'income' && r.reserve && acc?.type === 'credit' && !acc.payFromAccountId && (
+          <div className="tiny warn-ink mb">
+            ⚠️ Nothing is set aside: this card has no paying account. Money for card bills is kept in the bank account that pays
+            the card, not on the card, so it never uses up the card’s limit. Choose one in the card’s settings.
+          </div>
+        )}
         {r.kind !== 'income' && r.reserve && monthsPerRepeat(r) > 0 && (
-          <ToggleRow
-            title="Hold in full"
-            desc={
-              r.holdInFull
-                ? 'The whole amount is set aside all the time.'
-                : `Builds up month by month: ${fmtMoney(r.amount / monthsPerRepeat(r), acc?.currency ?? currency)} a month, all of it one month before it is due. Switch on to set it all aside now.`
-            }
-            on={!!r.holdInFull}
-            onChange={(v) => set({ holdInFull: v })}
-          />
+          <HowToSetAside r={r} set={set} next={next} cur={acc?.currency ?? currency} />
         )}
         {existing && <ToggleRow title="Active" on={r.active} onChange={(v) => set({ active: v })} />}
 
@@ -426,5 +430,54 @@ export function RecurringEdit({ id }: { id?: string }) {
         )}
       </div>
     </>
+  );
+}
+
+/** For bills that come round less often than monthly: build up, hold in full, or (small bills) only shortly before. */
+function HowToSetAside({
+  r,
+  set,
+  next,
+  cur,
+}: {
+  r: Recurring;
+  set: (p: Partial<Recurring>) => void;
+  next: string | null | undefined;
+  cur: string;
+}) {
+  const of = monthsPerRepeat(r);
+  const ahead = aheadMonths(r);
+  const way = ahead ? 'ahead' : r.holdInFull ? 'full' : 'build';
+  // "only shortly before" needs at least 2 months between payments
+  const choices = Array.from({ length: Math.min(MAX_AHEAD, of - 1) }, (_, i) => i + 1);
+  const hint =
+    way === 'build'
+      ? `${fmtMoney(r.amount / of, cur)} more each month, all of it one month before it is due.`
+      : way === 'full'
+        ? 'The whole amount is set aside all the time.'
+        : `For small amounts: nothing until ${next ? fmtDate(holdStart(next, ahead)) : `${ahead} ${ahead === 1 ? 'month' : 'months'} before`}, then all ${fmtMoney(r.amount, cur)} until it is paid.`;
+  return (
+    <Field label="How to set it aside" hint={hint}>
+      <Seg
+        value={way}
+        options={[
+          { v: 'build', label: 'Build up' },
+          { v: 'full', label: 'All now' },
+          ...(choices.length ? [{ v: 'ahead' as const, label: 'Just before' }] : []),
+        ]}
+        onChange={(v) =>
+          set({ holdInFull: v === 'full' ? true : undefined, aheadMonths: v === 'ahead' ? ahead || 1 : undefined })
+        }
+      />
+      {way === 'ahead' && (
+        <div className="mt">
+          <Seg
+            value={String(ahead)}
+            options={choices.map((n) => ({ v: String(n), label: n === 1 ? '1 month before' : `${n} months before` }))}
+            onChange={(v) => set({ aheadMonths: Number(v) })}
+          />
+        </div>
+      )}
+    </Field>
   );
 }

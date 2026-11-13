@@ -120,7 +120,7 @@ import { withBtc, GOLD_OZ_PER_BAHT } from './fx';
 import { accountValue, freeLiquid } from './balances';
 import { accountClaims } from './splits';
 import { buildUp, monthsPerRepeat, nextDateLooksOdd } from './recurring';
-import type { Account, Tx } from './types';
+import type { Account, Recurring, Tx } from './types';
 
 describe('wealth preserve', () => {
   const base: Omit<Account, 'id' | 'name' | 'type' | 'currency'> = {
@@ -287,6 +287,55 @@ describe('credit card: keep everything owed ready in the paying account', () => 
     const items = upcomingItems([bank, card], [], txs, '2026-11-07');
     expect(items.find((i) => i.source === 'card')!.label).toBe('Card spending so far');
     expect(reservedByAccount(items, [bank, card]).get('bank')).toBe(2000);
+  });
+  const yearly = (p: Partial<Recurring>): Recurring =>
+    ({
+      id: 'r',
+      profileId: 'p',
+      name: 'Yearly',
+      kind: 'expense',
+      amount: 1200,
+      accountId: 'card',
+      freq: 'year',
+      every: 1,
+      startDate: '2026-12-20',
+      autoPost: true,
+      reserve: true,
+      holdInFull: true,
+      active: true,
+      createdAt: 1,
+      ...p,
+    }) as Recurring;
+  it('a yearly bill paid by card is kept in the paying bank account, never on the card', async () => {
+    const { upcomingItems, reservedByAccount } = await import('./reserve');
+    const items = upcomingItems([bank, { ...card, openingBalance: 0 }], [yearly({})], [], '2026-11-12');
+    const m = reservedByAccount(items, [bank, card]);
+    expect(m.get('bank')).toBe(1200);
+    expect(m.get('card')).toBeUndefined();
+  });
+  it('a card with no paying account sets nothing aside (not on the card either)', async () => {
+    const { upcomingItems, reservedByAccount } = await import('./reserve');
+    const lone = { ...card, openingBalance: 0, payFromAccountId: undefined };
+    const items = upcomingItems([bank, lone], [yearly({})], [], '2026-11-12');
+    expect(items.find((i) => i.key === 'r:r')!.reserved).toBe(false);
+    expect(reservedByAccount(items, [bank, lone]).size).toBe(0);
+  });
+  it('a small bill set aside 2 months before: nothing until then, the whole amount after', async () => {
+    const { upcomingItems } = await import('./reserve');
+    const small = yearly({ accountId: 'bank', holdInFull: undefined, aheadMonths: 2 });
+    const early = upcomingItems([bank], [small], [], '2026-10-19').find((i) => i.key === 'r:r')!;
+    expect(early.reserved).toBe(false);
+    expect(early.holdFrom).toBe('2026-10-20');
+    const inTime = upcomingItems([bank], [small], [], '2026-10-20').find((i) => i.key === 'r:r')!;
+    expect(inTime.reserved).toBe(true);
+    expect(inTime.reserveAmount).toBeUndefined();
+    expect(inTime.holdFrom).toBeUndefined();
+  });
+  it('months ahead only counts when the bill comes round less often than that', async () => {
+    const { aheadMonths } = await import('./recurring');
+    expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01', aheadMonths: 3 })).toBe(3);
+    expect(aheadMonths({ freq: 'month', every: 2, startDate: '2026-01-01', aheadMonths: 2 })).toBe(0);
+    expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01', aheadMonths: 4 })).toBe(0);
   });
 });
 
