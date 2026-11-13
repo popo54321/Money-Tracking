@@ -164,6 +164,8 @@ export interface Recurring {
    * the month it is due (0), then the whole amount; takes the place of building up or holding in full
    */
   aheadMonths?: number;
+  /** an instalment plan: this many monthly payments in all, then it stops (endDate is set to the last one) */
+  instalments?: number;
   active: boolean;
   createdAt: number;
 }

@@ -23,6 +23,7 @@ import {
   aheadMonths,
   holdStart,
   MAX_AHEAD,
+  instalmentEnd,
 } from '../domain/recurring';
 import type { Freq, Recurring } from '../domain/types';
 import { db, uid } from '../db/db';
@@ -121,6 +122,7 @@ export function RecurringList() {
                         months)
                       </div>
                     )}
+                    {!!r.instalments && <InstalmentLine r={r} cur={acc?.currency ?? currency} />}
                     {up?.holdFrom && <div className="tiny muted">🔒 Set aside in full from {fmtDate(up.holdFrom, false)}</div>}
                     {r.active && r.reserve && r.kind !== 'income' && acc?.type === 'credit' && !acc.payFromAccountId && (
                       <div className="tiny warn-ink">⚠️ Not set aside: this card has no paying account.</div>
@@ -336,11 +338,30 @@ export function RecurringEdit({ id }: { id?: string }) {
         </div>
         <div className="grid2">
           <Field label="First date">
-            <input type="date" value={r.startDate} onChange={(e) => set({ startDate: e.target.value || r.startDate })} />
+            <input
+              type="date"
+              value={r.startDate}
+              onChange={(e) => {
+                const startDate = e.target.value || r.startDate;
+                set({ startDate, endDate: r.instalments ? instalmentEnd(startDate, r.instalments) : r.endDate });
+              }}
+            />
           </Field>
-          <Field label="End date (optional)">
-            <input type="date" value={r.endDate ?? ''} onChange={(e) => set({ endDate: e.target.value || undefined })} />
-          </Field>
+          {r.instalments ? (
+            <Field label="Number of payments" hint={`Paid off ${fmtDate(instalmentEnd(r.startDate, r.instalments))}`}>
+              <NumberInput
+                value={r.instalments}
+                onChange={(v) => {
+                  const n = Math.min(120, Math.max(1, Math.round(v) || 1));
+                  set({ instalments: n, endDate: instalmentEnd(r.startDate, n) });
+                }}
+              />
+            </Field>
+          ) : (
+            <Field label="End date (optional)">
+              <input type="date" value={r.endDate ?? ''} onChange={(e) => set({ endDate: e.target.value || undefined })} />
+            </Field>
+          )}
         </div>
         <div className="small muted mb">
           {describeSchedule(r.freq, r.every)}
@@ -490,5 +511,21 @@ function HowToSetAside({
         </div>
       )}
     </Field>
+  );
+}
+
+/** An instalment plan's progress: payments made so far, of how many, and what is left to pay. */
+export function InstalmentLine({ r, cur }: { r: Recurring; cur: string }) {
+  const data = useData();
+  const n = r.instalments ?? 0;
+  const made = Math.min(n, data.txs.filter((t) => t.recurringId === r.id).length);
+  const left = Math.max(0, n - made) * r.amount;
+  return (
+    <div className="tiny muted">
+      💳 Payment {made} of {n}
+      {left > 0.005
+        ? ` · ${fmtMoney(left, cur)} left · paid off ${fmtDate(instalmentEnd(r.startDate, n), false)}`
+        : ' · paid off ✅'}
+    </div>
   );
 }

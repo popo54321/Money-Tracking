@@ -2,7 +2,7 @@
 import { todayISO, type ISODate, type MonthKey } from '../domain/dates';
 import { unitValue, balanceOf } from '../domain/balances';
 import type { RateTable } from '../domain/fx';
-import { dueToPost } from '../domain/recurring';
+import { dueToPost, instalmentEnd } from '../domain/recurring';
 import { dueMonths, payDate, payEntries, type Payday } from '../domain/payday';
 import type {
   Freq,
@@ -347,10 +347,13 @@ export interface RepeatOptions {
   every: number;
   autoPost: boolean;
   reserve: boolean;
+  /** an instalment plan: this many monthly payments, then it stops */
+  instalments?: number;
 }
 
 /**
  * Save a new entry, optionally as the first of a repeating series.
+ * An instalment plan is a monthly series that ends after its last payment.
  * A series whose first date is in the future is only scheduled: nothing is recorded until that day,
  * when postDueRecurring records it like any other occurrence.
  */
@@ -382,6 +385,8 @@ export async function saveNewEntry(
     startDate: draft.date,
     autoPost: repeat.autoPost,
     reserve: kind !== 'income' && repeat.reserve,
+    instalments: repeat.instalments,
+    endDate: repeat.instalments ? instalmentEnd(draft.date, repeat.instalments) : undefined,
     active: true,
     createdAt: Date.now(),
   };

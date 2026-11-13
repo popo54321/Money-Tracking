@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { debtStatus, type Debt } from '../domain/debts';
+import { InstalmentLine } from './Recurring';
+import { uid } from '../db/db';
+import { saveDebt } from '../db/repo';
 import { AmountField, CategoryGrid, Field, Sheet, Topbar } from '../components/ui';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { SplitsCard } from '../components/SplitsCard';
@@ -353,6 +358,8 @@ export function AccountDetail({ id }: { id: string }) {
           </div>
         )}
 
+        {isCard && <CardExtras card={a} />}
+
         {!isCard && <SplitsCard account={a} />}
 
         {reservedHere.length > 0 && (
@@ -386,6 +393,120 @@ export function AccountDetail({ id }: { id: string }) {
       </div>
       <BalanceSheet account={a} open={balOpen} onClose={() => setBalOpen(false)} />
       {a.type === 'units' && <UnitPriceSheet account={a} open={priceOpen} onClose={() => setPriceOpen(false)} />}
+    </>
+  );
+}
+
+/** A card's instalment plans, and its debt (money carried over with interest), which also shows in Debts. */
+function CardExtras({ card }: { card: Account }) {
+  const { go, today, profile, toast } = useApp();
+  const data = useData();
+  const debts = useLiveQuery(() => db.debts.where('profileId').equals(profile.id).toArray(), [profile.id]) ?? [];
+  const cardDebts = debts.filter((d) => d.cardId === card.id && !d.closed);
+  const plans = data.recurring.filter((r) => r.instalments && r.accountId === card.id && r.active);
+  const st = cardStatus(card, data.txs, today);
+
+  const logDebt = async () => {
+    // start from what is unpaid: an overdue statement, or else everything owed now
+    const amount = st.overdue ? st.remaining : st.owedNow;
+    const d: Debt = {
+      id: uid(),
+      profileId: profile.id,
+      person: `💳 ${card.name}`,
+      direction: 'iOwe',
+      currency: card.currency,
+      interestType: 'simple',
+      ratePct: 16,
+      ratePer: 'year',
+      events:
+        amount > 0.005
+          ? [
+              {
+                id: uid(),
+                date: st.overdue && st.dueDate ? st.dueDate : today,
+                type: 'lend',
+                amount: Math.round(amount * 100) / 100,
+              },
+            ]
+          : [],
+      cardId: card.id,
+      note: 'Credit card debt',
+      closed: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    await saveDebt(d);
+    toast('💗 Added to Debts. Check the amount and interest rate.');
+    go({ name: 'debt', id: d.id });
+  };
+
+  return (
+    <>
+      <div className="card">
+        <h2>🧾 Instalment plans</h2>
+        {plans.length === 0 ? (
+          <div className="small muted mb">
+            Bought something to pay off monthly? Add it here and each payment is recorded on this card until it is paid off.
+          </div>
+        ) : (
+          <div className="list mb">
+            {plans.map((r) => (
+              <button key={r.id} className="row" onClick={() => go({ name: 'recurringEdit', id: r.id })}>
+                <div className="main">
+                  <div className="title">{r.name}</div>
+                  <InstalmentLine r={r} cur={card.currency} />
+                </div>
+                <div className="end">
+                  <div className="amt">{fmtMoney(r.amount, card.currency)}</div>
+                  <div className="amt2">a month</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          className="btn block"
+          onClick={() => go({ name: 'entry', kind: 'expense', accountId: card.id, instalments: true })}
+        >
+          ＋ Add an instalment plan
+        </button>
+      </div>
+
+      <div className="card">
+        <h2>💗 Card debt</h2>
+        {cardDebts.length === 0 ? (
+          <div className="small muted mb">
+            Carrying a balance you can’t pay off in full? Log it as a debt to track the interest and what is left. It also shows
+            in Debts under I owe.
+          </div>
+        ) : (
+          <div className="list mb">
+            {cardDebts.map((d) => {
+              const s = debtStatus(d, today);
+              return (
+                <button key={d.id} className="row" onClick={() => go({ name: 'debt', id: d.id })}>
+                  <div className="main">
+                    <div className="title">Owed with interest</div>
+                    <div className="sub">
+                      {d.interestType === 'none' ? 'no interest' : `${d.ratePct}% a ${d.ratePer}`}
+                      {s.startDate ? ` · since ${fmtDate(s.startDate, false)}` : ''}
+                    </div>
+                  </div>
+                  <div className="end">
+                    <div className="amt neg">{fmtMoney(s.owed, d.currency)}</div>
+                    {s.interest > 0.005 && <div className="amt2">incl. {fmtMoney(s.interest, d.currency)} interest</div>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {cardDebts.length === 0 && (
+          <button className="btn pink block" onClick={logDebt}>
+            ＋ Log card debt
+          </button>
+        )}
+      </div>
     </>
   );
 }

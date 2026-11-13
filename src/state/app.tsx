@@ -39,6 +39,8 @@ export type Route =
       amount?: number;
       categoryId?: string;
       note?: string;
+      /** open with "Pay in instalments" switched on (from a card's page) */
+      instalments?: boolean;
     }
   | { name: 'txList'; categoryId?: string; accountId?: string; from?: string; to?: string; title?: string }
   | { name: 'recurring' }
