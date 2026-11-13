@@ -316,3 +316,17 @@ describe('payday', () => {
     expect(await postDuePaydays(rates, 'THB', '2026-12-25')).toBe(1);
   });
 });
+
+describe('instalment plans', () => {
+  it('a 10-month plan records 10 payments, one a month, then stops', async () => {
+    const buy = { ...draft('2026-11-13'), amount: 1000, note: 'Phone' };
+    await saveNewEntry(buy, { ...monthly, name: 'Phone (instalments)', instalments: 10 }, rates, 'THB', '2026-11-13');
+    const [r] = await db.recurring.toArray();
+    expect([r.instalments, r.endDate]).toEqual([10, '2027-08-13']);
+    // two years later, every payment has been recorded and no more
+    await postDueRecurring(rates, 'THB', '2028-11-13');
+    const paid = await db.txs.where('recurringId').equals(r.id).toArray();
+    expect(paid.length).toBe(10);
+    expect(paid.map((t) => t.date).sort()[9]).toBe('2027-08-13');
+  });
+});

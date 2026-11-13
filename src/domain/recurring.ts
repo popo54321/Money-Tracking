@@ -140,6 +140,17 @@ export function holdStart(next: ISODate, ahead: number): ISODate {
   return addMonthsClamped(y, m, d, -ahead);
 }
 
+/** An instalment plan of `n` monthly payments starting on `start`: the date of the last one. */
+export function instalmentEnd(start: ISODate, n: number): ISODate {
+  const { y, m, d } = parseISO(start);
+  return addMonthsClamped(y, m, d, Math.max(1, Math.floor(n)) - 1);
+}
+
+/** Each monthly payment of an instalment plan (the total split evenly, to the satang). */
+export function instalmentAmount(total: number, n: number): number {
+  return Math.round((total / Math.max(1, Math.floor(n))) * 100) / 100;
+}
+
 /** Roughly how much this costs per month, to show how much to set aside. */
 export function monthlyEquivalent(amount: number, freq: Freq, every: number): number {
   const e = Math.max(1, every || 1);

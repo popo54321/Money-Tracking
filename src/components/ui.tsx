@@ -720,7 +720,7 @@ export function Avatar({ name }: { name: string }) {
   const c = nameColour(name || '?');
   return (
     <span className="avatar" style={{ background: `var(--${c})`, color: `var(--${c}-ink)` }}>
-      {name.trim().slice(0, 1).toUpperCase() || '?'}
+      {(Array.from(name.trim())[0] ?? '?').toUpperCase()}
     </span>
   );
 }

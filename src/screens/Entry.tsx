@@ -17,7 +17,7 @@ import {
 import { unitValue } from '../domain/balances';
 import { convert } from '../domain/fx';
 import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
-import { describeSchedule } from '../domain/recurring';
+import { describeSchedule, instalmentAmount, instalmentEnd } from '../domain/recurring';
 import { fmtDate } from '../domain/dates';
 import { splitView } from '../domain/splits';
 import type { Freq, TxKind } from '../domain/types';
@@ -88,6 +88,9 @@ export function Entry({ route }: { route: EntryRoute }) {
   const [every, setEvery] = useState(1);
   const [autoPost, setAutoPost] = useState(true);
   const [reserve, setReserve] = useState(true);
+  // spending on a credit card can be split into monthly instalments
+  const [instal, setInstal] = useState(!!route.instalments);
+  const [months, setMonths] = useState(10);
 
   const amount = calc.value;
   const accCur = acc?.currency ?? currency;
@@ -113,6 +116,8 @@ export function Entry({ route }: { route: EntryRoute }) {
         [],
       )
     : null;
+  const canInstal = !existing && kind === 'expense' && acc?.type === 'credit';
+  const instalOn = canInstal && instal;
   const takenFromSplits = takeSplits ? Object.values(fromSplits).reduce((x, v) => x + (v || 0), 0) : 0;
   const fromLeft = (charged ?? 0) - takenFromSplits;
 
@@ -159,27 +164,45 @@ export function Entry({ route }: { route: EntryRoute }) {
       return;
     }
     if (takeSplits && fromLeft < -0.005) return toast('The splits add up to more than the amount');
+    if (instalOn && months < 2) return toast('Instalments need at least 2 months');
+    const plan = instalOn ? Math.round(months) : 0;
     const draft = {
       id: existing?.id,
       profileId: profile.id,
       date,
       kind,
       accountId: acc.id,
-      amount: kind === 'adjust' ? (existing && existing.amount < 0 ? -Math.abs(amount) : amount) : charged,
+      amount:
+        kind === 'adjust'
+          ? existing && existing.amount < 0
+            ? -Math.abs(amount)
+            : amount
+          : plan
+            ? instalmentAmount(charged, plan)
+            : charged,
       toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
       toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
       categoryId,
       note,
       origAmount: foreign ? amount : undefined,
       origCurrency: foreign ? typedCurrency : undefined,
-      fromSplits: takeSplits
-        ? Object.entries(fromSplits)
-            .filter(([, v]) => v > 0)
-            .map(([splitId, v]) => ({ splitId, amount: v }))
-        : undefined,
+      fromSplits:
+        takeSplits && !plan
+          ? Object.entries(fromSplits)
+              .filter(([, v]) => v > 0)
+              .map(([splitId, v]) => ({ splitId, amount: v }))
+          : undefined,
     };
-    const repeatOpts =
-      repeat && !existing && kind !== 'adjust'
+    const repeatOpts = plan
+      ? {
+          name: `${note.trim() || data.categoryById.get(categoryId ?? '')?.name || 'Purchase'} (instalments)`,
+          freq: 'month' as Freq,
+          every: 1,
+          autoPost: true,
+          reserve: true,
+          instalments: plan,
+        }
+      : repeat && !existing && kind !== 'adjust'
         ? {
             name:
               note.trim() ||
@@ -195,6 +218,13 @@ export function Entry({ route }: { route: EntryRoute }) {
       ? (await saveTx(draft, rates, currency), 'saved')
       : await saveNewEntry(draft, repeatOpts, rates, currency, today);
     if (kind !== 'adjust') writeLast(profile.id, kind, acc.id);
+    if (plan) {
+      toast(
+        `💳 ${plan} monthly payments of ${fmtMoney(draft.amount, acc.currency)}, paid off ${fmtDate(instalmentEnd(date, plan))}`,
+      );
+      back();
+      return;
+    }
     if (outcome === 'scheduled') {
       toast(`📅 Scheduled for ${fmtDate(date)}. It's recorded on the day.`);
       back();
@@ -396,7 +426,30 @@ export function Entry({ route }: { route: EntryRoute }) {
           <input type="date" value={date} onChange={(e) => setDate(e.target.value || today)} />
         </Field>
 
-        {!existing && kind !== 'adjust' && (
+        {canInstal && (
+          <div className="card flat">
+            <ToggleRow
+              title="💳 Pay in instalments"
+              desc="The amount above is the full price, paid monthly until it is paid off"
+              on={instal}
+              onChange={setInstal}
+            />
+            {instal && (
+              <>
+                <Field label="Number of months">
+                  <NumberInput value={months} onChange={(v) => setMonths(Math.min(120, Math.max(0, Math.round(v) || 0)))} />
+                </Field>
+                <div className="small muted">
+                  {months >= 2 && charged
+                    ? `${fmtMoney(instalmentAmount(charged, months), acc!.currency)} a month for ${months} months, from ${fmtDate(date)} until ${fmtDate(instalmentEnd(date, months))}. Each payment is recorded on the card by itself.`
+                    : 'At least 2 months.'}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {!existing && kind !== 'adjust' && !instalOn && (
           <div className="card flat">
             <ToggleRow title="🔁 Repeat this" desc="For salary, bills and subscriptions" on={repeat} onChange={setRepeat} />
             {repeat && (

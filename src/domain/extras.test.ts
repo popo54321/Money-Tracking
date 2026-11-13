@@ -600,3 +600,12 @@ describe('yearly bills build up month by month', () => {
     });
   });
 });
+
+describe('instalment plan dates and amounts', () => {
+  it('the last payment is n−1 months after the first; month ends clamp', async () => {
+    const { instalmentEnd, instalmentAmount } = await import('./recurring');
+    expect(instalmentEnd('2026-11-13', 10)).toBe('2027-08-13');
+    expect(instalmentEnd('2026-01-31', 2)).toBe('2026-02-28');
+    expect(instalmentAmount(10000, 3)).toBe(3333.33);
+  });
+});

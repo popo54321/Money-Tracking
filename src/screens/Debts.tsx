@@ -235,7 +235,7 @@ export function DebtDetail({ id }: { id: string }) {
           <div className="big">{fmtMoney(s.owed, cur)}</div>
           <div className="stat-row">
             <div className="stat">
-              <div className="k">Lent</div>
+              <div className="k">{theyOwe ? 'Lent' : 'Borrowed'}</div>
               <div className="v">{fmtMoney(s.totalLent, cur, { compact: true })}</div>
             </div>
             <div className="stat">
@@ -403,7 +403,7 @@ export function DebtDetail({ id }: { id: string }) {
       <CurrencySheet open={curOpen} onClose={() => setCurOpen(false)} value={cur} onPick={(c) => update({ currency: c })} />
       {quickEv && (
         <QuickActions
-          title={`${quickEv.type === 'repay' ? 'Paid back' : 'Lent'} · ${fmtMoney(quickEv.amount, d.currency)}`}
+          title={`${quickEv.type === 'repay' ? 'Paid back' : theyOwe ? 'Lent' : 'Borrowed'} · ${fmtMoney(quickEv.amount, d.currency)}`}
           onClose={() => setQuickEv(null)}
           actions={[
             { label: '✏️ Edit', tone: 'plain', run: () => setEv(quickEv) },

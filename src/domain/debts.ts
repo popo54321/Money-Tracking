@@ -26,6 +26,8 @@ export interface Debt {
   dueDate?: ISODate;
   note?: string;
   events: DebtEvent[];
+  /** a credit card debt: the card it is on (added from the card's page) */
+  cardId?: string;
   closed: boolean;
   createdAt: number;
   updatedAt: number;
