@@ -696,13 +696,13 @@ export function ProgressBar({ value, planned = 0, colour = '' }: { value: number
 
 // ---------- theme decorations ----------
 
-/** The little picture in the corner of a top card; nothing in the Financial theme. */
+/** The little picture in the corner of a top card: the theme's mascot, or an emoji. */
 export function Sparkle({ k, override }: { k: string; override?: string }) {
   const { skin } = useApp();
   if (skin.mascot)
     return (
       <span className="sparkle mascot">
-        <Mascot kind={skin.mascot} pose={skin.poses?.[k] ?? 'happy'} size={46} />
+        <Mascot kind={skin.cast?.[k] ?? skin.mascot} pose={skin.poses?.[k] ?? 'happy'} size={46} />
       </span>
     );
   const e = skin.plain ? '' : (override ?? skin.sparkle[k] ?? '');
