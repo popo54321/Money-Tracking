@@ -314,8 +314,20 @@ export function AccountDetail({ id }: { id: string }) {
                     </span>
                   </div>
                 )}
+                <table className="t mt">
+                  <tbody>
+                    <tr>
+                      <td>Next statement</td>
+                      <td>{st.nextStatement ? fmtDate(st.nextStatement) : '—'}</td>
+                    </tr>
+                    <tr className="total">
+                      <td>Spent since the last statement</td>
+                      <td>{fmtMoney(st.nextSoFar, a.currency)}</td>
+                    </tr>
+                  </tbody>
+                </table>
                 <div className="small muted">
-                  Next statement {st.nextStatement ? fmtDate(st.nextStatement) : '—'}
+                  {st.nextDue ? `Goes on the next statement, due ${fmtDate(st.nextDue)}` : 'Goes on the next statement'}
                   {a.creditLimit
                     ? ` · limit ${fmtMoney(a.creditLimit, a.currency, { compact: true })} · available ${fmtMoney(st.available ?? 0, a.currency, { compact: true })}`
                     : ''}

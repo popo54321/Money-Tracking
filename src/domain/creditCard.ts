@@ -1,4 +1,7 @@
-// Credit card statement cycle: what the last statement says, how much of it is still unpaid and when it is due.
+// Credit card statement cycle: what the last statement says, how much of it is still unpaid and when it is due,
+// and what has been spent since, which goes on the next statement (due the month after).
+// Example, statement day 25, due day 10: 4,000 spent up to 25 Oct is due 10 Nov; 5,000 spent 26 Oct to 9 Nov and
+// 6,000 more up to 25 Nov make the 25 Nov statement 11,000, due 10 Dec.
 import { addMonthsClamped, dayInMonth, diffDays, parseISO, type ISODate } from './dates';
 import { balanceOf, txDelta } from './balances';
 import type { Account, Tx } from './types';
@@ -41,6 +44,10 @@ export interface CardStatus {
   daysToDue?: number;
   overdue: boolean;
   nextStatement?: ISODate;
+  /** spent since the last statement (what is owed beyond the part of it still unpaid): on the next statement */
+  nextSoFar: number;
+  /** when the next statement will be due */
+  nextDue?: ISODate;
 }
 
 export function cardStatus(card: Account, txs: Tx[], today: ISODate): CardStatus {
@@ -53,6 +60,7 @@ export function cardStatus(card: Account, txs: Tx[], today: ISODate): CardStatus
     paidSinceStatement: 0,
     remaining: 0,
     overdue: false,
+    nextSoFar: 0,
   };
   if (!card.statementDay) return base;
   const last = statementOnOrBefore(today, card.statementDay);
@@ -65,6 +73,7 @@ export function cardStatus(card: Account, txs: Tx[], today: ISODate): CardStatus
   }
   const remaining = Math.max(0, owedAtStatement - paid);
   const due = card.dueDay ? dueDateFor(last, card.dueDay) : undefined;
+  const nextStatement = statementAfter(today, card.statementDay);
   return {
     ...base,
     lastStatement: last,
@@ -74,6 +83,8 @@ export function cardStatus(card: Account, txs: Tx[], today: ISODate): CardStatus
     dueDate: due,
     daysToDue: due ? diffDays(today, due) : undefined,
     overdue: !!due && due < today && remaining > 0.005,
-    nextStatement: statementAfter(today, card.statementDay),
+    nextStatement,
+    nextSoFar: Math.max(0, owedNow - remaining),
+    nextDue: card.dueDay ? dueDateFor(nextStatement, card.dueDay) : undefined,
   };
 }
