@@ -380,7 +380,7 @@ const RETIRED: Record<string, Skin> = { cute: 'queenbee', frog: 'wildlife', cat:
 
 export function getSkin(id: string | undefined): SkinDef {
   const real = (id && RETIRED[id]) || id;
-  return SKINS.find((s) => s.id === real) ?? QUEENBEE;
+  return SKINS.find((s) => s.id === real) ?? FINANCIAL;
 }
 
 let plainIcons = false;

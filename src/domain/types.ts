@@ -304,7 +304,7 @@ export interface Settings {
   favouriteCurrencies: string[];
   activeProfileId: string;
   theme: 'system' | 'light' | 'dark';
-  /** look: financial, queenbee, fantasy, dino, wildlife or space (cute, frog and cat move to queenbee or wildlife) */
+  /** look: financial (the default), queenbee, fantasy, dino, wildlife or space (cute, frog and cat move to queenbee or wildlife) */
   skin?: string;
   lastBackupAt?: number;
   lastAutoBackupAt?: number;
