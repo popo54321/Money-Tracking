@@ -123,16 +123,19 @@ export function buildUp(s: Schedule, next: ISODate, today: ISODate): { months: n
 export const MAX_AHEAD = 3;
 
 /**
- * A small bill set aside only shortly before it is due: the months ahead it uses (0 = not this way). Ignored when
- * the bill comes round that often anyway (every 2 months, 2 months ahead is the whole time).
+ * A small bill set aside only shortly before it is due: the months ahead it uses (0 = from the start of the month
+ * it is due), or null when it is not set aside this way. Ignored when the bill comes round that often anyway
+ * (every 2 months, 2 months ahead is the whole time).
  */
-export function aheadMonths(s: Schedule & { aheadMonths?: number }): number {
-  const n = Math.floor(s.aheadMonths ?? 0);
-  return n >= 1 && n <= MAX_AHEAD && monthsPerRepeat(s) > n ? n : 0;
+export function aheadMonths(s: Schedule & { aheadMonths?: number }): number | null {
+  if (s.aheadMonths === undefined || s.aheadMonths === null) return null;
+  const n = Math.floor(s.aheadMonths);
+  return n >= 0 && n <= MAX_AHEAD && monthsPerRepeat(s) > n ? n : null;
 }
 
-/** The day a small bill starts being set aside: `ahead` months before it is due. */
+/** The day a small bill starts being set aside: `ahead` months before it is due, or the 1st of its month (0). */
 export function holdStart(next: ISODate, ahead: number): ISODate {
+  if (ahead === 0) return `${next.slice(0, 8)}01`;
   const { y, m, d } = parseISO(next);
   return addMonthsClamped(y, m, d, -ahead);
 }

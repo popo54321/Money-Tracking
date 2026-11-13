@@ -334,8 +334,19 @@ describe('credit card: keep everything owed ready in the paying account', () => 
   it('months ahead only counts when the bill comes round less often than that', async () => {
     const { aheadMonths } = await import('./recurring');
     expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01', aheadMonths: 3 })).toBe(3);
-    expect(aheadMonths({ freq: 'month', every: 2, startDate: '2026-01-01', aheadMonths: 2 })).toBe(0);
-    expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01', aheadMonths: 4 })).toBe(0);
+    expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01', aheadMonths: 0 })).toBe(0);
+    expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01' })).toBeNull();
+    expect(aheadMonths({ freq: 'month', every: 2, startDate: '2026-01-01', aheadMonths: 2 })).toBeNull();
+    expect(aheadMonths({ freq: 'year', every: 1, startDate: '2026-01-01', aheadMonths: 4 })).toBeNull();
+  });
+  it('a small bill set aside in the same month: from the 1st of the month it is due', async () => {
+    const { upcomingItems } = await import('./reserve');
+    const small = yearly({ accountId: 'bank', holdInFull: undefined, aheadMonths: 0 });
+    const before = upcomingItems([bank], [small], [], '2026-11-30').find((i) => i.key === 'r:r')!;
+    expect(before.reserved).toBe(false);
+    expect(before.holdFrom).toBe('2026-12-01');
+    const inMonth = upcomingItems([bank], [small], [], '2026-12-01').find((i) => i.key === 'r:r')!;
+    expect(inMonth.reserved).toBe(true);
   });
 });
 
