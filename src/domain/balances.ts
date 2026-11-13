@@ -84,7 +84,8 @@ export function isLiquid(a: Account): boolean {
 
 /**
  * The free part of liquid money, in `target`: each liquid account's Free (after bills, splits and targets).
- * A card's debt counts only for the part no paying account has set aside, so it is never taken off twice.
+ * A card's debt counts only for the part no paying account has set aside, so it is never taken off twice;
+ * extra paid into a card (more than was owed) counts as free.
  */
 export function freeLiquid(
   accounts: Account[],
@@ -98,7 +99,8 @@ export function freeLiquid(
   for (const a of accounts) {
     if (a.archived || !a.includeInNetWorth || !isLiquid(a)) continue;
     const bal = balances.get(a.id) ?? 0;
-    const own = a.type === 'credit' ? Math.min(0, bal + (cardCovered.get(a.id) ?? 0)) : (free.get(a.id) ?? bal);
+    // a card counts its debt only where nothing is set aside for it; extra paid into a card is money to spend
+    const own = a.type === 'credit' ? (bal > 0 ? bal : Math.min(0, bal + (cardCovered.get(a.id) ?? 0))) : (free.get(a.id) ?? bal);
     const v = accountValue(a, own, rates, target);
     if (v !== null) total += v;
   }

@@ -225,14 +225,22 @@ export function AccountDetail({ id }: { id: string }) {
         <div className="hero">
           <div className="label">
             {isCard
-              ? 'Owed on this card'
+              ? bal > 0.005
+                ? 'Extra paid in (yours to spend)'
+                : 'Owed on this card'
               : a.type === 'crypto'
                 ? 'Bitcoin held'
                 : a.unitPriceSource === 'live-gold'
                   ? 'Gold held (baht-weight)'
                   : 'Balance'}
           </div>
-          <div className="big">{isCard ? fmtMoney(Math.max(0, -bal), a.currency) : fmtMoney(bal, a.currency)}</div>
+          <div className="big">{isCard ? fmtMoney(Math.abs(bal), a.currency) : fmtMoney(bal, a.currency)}</div>
+          {isCard && bal > 0.005 && (
+            <div className="small mt">
+              You paid in more than you owed. Your next spending uses this first
+              {a.creditLimit ? `, so you can spend up to ${fmtMoney(a.creditLimit + bal, a.currency)} in all` : ''}.
+            </div>
+          )}
           {a.currency !== currency && !isCard && (
             <div className="bold">≈ {value === null ? 'no price yet' : fmtMoney(value, currency)}</div>
           )}
