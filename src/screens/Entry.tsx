@@ -321,22 +321,6 @@ export function Entry({ route }: { route: EntryRoute }) {
           </Field>
         )}
 
-        {(kind === 'expense' || kind === 'income') && (
-          <>
-            <div className="section-title">🏷️ Category</div>
-            <CategoryGrid
-              categories={data.categories}
-              kind={kind}
-              value={categoryId}
-              onPick={(id) => {
-                setCategoryId(id);
-                setShowPad(false);
-              }}
-            />
-          </>
-        )}
-
-        <div className="spacer" />
         <Field label={kind === 'transfer' ? 'From' : kind === 'income' ? 'Into account' : 'Paid with'}>
           <AccountPickerButton
             accounts={usable}
@@ -482,6 +466,21 @@ export function Entry({ route }: { route: EntryRoute }) {
               </>
             )}
           </div>
+        )}
+
+        {(kind === 'expense' || kind === 'income') && (
+          <>
+            <div className="section-title">🏷️ Category</div>
+            <CategoryGrid
+              categories={data.categories}
+              kind={kind}
+              value={categoryId}
+              onPick={(id) => {
+                setCategoryId(id);
+                setShowPad(false);
+              }}
+            />
+          </>
         )}
 
         <div className="save-bar">
