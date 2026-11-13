@@ -159,6 +159,11 @@ export interface Recurring {
    * true sets the whole amount aside straight away
    */
   holdInFull?: boolean;
+  /**
+   * for small bills: nothing is set aside until this many months (1 to 3) before it is due, then the whole amount;
+   * takes the place of building up or holding in full
+   */
+  aheadMonths?: number;
   active: boolean;
   createdAt: number;
 }

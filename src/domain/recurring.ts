@@ -119,6 +119,24 @@ export function buildUp(s: Schedule, next: ISODate, today: ISODate): { months: n
   return { months: Math.min(of, Math.max(1, wholeMonths(previous, today) + 1)), of };
 }
 
+/** The most months ahead a small bill can be set aside (more than that and it may as well build up). */
+export const MAX_AHEAD = 3;
+
+/**
+ * A small bill set aside only shortly before it is due: the months ahead it uses (0 = not this way). Ignored when
+ * the bill comes round that often anyway (every 2 months, 2 months ahead is the whole time).
+ */
+export function aheadMonths(s: Schedule & { aheadMonths?: number }): number {
+  const n = Math.floor(s.aheadMonths ?? 0);
+  return n >= 1 && n <= MAX_AHEAD && monthsPerRepeat(s) > n ? n : 0;
+}
+
+/** The day a small bill starts being set aside: `ahead` months before it is due. */
+export function holdStart(next: ISODate, ahead: number): ISODate {
+  const { y, m, d } = parseISO(next);
+  return addMonthsClamped(y, m, d, -ahead);
+}
+
 /** Roughly how much this costs per month, to show how much to set aside. */
 export function monthlyEquivalent(amount: number, freq: Freq, every: number): number {
   const e = Math.max(1, every || 1);
