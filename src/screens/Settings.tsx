@@ -16,6 +16,7 @@ import { watchedCurrencies } from './Home';
 import { checkNativeUpdate, tryApplyNative } from '../services/autoUpdate';
 import { EMOJI_CHOICES } from '../ui/emoji';
 import { SKINS } from '../ui/skins';
+import { Mascot } from '../ui/Mascot';
 
 function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
   const { confirm, profile, profiles, setProfile, removeWithUndo } = useApp();
@@ -243,7 +244,7 @@ export function Settings() {
                 onClick={() => set({ skin: t.id })}
                 aria-pressed={skin.id === t.id}
               >
-                <span className="theme-icon">{t.icon}</span>
+                <span className="theme-icon">{t.mascot ? <Mascot kind={t.mascot} size={38} /> : t.icon}</span>
                 <span className="bold">{t.label}</span>
                 <span className="tiny muted">{t.desc}</span>
               </button>

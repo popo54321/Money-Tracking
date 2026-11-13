@@ -34,6 +34,8 @@ export interface SkinDef {
   greeting: string;
   /** drawn mascot used instead of emoji decorations */
   mascot?: MascotKind;
+  /** a different mascot on some pages (the Financial trio takes turns) */
+  cast?: Record<string, MascotKind>;
   poses?: Record<string, Pose>;
 }
 
@@ -132,6 +134,20 @@ const FANTASY: SkinDef = {
   },
   empty: '🧚‍♀️',
   greeting: 'Hello',
+  mascot: 'fairy',
+  poses: {
+    home: 'happy',
+    accounts: 'coin',
+    summary: 'wow',
+    wealth: 'coin',
+    goals: 'love',
+    debts: 'happy',
+    recurring: 'sleep',
+    budget: 'coin',
+    trips: 'happy',
+    bills: 'love',
+    empty: 'happy',
+  },
 };
 
 const DINO: SkinDef = {
@@ -329,6 +345,32 @@ const FINANCIAL: SkinDef = {
   },
   empty: '',
   greeting: 'Welcome,',
+  // three round tycoons take turns: the old investor, the rocket boss and the luxury tycoon
+  mascot: 'investor',
+  cast: {
+    accounts: 'tycoon',
+    summary: 'rocket',
+    wealth: 'tycoon',
+    goals: 'rocket',
+    debts: 'investor',
+    recurring: 'investor',
+    budget: 'investor',
+    trips: 'rocket',
+    bills: 'tycoon',
+  },
+  poses: {
+    home: 'happy',
+    accounts: 'coin',
+    summary: 'wow',
+    wealth: 'coin',
+    goals: 'love',
+    debts: 'happy',
+    recurring: 'sleep',
+    budget: 'coin',
+    trips: 'happy',
+    bills: 'love',
+    empty: 'happy',
+  },
 };
 
 export const SKINS: SkinDef[] = [FINANCIAL, QUEENBEE, FANTASY, DINO, WILDLIFE, SPACE];

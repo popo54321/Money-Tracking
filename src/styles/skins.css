@@ -52,7 +52,7 @@
 }
 
 /* Financial: calm and plain */
-:root[data-skin='financial'] .hero .sparkle,
+:root[data-skin='financial'] .hero .sparkle:not(.mascot),
 :root[data-skin='financial'] .empty .e {
   display: none;
 }
