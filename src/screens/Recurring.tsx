@@ -447,15 +447,23 @@ function HowToSetAside({
 }) {
   const of = monthsPerRepeat(r);
   const ahead = aheadMonths(r);
-  const way = ahead ? 'ahead' : r.holdInFull ? 'full' : 'build';
-  // "only shortly before" needs at least 2 months between payments
-  const choices = Array.from({ length: Math.min(MAX_AHEAD, of - 1) }, (_, i) => i + 1);
+  const way = ahead !== null ? 'ahead' : r.holdInFull ? 'full' : 'build';
+  // the month it is due, or 1 to 3 months before (never as long as the time between payments)
+  const choices = Array.from({ length: Math.min(MAX_AHEAD, of - 1) + 1 }, (_, i) => i);
+  const start =
+    ahead === null
+      ? ''
+      : next
+        ? fmtDate(holdStart(next, ahead))
+        : ahead === 0
+          ? 'the month it is due'
+          : `${ahead} ${ahead === 1 ? 'month' : 'months'} before`;
   const hint =
     way === 'build'
       ? `${fmtMoney(r.amount / of, cur)} more each month, all of it one month before it is due.`
       : way === 'full'
         ? 'The whole amount is set aside all the time.'
-        : `For small amounts: nothing until ${next ? fmtDate(holdStart(next, ahead)) : `${ahead} ${ahead === 1 ? 'month' : 'months'} before`}, then all ${fmtMoney(r.amount, cur)} until it is paid.`;
+        : `For small amounts: nothing until ${start}${ahead === 0 && next ? ' (the month it is due)' : ''}, then all ${fmtMoney(r.amount, cur)} until it is paid.`;
   return (
     <Field label="How to set it aside" hint={hint}>
       <Seg
@@ -463,7 +471,7 @@ function HowToSetAside({
         options={[
           { v: 'build', label: 'Build up' },
           { v: 'full', label: 'All now' },
-          ...(choices.length ? [{ v: 'ahead' as const, label: 'Just before' }] : []),
+          { v: 'ahead', label: 'Just before' },
         ]}
         onChange={(v) =>
           set({ holdInFull: v === 'full' ? true : undefined, aheadMonths: v === 'ahead' ? ahead || 1 : undefined })
@@ -472,8 +480,11 @@ function HowToSetAside({
       {way === 'ahead' && (
         <div className="mt">
           <Seg
-            value={String(ahead)}
-            options={choices.map((n) => ({ v: String(n), label: n === 1 ? '1 month before' : `${n} months before` }))}
+            value={String(ahead ?? 1)}
+            options={choices.map((n) => ({
+              v: String(n),
+              label: n === 0 ? 'Same month' : n === 1 ? '1 month before' : `${n} months before`,
+            }))}
             onChange={(v) => set({ aheadMonths: Number(v) })}
           />
         </div>

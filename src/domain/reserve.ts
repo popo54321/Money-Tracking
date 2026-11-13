@@ -48,10 +48,10 @@ export function upcomingItems(accounts: Account[], recurring: Recurring[], txs: 
     }
     // small bills: set aside in full only in the last months before they are due
     const ahead = aheadMonths(r);
-    const from = ahead ? holdStart(next, ahead) : undefined;
+    const from = ahead !== null ? holdStart(next, ahead) : undefined;
     const waiting = !!from && today < from;
     // yearly (and other longer) bills build up month by month unless held in full
-    const grow = !r.holdInFull && !ahead ? buildUp(r, next, today) : { months: 0, of: 0 };
+    const grow = !r.holdInFull && ahead === null ? buildUp(r, next, today) : { months: 0, of: 0 };
     const growing = !!reserveAccountId && grow.of > 0 && grow.months < grow.of;
     out.push({
       key: `r:${r.id}`,
