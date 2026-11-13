@@ -2,7 +2,7 @@
 // "Payday's here" records it early (that month then does not record itself again).
 import { useState } from 'react';
 import { AccountPickerButton, AmountField, Field, NumberInput, Seg, Sheet, ToggleRow, Topbar } from '../components/ui';
-import { diffDays, fmtDate, relativeDays, addMonthKey, fmtMonth } from '../domain/dates';
+import { fmtDate, relativeDays, addMonthKey, fmtMonth } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import {
   firstMonthFrom,
@@ -19,7 +19,6 @@ import { recordPayday, savePayday, saveRecurring } from '../db/repo';
 import { useApp, useData } from '../state/app';
 
 /** "Payday's here" shows from this many days before the pay date. */
-export const EARLY_DAYS = 10;
 
 function CategorySelect({
   categories,
@@ -79,6 +78,7 @@ export function PaydayEdit() {
   const setExtra = (id: string, x: Partial<PayDeduction>) =>
     set({ extras: p.extras.map((e) => (e.id === id ? { ...e, ...x } : e)) });
   const isNew = !profile.payday;
+  const [early, setEarly] = useState(false);
   const otherIncome = data.recurring.filter((r) => r.active && r.kind === 'income' && r.categoryId === p.incomeCategoryId);
 
   const save = async () => {
@@ -108,8 +108,14 @@ export function PaydayEdit() {
       <div className="page">
         <div className="small muted mb">
           Your salary records itself on payday: the full salary as income and what is taken off as spending, so the account goes
-          up by your take-home pay. If it comes early, tap “Payday’s here”.
+          up by your take-home pay. If it comes early, tap “Pay arrived?”.
         </div>
+        {!isNew && profile.payday?.active && (
+          <button className="btn mint block mb" onClick={() => setEarly(true)}>
+            💰 Pay arrived? Record it now
+          </button>
+        )}
+        {early && <PaydaySheet onClose={() => setEarly(false)} />}
         <Field label="Pays into">
           <AccountPickerButton accounts={data.accounts} value={p.accountId} onChange={(v) => set({ accountId: v })} />
         </Field>
@@ -304,7 +310,7 @@ export function PaydaySheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Home: the next payday, bills due before it, and "Payday's here" when it is close. */
+/** Home: the next payday, bills due before it, and "Payday's here" to record it early. */
 export function PaydayCard() {
   const { profile, today, currency, go } = useApp();
   const data = useData();
@@ -312,7 +318,6 @@ export function PaydayCard() {
   const p = profile.payday;
   if (!p || !p.active) return null;
   const next = nextPayDate(p);
-  const days = diffDays(today, next);
   const acc = data.accountById.get(p.accountId);
   // bills that fall due on or before payday (in the main currency)
   const before = data.upcoming
@@ -329,19 +334,18 @@ export function PaydayCard() {
           {fmtMoney(p.takeHome, acc?.currency ?? currency)} take-home into {acc?.name ?? '?'}
         </div>
         {before > 0 && <div className="small muted">Bills due before payday: {fmtMoney(before, currency)}</div>}
-        {days <= EARLY_DAYS && (
-          <span
-            role="button"
-            tabIndex={0}
-            className="btn mint block mt"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(true);
-            }}
-          >
-            Payday’s here
-          </span>
-        )}
+        {/* pay can arrive early (before a holiday, a bonus month): record it any time */}
+        <span
+          role="button"
+          tabIndex={0}
+          className="btn mint block mt"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(true);
+          }}
+        >
+          💰 Pay arrived? Record it now
+        </span>
       </button>
       {open && <PaydaySheet onClose={() => setOpen(false)} />}
     </>
