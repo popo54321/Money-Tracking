@@ -27,8 +27,13 @@ export function AccountLine({ a }: { a: Account }) {
   let mainCls = bal < 0 ? 'neg' : '';
   if (a.type === 'credit') {
     const st = cardStatus(a, data.txs, today);
-    main = st.owedNow > 0 ? `owe ${fmtMoney(st.owedNow, a.currency)}` : fmtMoney(-bal, a.currency);
-    mainCls = st.owedNow > 0 ? 'neg' : '';
+    main =
+      st.owedNow > 0
+        ? `owe ${fmtMoney(st.owedNow, a.currency)}`
+        : st.extraCredit > 0
+          ? `+${fmtMoney(st.extraCredit, a.currency)} extra`
+          : fmtMoney(0, a.currency);
+    mainCls = st.owedNow > 0 ? 'neg' : st.extraCredit > 0 ? 'pos' : '';
     if (st.remaining > 0 && st.dueDate)
       sub = `${fmtMoney(st.remaining, a.currency)} due ${fmtDate(st.dueDate, false)}${st.overdue ? ' ⚠️' : ''}`;
     else if (st.available !== undefined) sub = `${fmtMoney(st.available, a.currency, { compact: true })} available`;

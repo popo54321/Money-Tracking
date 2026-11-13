@@ -33,7 +33,10 @@ export function dueDateFor(statementDate: ISODate, dueDay: number): ISODate {
 export interface CardStatus {
   /** amount owed right now (positive) */
   owedNow: number;
+  /** paid in more than was owed: the bank keeps it as extra to spend, used up first by the next spending */
+  extraCredit: number;
   creditLimit?: number;
+  /** what can still be spent: the limit, less what is owed, plus any extra paid in */
   available?: number;
   lastStatement?: ISODate;
   owedAtStatement: number;
@@ -51,11 +54,13 @@ export interface CardStatus {
 }
 
 export function cardStatus(card: Account, txs: Tx[], today: ISODate): CardStatus {
-  const owedNow = Math.max(0, -balanceOf(card, txs));
+  const balance = balanceOf(card, txs);
+  const owedNow = Math.max(0, -balance);
   const base: CardStatus = {
     owedNow,
+    extraCredit: Math.max(0, balance),
     creditLimit: card.creditLimit,
-    available: card.creditLimit ? card.creditLimit - owedNow : undefined,
+    available: card.creditLimit ? card.creditLimit + balance : undefined,
     owedAtStatement: 0,
     paidSinceStatement: 0,
     remaining: 0,

@@ -318,6 +318,25 @@ describe('credit card: keep everything owed ready in the paying account', () => 
     ]);
     expect(next.nextSoFar).toBe(0);
   });
+  it('paying in more than is owed leaves extra to spend: the limit plus the extra', async () => {
+    const { cardStatus } = await import('./creditCard');
+    const fresh = { ...card, openingBalance: 0, creditLimit: 50000 };
+    const txs = [
+      tx('a', '2026-11-01', { amount: 3000 }),
+      tx('pay', '2026-11-05', { kind: 'transfer', accountId: 'bank', toAccountId: 'card', amount: 5000, toAmount: 5000 }),
+    ];
+    const st = cardStatus(fresh, txs, '2026-11-06');
+    expect([st.owedNow, st.extraCredit, st.available]).toEqual([0, 2000, 52000]);
+    // the next spending uses the extra first
+    const later = cardStatus(fresh, [...txs, tx('b', '2026-11-08', { amount: 2500 })], '2026-11-09');
+    expect([later.owedNow, later.extraCredit, later.available]).toEqual([500, 0, 49500]);
+  });
+  it('extra paid into a card counts as free money', async () => {
+    const { freeLiquid } = await import('./balances');
+    const fresh = { ...card, openingBalance: 0 };
+    const free = freeLiquid([fresh], new Map([['card', 2000]]), new Map(), new Map(), { perUsd: { USD: 1, THB: 33 } }, 'THB');
+    expect(free).toBe(2000);
+  });
   const yearly = (p: Partial<Recurring>): Recurring =>
     ({
       id: 'r',
