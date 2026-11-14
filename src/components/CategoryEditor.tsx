@@ -1,11 +1,11 @@
 // Add or edit a category: used by the Categories screen and by press-and-hold anywhere a category is shown.
 import { useState } from 'react';
-import type { Category } from '../domain/types';
+import type { Category, LimitPeriod } from '../domain/types';
 import { orderGroups } from '../domain/groups';
 import { categoryInUse, deleteCategory, saveCategory } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { EMOJI_CHOICES, categoryEmoji } from '../ui/emoji';
-import { AmountField, Field, Sheet, ToggleRow } from './ui';
+import { AmountField, Field, Seg, Sheet, ToggleRow } from './ui';
 
 export function CategoryEditor({ category, onClose }: { category: Category; onClose: () => void }) {
   const { toast, confirm, skin, profile, removeWithUndo, currency } = useApp();
@@ -50,7 +50,13 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
         </Field>
       )}
       {c.kind === 'expense' && (
-        <Field label="🎯 Monthly limit (optional)" hint="Leave empty for no limit. Home shows what is left this month.">
+        <Field label="🎯 Spending limit (optional)" hint="Leave empty for no limit. Home shows what is left.">
+          <div className="mb">
+            <LimitPeriodSeg
+              value={c.limitPeriod ?? 'month'}
+              onChange={(p) => setC({ ...c, limitPeriod: p === 'month' ? undefined : p })}
+            />
+          </div>
           <AmountField
             value={c.limit ?? null}
             onChange={(v) => setC({ ...c, limit: v && v > 0 ? v : undefined })}
@@ -59,7 +65,11 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
             title={`${c.name || 'Category'} limit`}
           />
           {c.limit ? (
-            <button type="button" className="btn sm ghost mt" onClick={() => setC({ ...c, limit: undefined })}>
+            <button
+              type="button"
+              className="btn sm ghost mt"
+              onClick={() => setC({ ...c, limit: undefined, limitPeriod: undefined })}
+            >
               Remove limit
             </button>
           ) : null}
@@ -103,5 +113,20 @@ export function CategoryEditor({ category, onClose }: { category: Category; onCl
         </button>
       </div>
     </Sheet>
+  );
+}
+
+/** Each month / quarter / year: how often a spending limit starts again. */
+export function LimitPeriodSeg({ value, onChange }: { value: LimitPeriod; onChange: (p: LimitPeriod) => void }) {
+  return (
+    <Seg
+      value={value}
+      options={[
+        { v: 'month', label: 'Each month' },
+        { v: 'quarter', label: 'Each quarter' },
+        { v: 'year', label: 'Each year' },
+      ]}
+      onChange={onChange}
+    />
   );
 }

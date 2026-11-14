@@ -11,8 +11,10 @@ export interface Profile {
   accountGroupOrder?: string[];
   /** the user's order of the spending groups (Eating Out, Fixed…) */
   categoryGroupOrder?: string[];
-  /** monthly spending limits on whole groups, by group name */
+  /** spending limits on whole groups, by group name (per `groupLimitPeriods`, monthly when missing) */
   groupLimits?: Record<string, number>;
+  /** the period of each group's limit (missing = monthly) */
+  groupLimitPeriods?: Record<string, LimitPeriod>;
   /** a fixed salary recorded once a month (full salary in, deductions out) */
   payday?: Payday;
 }
@@ -125,9 +127,14 @@ export interface Category {
   emoji?: string;
   order: number;
   archived: boolean;
-  /** monthly spending limit in the main currency (none = no limit) */
+  /** spending limit in the main currency (none = no limit), per `limitPeriod` */
   limit?: number;
+  /** how often the limit starts again: each month (default), each quarter or each year */
+  limitPeriod?: LimitPeriod;
 }
+
+/** A spending limit's period: calendar months, quarters (Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec) or years. */
+export type LimitPeriod = 'month' | 'quarter' | 'year';
 
 export const EXPENSE_GROUPS = ['Eating Out', 'Discretionary', 'Infrequent', 'Fixed'];
 
