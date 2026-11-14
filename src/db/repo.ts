@@ -11,6 +11,7 @@ import type {
   BudgetPlan,
   Category,
   CategoryKind,
+  LimitPeriod,
   PriceCache,
   Recurring,
   Settings,
@@ -280,11 +281,16 @@ export async function renameCategoryGroup(profileId: string, kind: CategoryKind,
     if (!p) return;
     const order = (p.categoryGroupOrder ?? []).map((g) => (g === from ? name : g)).filter((g, i, a) => a.indexOf(g) === i);
     const limits = { ...(p.groupLimits ?? {}) };
+    const periods = { ...(p.groupLimitPeriods ?? {}) };
     if (kind === 'expense' && limits[from] !== undefined) {
       limits[name] = limits[from];
       delete limits[from];
     }
-    await db.profiles.update(profileId, { categoryGroupOrder: order, groupLimits: limits });
+    if (kind === 'expense' && periods[from] !== undefined) {
+      periods[name] = periods[from];
+      delete periods[from];
+    }
+    await db.profiles.update(profileId, { categoryGroupOrder: order, groupLimits: limits, groupLimitPeriods: periods });
   });
 }
 
@@ -311,22 +317,37 @@ export async function deleteCategoryGroup(
   const p = await db.profiles.get(profileId);
   if (p) {
     const limits = { ...(p.groupLimits ?? {}) };
+    const periods = { ...(p.groupLimitPeriods ?? {}) };
     delete limits[group];
+    delete periods[group];
     await db.profiles.update(profileId, {
       categoryGroupOrder: (p.categoryGroupOrder ?? []).filter((g) => g !== group),
       groupLimits: limits,
+      groupLimitPeriods: periods,
     });
   }
 }
 
-/** Sets or clears (0 / none) the monthly limit of a whole spending group. */
-export async function setGroupLimit(profileId: string, group: string, limit: number | null): Promise<void> {
+/** Sets or clears (0 / none) the limit of a whole spending group, per month (default), quarter or year. */
+export async function setGroupLimit(
+  profileId: string,
+  group: string,
+  limit: number | null,
+  period: LimitPeriod = 'month',
+): Promise<void> {
   const p = await db.profiles.get(profileId);
   if (!p) return;
   const limits = { ...(p.groupLimits ?? {}) };
-  if (limit && limit > 0) limits[group] = limit;
-  else delete limits[group];
-  await db.profiles.update(profileId, { groupLimits: limits });
+  const periods = { ...(p.groupLimitPeriods ?? {}) };
+  if (limit && limit > 0) {
+    limits[group] = limit;
+    if (period === 'month') delete periods[group];
+    else periods[group] = period;
+  } else {
+    delete limits[group];
+    delete periods[group];
+  }
+  await db.profiles.update(profileId, { groupLimits: limits, groupLimitPeriods: periods });
 }
 
 export async function categoryInUse(id: string): Promise<boolean> {

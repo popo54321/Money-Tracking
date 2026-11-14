@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AmountField, Field, Seg, Sheet, Topbar } from '../components/ui';
 import { QuickActions } from '../components/QuickActions';
 import { holdProps } from '../components/hold';
-import type { Category, CategoryKind } from '../domain/types';
+import type { Category, CategoryKind, LimitPeriod } from '../domain/types';
 import { uid } from '../db/db';
 import { deleteCategoryGroup, renameCategoryGroup, reorderRows, saveGroupOrder, setGroupLimit } from '../db/repo';
 import { moveItem, orderGroups } from '../domain/groups';
@@ -10,7 +10,7 @@ import { fmtMoney } from '../domain/money';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour } from '../ui/emoji';
 import { ProfileSwitch } from './Home';
-import { CategoryEditor } from '../components/CategoryEditor';
+import { CategoryEditor, LimitPeriodSeg } from '../components/CategoryEditor';
 
 const FOLD_KEY = 'fold.categories';
 
@@ -35,6 +35,7 @@ export function Categories() {
   const [sheet, setSheet] = useState<GroupSheet>(null);
   const [text, setText] = useState('');
   const [limit, setLimit] = useState<number | null>(null);
+  const [period, setPeriod] = useState<LimitPeriod>('month');
   const [moveTo, setMoveTo] = useState<string | null>(null);
 
   const list = data.categories.filter((c) => c.kind === kind);
@@ -83,6 +84,7 @@ export function Categories() {
   const openSheet = (k: 'rename' | 'limit' | 'delete', group: string) => {
     setText(group);
     setLimit(profile.groupLimits?.[group] ?? null);
+    setPeriod(profile.groupLimitPeriods?.[group] ?? 'month');
     setMoveTo(groups.find((g) => g !== group) ?? null);
     setSheet({ kind: k, group });
   };
@@ -101,7 +103,7 @@ export function Categories() {
         />
         <div className="tiny muted mb">
           Tap a group name to fold it. ▲ ▼ moves the whole group. ⋯ renames or deletes it
-          {kind === 'expense' ? ', or sets a monthly limit' : ''}.
+          {kind === 'expense' ? ', or sets a limit (each month, quarter or year)' : ''}.
         </div>
         {groups.map((g, gi) => {
           const items = list.filter((c) => c.group === g);
@@ -155,7 +157,7 @@ export function Categories() {
                         <div className="title">{c.name}</div>
                         <div className="sub">
                           {c.archived ? 'hidden' : 'tap to edit'}
-                          {c.limit ? ` · 🎯 ${fmtMoney(c.limit, currency, { compact: true })} a month` : ''}
+                          {c.limit ? ` · 🎯 ${fmtMoney(c.limit, currency, { compact: true })} a ${c.limitPeriod ?? 'month'}` : ''}
                         </div>
                       </button>
                       <button className="btn sm ghost" aria-label="Move up" disabled={ci === 0} onClick={() => move(c, -1)}>
@@ -207,7 +209,7 @@ export function Categories() {
           actions={[
             { label: '✏️ Rename group', tone: 'plain', run: () => openSheet('rename', menu) },
             ...(kind === 'expense'
-              ? [{ label: '🎯 Monthly limit for the group', tone: 'mint' as const, run: () => openSheet('limit', menu) }]
+              ? [{ label: '🎯 Limit for the group', tone: 'mint' as const, run: () => openSheet('limit', menu) }]
               : []),
             { label: '🗑️ Delete group', tone: 'danger', run: () => openSheet('delete', menu) },
           ]}
@@ -221,7 +223,7 @@ export function Categories() {
           sheet?.kind === 'rename'
             ? `Rename ${sheet.group}`
             : sheet?.kind === 'limit'
-              ? `🎯 ${sheet.group}: monthly limit`
+              ? `🎯 ${sheet.group}: limit`
               : `Delete ${sheet?.group ?? ''}`
         }
       >
@@ -246,7 +248,10 @@ export function Categories() {
         )}
         {sheet?.kind === 'limit' && (
           <>
-            <Field label="Limit for all its categories together, each month" hint="Leave empty for no limit.">
+            <Field label="Limit for all its categories together" hint="Leave empty for no limit.">
+              <div className="mb">
+                <LimitPeriodSeg value={period} onChange={setPeriod} />
+              </div>
               <AmountField value={limit} onChange={setLimit} currency={currency} placeholder="No limit" title={sheet.group} />
             </Field>
             <div className="btn-row mt">
@@ -264,7 +269,7 @@ export function Categories() {
               <button
                 className="btn primary"
                 onClick={async () => {
-                  await setGroupLimit(profile.id, sheet.group, limit);
+                  await setGroupLimit(profile.id, sheet.group, limit, period);
                   setSheet(null);
                   toast(limit ? '🎯 Limit set' : 'No limit');
                 }}

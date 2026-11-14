@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { limitLines, plannedItems, plannedSpending } from './limits';
+import { limitLines, periodRange, plannedItems, plannedSpending } from './limits';
 import { summarise } from './summary';
 import type { Account, Category, Recurring, Tx } from './types';
 
@@ -38,12 +38,12 @@ describe('monthly limits', () => {
   });
   it('category and group limits: left, amber from 80 %, red when over, and per day', () => {
     const lines = limitLines(s, cats, { 'Eating Out': 3000 }, '2026-11-11', '2026-11-30');
-    const group = lines.find((l) => l.key === 'g:Eating Out')!;
+    const group = lines.find((l) => l.key === 'month:g:Eating Out')!;
     expect(group.spent).toBe(3400);
     expect(group.left).toBe(-400);
     expect(group.level).toBe('over');
     expect(group.perDay).toBeNull();
-    const lunch = lines.find((l) => l.key === 'c:lunch')!;
+    const lunch = lines.find((l) => l.key === 'month:c:lunch')!;
     expect(lunch.left).toBe(500);
     expect(lunch.level).toBe('warn');
     // 11 to 30 November = 20 days, today included
@@ -79,7 +79,9 @@ describe('limits count spending still to come this month', () => {
   it('a monthly payment later this month, from any account, counts as coming up', () => {
     const planned = plannedSpending([rec({})], [], [acc('bank')], '2026-11-01', '2026-11-30', 'THB', rates);
     expect(planned.get('transport')).toBe(2500);
-    const line = limitLines(spent, cats, undefined, '2026-11-12', '2026-11-30', planned).find((l) => l.key === 'c:transport')!;
+    const line = limitLines(spent, cats, undefined, '2026-11-12', '2026-11-30', planned).find(
+      (l) => l.key === 'month:c:transport',
+    )!;
     expect(line.spent).toBe(1877);
     expect(line.planned).toBe(2500);
     expect(line.left).toBe(1623);
@@ -143,5 +145,34 @@ describe('limits count spending still to come this month', () => {
       ['2026-11-28', 'Parking fees', 2500],
       ['2026-11-30', 'Car park', 100],
     ]);
+  });
+});
+
+describe('quarterly and yearly limits', () => {
+  const rates = { perUsd: { USD: 1, THB: 33 } };
+  it('calendar quarters and years', () => {
+    expect(periodRange('quarter', '2026-11-14')).toEqual({ from: '2026-10-01', to: '2026-12-31' });
+    expect(periodRange('quarter', '2026-02-10')).toEqual({ from: '2026-01-01', to: '2026-03-31' });
+    expect(periodRange('year', '2026-11-14')).toEqual({ from: '2026-01-01', to: '2026-12-31' });
+    expect(periodRange('month', '2026-02-10')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+  });
+  it('a quarterly limit counts the whole quarter and shows a monthly pace; a monthly call leaves it out', () => {
+    const cats = [{ ...cat('clothes', 'Clothes', 'Fun', 6000), limitPeriod: 'quarter' as const }];
+    const txs = [spend('clothes', 1500, '2026-10-05'), spend('clothes', 1500, '2026-11-02')];
+    const q = periodRange('quarter', '2026-11-14');
+    const s = summarise(txs, cats, q.from, q.to, 'THB', rates);
+    const [line] = limitLines(s, cats, undefined, '2026-11-14', q.to, new Map(), 'quarter');
+    expect([line.spent, line.left, line.monthsLeft, line.perMonth]).toEqual([3000, 3000, 2, 1500]);
+    expect(limitLines(s, cats, undefined, '2026-11-14', '2026-11-30')).toEqual([]);
+  });
+  it('a yearly group limit uses the group period', () => {
+    const cats = [cat('trip', 'Travel', 'Infrequent')];
+    const y = periodRange('year', '2026-11-14');
+    const s = summarise([spend('trip', 20000, '2026-04-01')], cats, y.from, y.to, 'THB', rates);
+    const lines = limitLines(s, cats, { Infrequent: 50000 }, '2026-11-14', y.to, new Map(), 'year', { Infrequent: 'year' });
+    expect(lines.map((l) => [l.key, l.left])).toEqual([['year:g:Infrequent', 30000]]);
+    expect(limitLines(s, cats, { Infrequent: 50000 }, '2026-11-14', y.to, new Map(), 'month', { Infrequent: 'year' })).toEqual(
+      [],
+    );
   });
 });

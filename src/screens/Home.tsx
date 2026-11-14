@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
 import { holdProps } from '../components/hold';
 import { CurrencySheet, ProgressBar, Sheet, Topbar, Sparkle, useFold } from '../components/ui';
-import { limitLines, plannedSpending } from '../domain/limits';
+import { limitLines, periodRange, plannedSpending, type LimitLine } from '../domain/limits';
+import type { LimitPeriod } from '../domain/types';
 import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { QuickActions } from '../components/QuickActions';
 import { moveItem } from '../domain/groups';
@@ -12,7 +13,7 @@ import { PaydayCard } from './Payday';
 import { startTour } from '../components/Tour';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { freeLiquid, netWorth } from '../domain/balances';
-import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthStart } from '../domain/dates';
+import { addMonthKey, fmtAgo, fmtDate, fmtMonth, monthEnd, monthKey, monthName, monthStart } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import { rateBetween } from '../domain/fx';
 import { summarise } from '../domain/summary';
@@ -211,22 +212,40 @@ export function LiquidLine({ liquid }: { liquid: number }) {
   );
 }
 
-/** Monthly limits you have set (none set = nothing shown): what is left and about how much a day. */
+const PERIOD_LABEL: Record<LimitPeriod, (today: string) => string> = {
+  month: () => 'this month',
+  quarter: (today) => {
+    const r = periodRange('quarter', today);
+    return `this quarter (${monthName(Number(r.from.slice(5, 7)))}–${monthName(Number(r.to.slice(5, 7)))})`;
+  },
+  year: (today) => `this year (${today.slice(0, 4)})`,
+};
+
+/** The limits you have set (none set = nothing shown), monthly, quarterly and yearly: what is left and the pace. */
 function LimitsCard() {
   const { currency, rates, today, profile, go } = useApp();
   const data = useData();
   const [open, toggle] = useFold('home.limits', true);
-  const m = monthKey(today);
-  const s = summarise(data.txs, data.categories, monthStart(m), monthEnd(m), currency, rates);
-  const planned = plannedSpending(data.recurring, data.scheduled, data.accounts, monthStart(m), monthEnd(m), currency, rates);
-  const lines = limitLines(s, data.categories, profile.groupLimits, today, monthEnd(m), planned);
+  const groupPeriods = profile.groupLimitPeriods ?? {};
+  const used = new Set<LimitPeriod>([
+    ...data.categories.filter((c) => c.kind === 'expense' && c.limit).map((c) => c.limitPeriod ?? 'month'),
+    ...Object.keys(profile.groupLimits ?? {}).map((g) => groupPeriods[g] ?? 'month'),
+  ]);
+  const lines: LimitLine[] = (['month', 'quarter', 'year'] as LimitPeriod[])
+    .filter((p) => used.has(p))
+    .flatMap((p) => {
+      const r = periodRange(p, today);
+      const s = summarise(data.txs, data.categories, r.from, r.to, currency, rates);
+      const planned = plannedSpending(data.recurring, data.scheduled, data.accounts, r.from, r.to, currency, rates);
+      return limitLines(s, data.categories, profile.groupLimits, today, r.to, planned, p, groupPeriods);
+    });
   if (lines.length === 0) return null;
   const over = lines.filter((l) => l.level === 'over').length;
   return (
     <>
       <div className="section-title">
         <button className="fold-head" aria-expanded={open} onClick={toggle}>
-          <span className="fold-arrow">{open ? '▾' : '▸'}</span> 🎯 Limits this month
+          <span className="fold-arrow">{open ? '▾' : '▸'}</span> 🎯 Limits
         </button>
       </div>
       {!open ? (
@@ -243,7 +262,7 @@ function LimitsCard() {
               style={{ alignItems: 'flex-start' }}
               onClick={() =>
                 l.category
-                  ? go({ name: 'txList', categoryId: l.category.id, from: monthStart(m), to: monthEnd(m), title: l.name })
+                  ? go({ name: 'txList', categoryId: l.category.id, from: l.from, to: l.to, title: l.name })
                   : go({ name: 'summary' })
               }
             >
@@ -258,10 +277,13 @@ function LimitsCard() {
                   </span>
                 </div>
                 <div className="sub">
-                  {fmtMoney(l.spent, currency)} of {fmtMoney(l.limit, currency)}
+                  {fmtMoney(l.spent, currency)} of {fmtMoney(l.limit, currency)} {PERIOD_LABEL[l.period](today)}
                   {l.planned > 0 && ` · ${fmtMoney(l.planned, currency)} coming up`}
-                  {l.perDay !== null &&
-                    ` · about ${fmtMoney(l.perDay, currency, { dp: 0 })} a day for ${l.daysLeft} ${l.daysLeft === 1 ? 'day' : 'days'}`}
+                  {l.period === 'month' || l.monthsLeft === 1
+                    ? l.perDay !== null &&
+                      ` · about ${fmtMoney(l.perDay, currency, { dp: 0 })} a day for ${l.daysLeft} ${l.daysLeft === 1 ? 'day' : 'days'}`
+                    : l.perMonth !== null &&
+                      ` · about ${fmtMoney(l.perMonth, currency, { dp: 0 })} a month for ${l.monthsLeft} months`}
                 </div>
                 <ProgressBar
                   value={l.limit > 0 ? l.spent / l.limit : 0}
