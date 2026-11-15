@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.21.3',
+    date: '2026-11-15',
+    title: 'Split in detail from Edit bill',
+    notes: [
+      'On a trip, tapping a bill to edit it now has a “Split this bill in detail” button (and “Open its bill split” once it is split).',
+    ],
+  },
+  {
     version: '1.21.2',
     date: '2026-11-15',
     title: 'Service charge and VAT apart',
