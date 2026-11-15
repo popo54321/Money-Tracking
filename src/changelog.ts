@@ -11,6 +11,22 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.20.0',
+    date: '2026-11-15',
+    title: 'Safer numbers',
+    notes: [
+      'Move fees have their own hidden Move fee category; a fee opens its move, and turning a move into spending or income removes its fee.',
+      'Editing an entry keeps the value it had on the day; entries for earlier days use that day’s rate.',
+      'Payday lines moved into an account in another currency arrive converted.',
+      'Deleting an account that has moves with others: remove it and keep their balances, or delete it with its moves (it says exactly what changes).',
+      'Duplicate keeps the currency and wallet.',
+      'Switching a paused payday or repeating entry back on asks before recording the ones missed.',
+      'Recording pay more than 10 days early asks first.',
+      'Restore and Erase ask twice and keep a copy for 7 days, with Undo in Settings.',
+      'An older app version won’t open data saved by a newer one.',
+    ],
+  },
+  {
     version: '1.19.1',
     date: '2026-11-15',
     title: 'Update check',

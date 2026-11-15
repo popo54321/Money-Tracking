@@ -1,9 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { AppProvider, useApp } from './state/app';
-import { postDuePaydays, postDueRecurring } from './db/repo';
+import { moveFeesIntoTheirCategory, postDuePaydays, postDueRecurring } from './db/repo';
 import { refreshPrices } from './services/prices';
 import { autoBackupIfDue } from './services/backup';
-import { appInBackground, checkNativeUpdate, confirmRunningFiles } from './services/autoUpdate';
+import { appInBackground, checkNativeUpdate, confirmRunningFiles, tryApplyNative } from './services/autoUpdate';
+import { dataVerdict, markDataVersion, readDataVersion } from './services/safety';
+import { applyWebUpdate, checkWebUpdate } from './services/updater';
+import { getSettings } from './db/repo';
 import { isNative } from './services/platform';
 import { onUpdateProgress, takeUpdatedNote, type UpdateProgress } from './services/updateProgress';
 import { APP_VERSION } from './services/platform';
@@ -236,6 +239,8 @@ function Housekeeping() {
   useEffect(() => {
     let alive = true;
     const run = async () => {
+      // fees saved before the hidden Move fee category go into it (does nothing once done)
+      await moveFeesIntoTheirCategory();
       const n = await postDueRecurring(ratesRef.current, currency, today);
       if (alive && n > 0) toast(`🔁 Recorded ${n} repeating ${n === 1 ? 'entry' : 'entries'}`);
       const paid = await postDuePaydays(ratesRef.current, currency, today);
@@ -287,21 +292,74 @@ function Housekeeping() {
   return null;
 }
 
+/**
+ * Before anything reads or writes: data last saved by a newer app version (an update that failed and fell back to
+ * older files, for example) is not touched by this older version. It asks to update instead.
+ */
+function DataGate({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<'checking' | 'ok' | { newer: string }>('checking');
+  const [status, setStatus] = useState('');
+  useEffect(() => {
+    (async () => {
+      const v = await readDataVersion();
+      if (dataVerdict(v, APP_VERSION) === 'newer') return setState({ newer: v! });
+      await markDataVersion();
+      setState('ok');
+    })().catch(() => setState('ok'));
+  }, []);
+  if (state === 'checking') return <Loading />;
+  if (state === 'ok') return <>{children}</>;
+  const update = async () => {
+    setStatus('Looking for the newest version…');
+    try {
+      if (isNative()) {
+        const s = await checkNativeUpdate((await getSettings()).githubRepo, true);
+        if (s === 'ready') tryApplyNative(true);
+        else
+          setStatus(
+            s === 'needsApk' ? 'Install the newest Android app from the download page.' : 'Not found yet. Try again when online.',
+          );
+      } else if (await checkWebUpdate()) applyWebUpdate();
+      else location.reload();
+    } catch {
+      setStatus('Could not check. Try again when online.');
+    }
+  };
+  return (
+    <div className="page" style={{ paddingTop: 60 }}>
+      <div className="card center">
+        <div style={{ fontSize: 44 }}>🛡️</div>
+        <h2>Update needed</h2>
+        <p className="small">
+          Your data was last saved by version {state.newer}, which is newer than this one ({APP_VERSION}). To keep it safe, this
+          version won’t open it. Update to the newest version and everything will be there.
+        </p>
+        <button className="btn primary block" onClick={update}>
+          🔄 Update now
+        </button>
+        {status && <div className="small muted mt">{status}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
-    <AppProvider>
-      <Housekeeping />
-      <div className="app">
-        <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
-            <Screen />
-          </Suspense>
-        </ErrorBoundary>
-      </div>
-      <TabBar />
-      <Tour />
-      <UpdateStatus />
-      <WhatsNew />
-    </AppProvider>
+    <DataGate>
+      <AppProvider>
+        <Housekeeping />
+        <div className="app">
+          <ErrorBoundary>
+            <Suspense fallback={<Loading />}>
+              <Screen />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+        <TabBar />
+        <Tour />
+        <UpdateStatus />
+        <WhatsNew />
+      </AppProvider>
+    </DataGate>
   );
 }

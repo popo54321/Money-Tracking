@@ -86,6 +86,11 @@ export interface Account {
    * Bills set aside, splits and targets stay in the main wallet.
    */
   wallets?: string[];
+  /**
+   * removed by the user but kept so the moves with other accounts stay (their balances don't change): hidden
+   * everywhere like an archived account, and not shown with the archived ones either
+   */
+  removed?: boolean;
 }
 
 /** Account types that can hold several currencies (wallets). */
@@ -159,6 +164,8 @@ export interface Category {
   limit?: number;
   /** how often the limit starts again: each month (default), each quarter or each year */
   limitPeriod?: LimitPeriod;
+  /** made and used by the app itself (moveFee: fees on moves); hidden from pickers and the Categories page */
+  system?: 'moveFee';
 }
 
 /** A spending limit's period: calendar months, quarters (Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec) or years. */

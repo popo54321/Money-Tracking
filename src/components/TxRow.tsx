@@ -69,6 +69,10 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
       accountId: tx.accountId,
       toAccountId: tx.toAccountId,
       amount: tx.origAmount ?? tx.amount,
+      // keep what it was typed in: another currency, or a wallet of a cash or top-up card
+      currency: tx.origCurrency ?? tx.pocket,
+      toAmount: tx.kind === 'transfer' && tx.toAmount !== tx.amount ? tx.toAmount : undefined,
+      toWallet: tx.toPocket,
       categoryId: tx.categoryId,
       note: tx.note,
     });
@@ -77,7 +81,8 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
     <>
       <button
         className={`row ${ghost ? 'ghost' : ''}`}
-        onClick={() => go({ name: 'entry', id: tx.id })}
+        // a move's fee opens its move: that is where it is changed or removed
+        onClick={() => go({ name: 'entry', id: tx.feeFor ?? tx.id })}
         {...holdProps(() => setMenu(true))}
       >
         <div className={`bubble ${colour}`}>{emoji}</div>
@@ -102,25 +107,36 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
         <QuickActions
           title={`${title} · ${fmtMoney(amount, cur)}`}
           onClose={() => setMenu(false)}
-          actions={[
-            { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
-            { label: '📄 Duplicate (log it again today)', tone: 'mint', run: duplicate },
-            {
-              label: '🗑️ Delete',
-              tone: 'danger',
-              run: async () => {
-                if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
-                await removeWithUndo(async () => {
-                  await deleteTx(tx.id);
-                  if (tx.recurringId) {
-                    // keep the repeating entry from recording this date again
-                    const r = await db.recurring.get(tx.recurringId);
-                    if (r && (!r.lastPosted || r.lastPosted < tx.date)) await db.recurring.update(r.id, { lastPosted: tx.date });
-                  }
-                });
-              },
-            },
-          ]}
+          actions={
+            tx.feeFor
+              ? [
+                  {
+                    label: '🔄 Open the move (its fee is changed there)',
+                    tone: 'plain',
+                    run: () => go({ name: 'entry', id: tx.feeFor! }),
+                  },
+                ]
+              : [
+                  { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
+                  { label: '📄 Duplicate (log it again today)', tone: 'mint', run: duplicate },
+                  {
+                    label: '🗑️ Delete',
+                    tone: 'danger',
+                    run: async () => {
+                      if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
+                      await removeWithUndo(async () => {
+                        await deleteTx(tx.id);
+                        if (tx.recurringId) {
+                          // keep the repeating entry from recording this date again
+                          const r = await db.recurring.get(tx.recurringId);
+                          if (r && (!r.lastPosted || r.lastPosted < tx.date))
+                            await db.recurring.update(r.id, { lastPosted: tx.date });
+                        }
+                      });
+                    },
+                  },
+                ]
+          }
         />
       )}
     </>

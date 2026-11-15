@@ -7,6 +7,7 @@ import { db } from '../db/db';
 import { updateSettings, wipeAll } from '../db/repo';
 import { createProfile, deleteProfile, ensureSeeded } from '../db/seed';
 import { backupStats, parseBackup, restoreBackup, shareBackup } from '../services/backup';
+import { lastSafetyCopy, markDataVersion, saveSafetyCopy, undoWithSafetyCopy } from '../services/safety';
 import { entriesCsv, shareEntriesCsv } from '../services/export';
 import { refreshPrices } from '../services/prices';
 import { APP_VERSION, isNative, openExternal, pickTextFile } from '../services/platform';
@@ -187,6 +188,22 @@ export function Settings() {
   const [watchOpen, setWatchOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const counts = useLiveQuery(async () => ({ txs: await db.txs.count(), accounts: await db.accounts.count() }), []);
+  // the copy taken before the last Restore or Erase (7 days)
+  const [safetyCopy, setSafetyCopy] = useState<Awaited<ReturnType<typeof lastSafetyCopy>>>(null);
+  useEffect(() => {
+    void lastSafetyCopy().then(setSafetyCopy);
+  }, [counts]);
+  /** Restore and Erase replace everything: ask twice (the buttons swap sides), then keep a copy to undo with. */
+  const sureTwice = async (title: string, message: string, ok: string) =>
+    (await confirm({ title, message, ok, danger: true })) &&
+    (await confirm({
+      title: 'Are you really sure?',
+      message: 'A copy of everything now is kept for 7 days: Settings → Backup → Undo.',
+      ok: `Yes, ${ok.toLowerCase()}`,
+      cancel: 'Keep my data',
+      danger: true,
+      swap: true,
+    }));
   const set = (p: Partial<SettingsT>) => updateSettings(p);
 
   const restore = async () => {
@@ -195,15 +212,16 @@ export function Settings() {
     try {
       const b = parseBackup(f.text);
       const st = backupStats(b);
-      const ok = await confirm({
-        title: 'Restore this backup?',
-        message: `${f.name}\nMade ${fmtDate(st.exportedAt.slice(0, 10))} with ${st.accounts} accounts and ${st.entries} entries.\n\nEverything on this phone will be replaced.`,
-        ok: 'Restore',
-        danger: true,
-      });
+      const ok = await sureTwice(
+        'Restore this backup?',
+        `${f.name}\nMade ${fmtDate(st.exportedAt.slice(0, 10))} with ${st.accounts} accounts and ${st.entries} entries.\n\nEverything on this phone will be replaced.`,
+        'Restore',
+      );
       if (!ok) return;
+      await saveSafetyCopy('restore');
       await restoreBackup(b);
-      toast('✅ Restored');
+      await markDataVersion();
+      toast('✅ Restored. Settings → Backup can undo it for 7 days.');
     } catch (e) {
       toast(`😿 ${(e as Error).message}`);
     }
@@ -317,6 +335,23 @@ export function Settings() {
             <button className="btn block" onClick={restore}>
               📂 Restore from a backup file
             </button>
+            {safetyCopy && (
+              <button
+                className="btn butter block"
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Undo the ${safetyCopy.reason === 'restore' ? 'restore' : 'erase'}?`,
+                    message: `Everything goes back to how it was on ${new Date(safetyCopy.at).toLocaleString()}. Anything added since is replaced.`,
+                    ok: 'Undo it',
+                  });
+                  if (!ok) return;
+                  if (await undoWithSafetyCopy()) toast('↩️ Back to how it was');
+                  setSafetyCopy(null);
+                }}
+              >
+                ↩️ Undo the last {safetyCopy.reason === 'restore' ? 'restore' : 'erase'} ({fmtAgo(safetyCopy.at)})
+              </button>
+            )}
             <button className="btn mint block" onClick={exportAll}>
               📄 Export all entries (CSV for Excel)
             </button>
@@ -387,15 +422,16 @@ export function Settings() {
           <button
             className="btn danger block"
             onClick={async () => {
-              const ok = await confirm({
-                title: 'Erase everything?',
-                message: 'All accounts, entries, splits and settings on this device are deleted. Save a backup first if unsure.',
-                ok: 'Erase',
-                danger: true,
-              });
+              const ok = await sureTwice(
+                'Erase everything?',
+                'All accounts, entries, splits and settings on this device are deleted.',
+                'Erase',
+              );
               if (!ok) return;
+              await saveSafetyCopy('erase');
               await wipeAll();
               await ensureSeeded();
+              await markDataVersion();
               toast('🌱 Fresh start');
             }}
           >

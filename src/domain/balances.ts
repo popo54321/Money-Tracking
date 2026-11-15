@@ -176,3 +176,28 @@ export function netWorth(
   }
   return { total, liquid, missing, byGroup };
 }
+
+/**
+ * Deleting an account together with its moves changes the other accounts: each loses what those moves added (or
+ * gets back what they took, fees included). Per other account and currency, the change in its balance.
+ */
+export function deleteEffects(accountId: string, txs: Tx[]): { accountId: string; currency?: string; change: number }[] {
+  const moves = txs.filter(
+    (t) => t.kind === 'transfer' && t.accountId !== t.toAccountId && (t.accountId === accountId || t.toAccountId === accountId),
+  );
+  const ids = new Set(moves.map((t) => t.id));
+  const out = new Map<string, { accountId: string; currency?: string; change: number }>();
+  const add = (id: string, pocket: string | undefined, v: number) => {
+    const k = `${id}|${pocket ?? ''}`;
+    const e = out.get(k) ?? { accountId: id, currency: pocket, change: 0 };
+    e.change += v;
+    out.set(k, e);
+  };
+  for (const t of moves) {
+    if (t.accountId !== accountId) add(t.accountId, t.pocket, t.amount); // the money comes back
+    if (t.toAccountId && t.toAccountId !== accountId) add(t.toAccountId, t.toPocket, -(t.toAmount ?? t.amount));
+  }
+  // fees of those moves are deleted with them: their account gets the fee back
+  for (const t of txs) if (t.feeFor && ids.has(t.feeFor) && t.accountId !== accountId) add(t.accountId, t.pocket, t.amount);
+  return [...out.values()].filter((e) => Math.abs(e.change) > 1e-9);
+}

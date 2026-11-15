@@ -22,7 +22,7 @@ import { fmtDate } from '../domain/dates';
 import { splitView } from '../domain/splits';
 import { accountCurrencies, WALLET_TYPES, type Account, type Freq, type TxKind } from '../domain/types';
 import { db, uid } from '../db/db';
-import { deleteTx, saveCategory, saveMoveFee, saveNewEntry, saveTx } from '../db/repo';
+import { deleteTx, saveMoveFee, saveNewEntry, saveTx } from '../db/repo';
 import { useApp, useData, type Route } from '../state/app';
 
 type EntryRoute = Extract<Route, { name: 'entry' }>;
@@ -46,7 +46,7 @@ function writeLast(profileId: string, kind: string, id: string) {
 }
 
 export function Entry({ route }: { route: EntryRoute }) {
-  const { profile, rates, currency, today, back, toast, confirm, removeWithUndo } = useApp();
+  const { profile, rates, currency, today, back, replace, toast, confirm, removeWithUndo } = useApp();
   const data = useData();
   const existing = route.id ? data.allTxs.find((t) => t.id === route.id) : undefined;
   const usable = data.accounts.filter((a) => !a.archived || a.id === existing?.accountId || a.id === existing?.toAccountId);
@@ -71,10 +71,10 @@ export function Entry({ route }: { route: EntryRoute }) {
   const startAmount = existing ? (existing.origAmount ?? Math.abs(existing.amount)) : route.amount;
   const calc = useCalc(startAmount ? String(roundTo(startAmount, 8)) : '');
   const [typedCurrency, setTypedCurrency] = useState<string>(
-    existing?.origCurrency ?? existing?.pocket ?? acc?.currency ?? currency,
+    existing?.origCurrency ?? existing?.pocket ?? route.currency ?? acc?.currency ?? currency,
   );
   const [chargedOverride, setChargedOverride] = useState<number | null>(existing?.origCurrency ? existing.amount : null);
-  const [toAmountOverride, setToAmountOverride] = useState<number | null>(existing?.toAmount ?? null);
+  const [toAmountOverride, setToAmountOverride] = useState<number | null>(existing?.toAmount ?? route.toAmount ?? null);
   const [categoryId, setCategoryId] = useState<string | undefined>(existing?.categoryId ?? route.categoryId);
   const [date, setDate] = useState(existing?.date ?? today);
   const [note, setNote] = useState(existing?.note ?? route.note ?? '');
@@ -101,14 +101,20 @@ export function Entry({ route }: { route: EntryRoute }) {
   const accCur = walletAccount && holds(acc, typedCurrency) ? typedCurrency : (acc?.currency ?? currency);
   const pocket = acc && accCur !== acc.currency ? accCur : undefined;
   /** cash and top-up cards that don't hold the typed currency can't be picked */
-  const lacks = (a: Account) => (WALLET_TYPES.has(a.type) && !holds(a, typedCurrency) ? `No ${typedCurrency} in it` : undefined);
+  // (an entry being edited keeps its own account: older entries were converted before wallets existed)
+  const lacks = (a: Account) =>
+    existing && a.id === existing.accountId
+      ? undefined
+      : WALLET_TYPES.has(a.type) && !holds(a, typedCurrency)
+        ? `No ${typedCurrency} in it`
+        : undefined;
   const foreign = !!acc && acc.type !== 'units' && typedCurrency !== accCur;
   const autoCharged = foreign && amount !== null ? convert(amount, typedCurrency, accCur, rates) : null;
   const charged = foreign ? (chargedOverride ?? autoCharged) : amount;
 
   // a move into a cash or top-up card goes into one of its currencies (another account's, or this account's own)
   const toHeld = toAcc ? accountCurrencies(toAcc) : [];
-  const [toWallet, setToWallet] = useState<string | undefined>(existing?.toPocket);
+  const [toWallet, setToWallet] = useState<string | undefined>(existing?.toPocket ?? route.toWallet);
   const toCur =
     toAcc && toWallet && toHeld.includes(toWallet)
       ? toWallet
@@ -255,30 +261,19 @@ export function Entry({ route }: { route: EntryRoute }) {
       ? (await saveTx(draft, rates, currency), 'saved')
       : await saveNewEntry(draft, repeatOpts, rates, currency, today);
     if (kind !== 'adjust') writeLast(profile.id, kind, acc.id);
-    // the move's fee: spending from the same account and currency, in a Fees category (made if missing)
+    // the move's fee: spending from the same account and currency, in the hidden Move fee category
     if (kind === 'transfer' && draft.id && ((fee ?? 0) > 0 || existingFee)) {
-      let feeCat = data.categories.find((c) => c.kind === 'expense' && !c.archived && /\bfees?\b/i.test(c.name));
-      if (!feeCat && (fee ?? 0) > 0) {
-        const groups = data.categories.filter((c) => c.kind === 'expense' && !c.archived).map((c) => c.group);
-        feeCat = {
-          id: uid(),
-          profileId: profile.id,
-          kind: 'expense',
-          name: 'Fees',
-          group: groups.includes('Fixed') ? 'Fixed' : (groups[0] ?? 'Fixed'),
-          emoji: '🏦',
-          order: data.categories.length,
-          archived: false,
-        };
-        await saveCategory(feeCat);
-      }
       await saveMoveFee(
         { id: draft.id, profileId: profile.id, date, accountId: acc.id, pocket, note: note.trim() || undefined },
         fee ?? 0,
-        feeCat?.id,
         rates,
         currency,
       );
+    }
+    // a move changed into spending or income has no fee any more
+    if (kind !== 'transfer' && existingFee) {
+      await deleteTx(existingFee.id);
+      toast('Its move fee was removed');
     }
     if (plan) {
       toast(
@@ -314,6 +309,32 @@ export function Entry({ route }: { route: EntryRoute }) {
   const kindCls = kind === 'income' ? 'income' : kind === 'transfer' || kind === 'adjust' ? 'transfer' : '';
   const shownValue =
     amount === null ? (calc.expr ? fmtExpr(calc.expr) : fmtMoney(0, typedCurrency)) : fmtMoney(amount, typedCurrency);
+
+  // a move's fee is made by its move: it can only be changed or removed there
+  if (existing?.feeFor) {
+    const move = data.allTxs.find((t) => t.id === existing.feeFor);
+    return (
+      <>
+        <Topbar title="🏦 Move fee" />
+        <div className="page">
+          <div className="card">
+            <div className="big">{fmtMoney(existing.amount, existing.pocket ?? acc?.currency ?? currency)}</div>
+            <div className="small muted mt">
+              {acc?.name} · {fmtDate(existing.date)}
+            </div>
+            <p className="small">
+              This is the fee of a move. It is changed or removed from the move: open it and change the Fee, or set it to 0.
+            </p>
+          </div>
+          {move && (
+            <button className="btn primary block" onClick={() => replace({ name: 'entry', id: move.id })}>
+              🔄 Open the move
+            </button>
+          )}
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

@@ -38,7 +38,8 @@ export function Categories() {
   const [period, setPeriod] = useState<LimitPeriod>('month');
   const [moveTo, setMoveTo] = useState<string | null>(null);
 
-  const list = data.categories.filter((c) => c.kind === kind);
+  // the app's own categories (Move fee) can't be edited, so they aren't listed
+  const list = data.categories.filter((c) => c.kind === kind && !c.system);
   // groups exist while they have categories; spending and income work the same way
   const groups = orderGroups(
     list.map((c) => c.group),

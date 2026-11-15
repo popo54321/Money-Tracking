@@ -392,11 +392,77 @@ describe('wallets and move fees', () => {
       'THB',
     );
     const move = { id: moveId, profileId: 'u1', date: '2026-11-10', accountId: 'bank' };
-    await saveMoveFee(move, 25, 'fees', rates, 'THB');
-    await saveMoveFee(move, 30, 'fees', rates, 'THB');
+    await saveMoveFee(move, 25, rates, 'THB');
+    await saveMoveFee(move, 30, rates, 'THB');
     const fees = (await db.txs.toArray()).filter((t) => t.feeFor === moveId);
-    expect(fees.map((t) => [t.kind, t.amount, t.categoryId])).toEqual([['expense', 30, 'fees']]);
+    expect(fees.map((t) => [t.kind, t.amount, t.categoryId])).toEqual([['expense', 30, 'movefee-u1']]);
+    expect((await db.categories.get('movefee-u1'))!.system).toBe('moveFee');
     await deleteTx(moveId);
     expect(await db.txs.count()).toBe(0);
+  });
+});
+
+describe('release 1.20 fixes', () => {
+  const usd: Account = { ...bank, id: 'usd', name: 'Dollars', currency: 'USD', openingBalance: 0 };
+  const r33 = { perUsd: { USD: 1, THB: 33 } };
+  const r35 = { perUsd: { USD: 1, THB: 35 } };
+  it('editing an entry keeps the value it had: same amount exactly, a new amount at the same rate', async () => {
+    const { saveTx } = await import('./repo');
+    await db.accounts.put(usd);
+    const id = await saveTx({ ...draft('2026-11-03'), accountId: 'usd', amount: 100 }, r33, 'THB');
+    expect((await db.txs.get(id))!.value).toBe(3300);
+    // months later the rate is 35: editing only the note keeps 3,300
+    await saveTx({ ...draft('2026-11-03'), id, accountId: 'usd', amount: 100, note: 'Dinner' }, r35, 'THB');
+    expect((await db.txs.get(id))!.value).toBe(3300);
+    // a new amount keeps the original rate of 33
+    await saveTx({ ...draft('2026-11-03'), id, accountId: 'usd', amount: 120 }, r35, 'THB');
+    expect((await db.txs.get(id))!.value).toBe(3960);
+  });
+  it('a new entry for an earlier day is valued at that day’s saved rate', async () => {
+    const { saveTx } = await import('./repo');
+    await db.accounts.put(usd);
+    await db.prices.put({ date: '2026-01-10', perUsd: { USD: 1, THB: 31 } });
+    const id = await saveTx({ ...draft('2026-01-12'), accountId: 'usd', amount: 10 }, r35, 'THB');
+    expect((await db.txs.get(id))!.value).toBe(310);
+  });
+  it('payday moves into an account in another currency arrive converted', async () => {
+    await db.accounts.put(usd);
+    await db.profiles.put({
+      id: 'u1',
+      name: 'U',
+      order: 0,
+      payday: {
+        active: true,
+        accountId: 'bank',
+        gross: 1000,
+        takeHome: 670,
+        extras: [{ id: 'pf', name: 'Fund', amount: 330, toAccountId: 'usd' }],
+        rule: 'day',
+        day: 25,
+        fromMonth: '2026-11',
+      },
+    });
+    await recordPayday('u1', '2026-11', '2026-11-25', r33, 'THB');
+    const move = (await db.txs.toArray()).find((t) => t.kind === 'transfer')!;
+    expect([move.amount, move.toAmount]).toEqual([330, 10]);
+  });
+  it('deleting an account deletes the fees of the moves that go with it', async () => {
+    const { saveTx, saveMoveFee, deleteAccountCascade } = await import('./repo');
+    await db.accounts.put(usd);
+    const moveId = await saveTx(
+      { profileId: 'u1', date: '2026-11-10', kind: 'transfer', accountId: 'bank', toAccountId: 'usd', amount: 330, toAmount: 10 },
+      r33,
+      'THB',
+    );
+    await saveMoveFee({ id: moveId, profileId: 'u1', date: '2026-11-10', accountId: 'bank' }, 25, r33, 'THB');
+    await deleteAccountCascade('usd');
+    expect(await db.txs.count()).toBe(0);
+  });
+  it('fees saved before go into the Move fee category', async () => {
+    const { saveTx, moveFeesIntoTheirCategory } = await import('./repo');
+    await saveTx({ ...draft('2026-11-10'), amount: 25, categoryId: 'old-fees', feeFor: 'm1' }, rates, 'THB');
+    expect(await moveFeesIntoTheirCategory()).toBe(1);
+    expect((await db.txs.toArray())[0].categoryId).toBe('movefee-u1');
+    expect(await moveFeesIntoTheirCategory()).toBe(0);
   });
 });

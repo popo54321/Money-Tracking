@@ -734,3 +734,42 @@ describe('update history', () => {
     expect(changesBetween('1.17.1', '1.18.1', compareVersions).map((e) => e.version)).toEqual(['1.18.1', '1.18.0']);
   });
 });
+
+describe('deleting an account with moves, and newer data', () => {
+  it('says how each other account would change (fees come back too)', async () => {
+    const { deleteEffects } = await import('./balances');
+    const t = (p: Partial<Tx>): Tx =>
+      ({
+        id: 'x',
+        profileId: 'p',
+        date: '2026-11-01',
+        kind: 'transfer',
+        accountId: 'bank',
+        amount: 0,
+        value: 0,
+        valueCurrency: 'THB',
+        createdAt: 1,
+        updatedAt: 1,
+        ...p,
+      }) as Tx;
+    const txs = [
+      t({ id: 'in', accountId: 'bank', toAccountId: 'cash', amount: 1000 }),
+      t({ id: 'out', accountId: 'cash', toAccountId: 'bank', amount: 300 }),
+      t({ id: 'fee', kind: 'expense', accountId: 'bank', amount: 20, feeFor: 'in' }),
+      t({ id: 'other', accountId: 'bank', toAccountId: 'card', amount: 50 }),
+    ];
+    expect(deleteEffects('cash', txs)).toEqual([{ accountId: 'bank', currency: undefined, change: 720 }]);
+    expect(deleteEffects('nothing', txs)).toEqual([]);
+  });
+  it('an older app version does not open data a newer one saved', async () => {
+    const { dataVerdict } = await import('../services/safety');
+    expect(dataVerdict('1.21.0', '1.20.0')).toBe('newer');
+    expect(dataVerdict('1.20.0', '1.20.0')).toBe('ok');
+    expect(dataVerdict(undefined, '1.20.0')).toBe('ok');
+  });
+  it('a backup made by a newer version is refused', async () => {
+    const { parseBackup } = await import('../services/backup');
+    const b = { app: 'money-tracking', format: 1, appVersion: '99.0.0', exportedAt: '', data: { profiles: [{ id: 'p' }] } };
+    expect(() => parseBackup(JSON.stringify(b))).toThrow(/newer than this app/);
+  });
+});

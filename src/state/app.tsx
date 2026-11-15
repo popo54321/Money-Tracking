@@ -41,6 +41,11 @@ export type Route =
       note?: string;
       /** open with "Pay in instalments" switched on (from a card's page) */
       instalments?: boolean;
+      /** the currency typed (a duplicate keeps the original's) */
+      currency?: string;
+      /** a move: how much arrived, and into which currency of the destination */
+      toAmount?: number;
+      toWallet?: string;
     }
   | { name: 'txList'; categoryId?: string; accountId?: string; from?: string; to?: string; title?: string }
   | { name: 'recurring' }

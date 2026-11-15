@@ -3,6 +3,7 @@ import { db, TABLES, type TableName } from '../db/db';
 import { getSettings, updateSettings } from '../db/repo';
 import { todayISO } from '../domain/dates';
 import { APP_VERSION, isNative, shareFile } from './platform';
+import { compareVersions } from './version';
 
 export interface BackupFile {
   app: 'money-tracking';
@@ -48,6 +49,11 @@ export function parseBackup(text: string): BackupFile {
     if (!Array.isArray(v)) throw new Error(`Section "${k}" in backup is damaged.`);
   }
   if (!Array.isArray(b.data.profiles) || b.data.profiles.length === 0) throw new Error('The backup has no profiles.');
+  // a newer version may store things this one doesn't know: restoring it here could lose them
+  if (typeof b.appVersion === 'string' && compareVersions(b.appVersion, APP_VERSION) > 0)
+    throw new Error(
+      `This backup was made by version ${b.appVersion}, newer than this app (${APP_VERSION}). Update the app first.`,
+    );
   return b as BackupFile;
 }
 
