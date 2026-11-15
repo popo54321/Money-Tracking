@@ -119,12 +119,15 @@ function EntrySheet({
   onSave,
   onDelete,
   onClose,
+  onSplit,
 }: {
   trip: Trip;
   entry: TripEntry | null;
   onSave: (e: TripEntry) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  /** turn this bill into a bill split (or open the one it already went to) */
+  onSplit?: (e: TripEntry) => void;
 }) {
   const [e, setE] = useState<TripEntry | null>(entry);
   const [curOpen, setCurOpen] = useState(false);
@@ -197,6 +200,11 @@ function EntrySheet({
       <Field label="Date (optional)">
         <input type="date" value={e.date ?? ''} onChange={(x) => setE({ ...e, date: x.target.value || undefined })} />
       </Field>
+      {!isNew && onSplit && (
+        <button className="btn mint block mb" onClick={() => onSplit(e)} disabled={!e.cost}>
+          {e.inBillSplit ? '🧾 Open its bill split' : '🧾 Split this bill in detail'}
+        </button>
+      )}
       <div className="btn-row">
         {!isNew && (
           <button className="btn danger" onClick={() => onDelete(e.id)}>
@@ -317,6 +325,37 @@ export function TripEdit({ id }: { id: string }) {
     setNewName('');
   };
 
+  /** A trip bill becomes a bill split (everyone on the trip, the whole bill as one item, paid by you), settled there. */
+  const splitInDetail = async (entry0: TripEntry) => {
+    // a bill split with everyone on the trip, the whole bill as one item, paid by you
+    const me = t.members.find((m) => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase()) ?? t.members[0];
+    const bill: BillSplit = {
+      id: uid(),
+      title: entry0.bill || 'Bill',
+      date: entry0.date ?? todayISO(),
+      currency: entry0.currency,
+      people: t.members.map((m) => ({ id: m.id, name: m.name })),
+      items: [{ id: uid(), name: 'Whole bill', price: entry0.cost, sharedBy: [], shared: false }],
+      servicePct: 0,
+      vatPct: 0,
+      vatOnService: true,
+      mode: 'itemised',
+      roundWhole: false,
+      paidBy: me?.id,
+      fromTrip: { tripId: t.id, tripName: t.name, entryId: entry0.id },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    await saveBill(bill);
+    const next = {
+      ...t,
+      entries: t.entries.map((x) => (x.id === entry0.id ? { ...x, inBillSplit: bill.id } : x)),
+    };
+    clearTimeout(saveTimer.current);
+    await saveTrip(next);
+    setT(next);
+    go({ name: 'bill', id: bill.id });
+  };
   const liveRate = (c: string) => roundTo(rateBetween(c, base, rates) ?? 0, 4);
 
   return (
@@ -553,6 +592,13 @@ export function TripEdit({ id }: { id: string }) {
           update({ entries: t.entries.filter((x) => x.id !== eid) });
           setEntry(null);
         }}
+        onSplit={async (e) => {
+          setEntry(null);
+          if (e.inBillSplit) {
+            if (await db.bills.get(e.inBillSplit)) go({ name: 'bill', id: e.inBillSplit });
+            else toast('That bill split was deleted. Press and hold the bill to count it in the trip again.');
+          } else await splitInDetail(e);
+        }}
       />
       <Sheet open={!!member} onClose={() => setMember(null)} title="Traveller">
         {member && (
@@ -655,37 +701,7 @@ export function TripEdit({ id }: { id: string }) {
                   {
                     label: '🧾 Split this bill in detail',
                     tone: 'mint' as const,
-                    run: async () => {
-                      // a bill split with everyone on the trip, the whole bill as one item, paid by you
-                      const me =
-                        t.members.find((m) => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase()) ?? t.members[0];
-                      const bill: BillSplit = {
-                        id: uid(),
-                        title: quickEntry.bill || 'Bill',
-                        date: quickEntry.date ?? todayISO(),
-                        currency: quickEntry.currency,
-                        people: t.members.map((m) => ({ id: m.id, name: m.name })),
-                        items: [{ id: uid(), name: 'Whole bill', price: quickEntry.cost, sharedBy: [], shared: false }],
-                        servicePct: 0,
-                        vatPct: 0,
-                        vatOnService: true,
-                        mode: 'itemised',
-                        roundWhole: false,
-                        paidBy: me?.id,
-                        fromTrip: { tripId: t.id, tripName: t.name, entryId: quickEntry.id },
-                        createdAt: Date.now(),
-                        updatedAt: Date.now(),
-                      };
-                      await saveBill(bill);
-                      const next = {
-                        ...t,
-                        entries: t.entries.map((x) => (x.id === quickEntry.id ? { ...x, inBillSplit: bill.id } : x)),
-                      };
-                      clearTimeout(saveTimer.current);
-                      await saveTrip(next);
-                      setT(next);
-                      go({ name: 'bill', id: bill.id });
-                    },
+                    run: () => splitInDetail(quickEntry),
                   },
                 ]),
             { label: '✏️ Edit', tone: 'plain', run: () => setEntry(quickEntry) },
