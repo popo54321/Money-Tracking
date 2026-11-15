@@ -11,6 +11,17 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.22.0',
+    date: '2026-11-15',
+    title: 'Paybacks as income, and debt summaries',
+    notes: [
+      'Who owes me: when someone pays you back, it can also be logged as income: choose the account it came into and the category.',
+      'Changing or deleting that payback changes or deletes its income entry too.',
+      'Each person has a Copy summary: what they owe, each line with its day and note, and what is still owed.',
+      'Summary for everyone copies all open debts at once, ready for a group chat.',
+    ],
+  },
+  {
     version: '1.21.3',
     date: '2026-11-15',
     title: 'Split in detail from Edit bill',

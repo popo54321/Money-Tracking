@@ -1,13 +1,29 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar, CalcSheet } from '../components/ui';
-import { debtStatus, type Debt, type DebtEvent } from '../domain/debts';
+import {
+  AccountPickerButton,
+  AmountField,
+  CategoryGrid,
+  CurrencySheet,
+  Field,
+  NumberInput,
+  Seg,
+  Sheet,
+  ToggleRow,
+  Topbar,
+  Sparkle,
+  Avatar,
+  CalcSheet,
+} from '../components/ui';
+import { debtStatus, debtSummary, everyoneSummary, type Debt, type DebtEvent } from '../domain/debts';
 import { addDays, fmtDate } from '../domain/dates';
 import { convert } from '../domain/fx';
-import { fmtMoney } from '../domain/money';
+import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
+import { accountCurrencies } from '../domain/types';
+import { copyText } from '../services/platform';
 import { db, uid } from '../db/db';
-import { deleteDebt, saveDebt } from '../db/repo';
-import { useApp } from '../state/app';
+import { deleteDebt, deleteTx, saveDebt, saveTx } from '../db/repo';
+import { useApp, useData } from '../state/app';
 import { ProfileSwitch } from './Home';
 import { holdProps } from '../components/hold';
 import { QuickActions } from '../components/QuickActions';
@@ -101,6 +117,24 @@ export function DebtList() {
           <div className="big">{fmtMoney(totals.owedToMe, currency)}</div>
           <div className="small bold">I owe others {fmtMoney(totals.iOwe, currency)}</div>
         </div>
+        {(debts ?? []).some((d) => !d.closed) && (
+          <button
+            className="btn sky block mb"
+            onClick={async () => {
+              const ok = await copyText(
+                everyoneSummary(
+                  debts ?? [],
+                  today,
+                  (n, c) => fmtMoney(n, c),
+                  (x) => fmtDate(x),
+                ),
+              );
+              toast(ok ? '📋 Copied everyone, paste it in the group chat' : 'Could not copy');
+            }}
+          >
+            📋 Summary for everyone
+          </button>
+        )}
         <div className="btn-row mb">
           <button className="btn mint" onClick={() => create('owedToMe')}>
             ＋ Someone owes me
@@ -174,13 +208,29 @@ export function DebtList() {
 }
 
 export function DebtDetail({ id }: { id: string }) {
-  const { today, back, confirm, toast, removeWithUndo } = useApp();
+  const { today, back, confirm, toast, removeWithUndo, profile, rates, currency } = useApp();
+  const data = useData();
   const stored = useLiveQuery(() => db.debts.get(id), [id]);
   const [d, setD] = useState<Debt | null>(null);
   const [ev, setEv] = useState<DebtEvent | null>(null);
   const [quickEv, setQuickEv] = useState<DebtEvent | null>(null);
   const [curOpen, setCurOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // a payback can also be logged as income: into which account, as which category
+  const [logIncome, setLogIncome] = useState(false);
+  const [incAcc, setIncAcc] = useState<string | undefined>();
+  const [incCat, setIncCat] = useState<string | undefined>();
+  useEffect(() => {
+    if (!ev || !d) return;
+    const tx = ev.txId ? data.allTxs.find((t) => t.id === ev.txId) : undefined;
+    const isNewLine = !d.events.some((x) => x.id === ev.id);
+    setLogIncome(!!tx || (isNewLine && d.direction === 'owedToMe'));
+    setIncAcc(tx?.accountId ?? data.accounts.find((a) => !a.archived && (a.type === 'bank' || a.type === 'cash'))?.id);
+    setIncCat(
+      tx?.categoryId ?? data.categories.find((c) => c.kind === 'income' && !c.archived && /pay ?back|repay/i.test(c.name))?.id,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ev?.id]);
   useEffect(() => {
     if (stored && !d) setD(stored);
   }, [stored, d]);
@@ -342,6 +392,22 @@ export function DebtDetail({ id }: { id: string }) {
         <Field label="Note">
           <input value={d.note ?? ''} onChange={(e) => update({ note: e.target.value || undefined })} placeholder="Optional" />
         </Field>
+        <button
+          className="btn sky block mb"
+          onClick={async () => {
+            const ok = await copyText(
+              debtSummary(
+                d,
+                today,
+                (n, c) => fmtMoney(n, c),
+                (x) => fmtDate(x),
+              ),
+            );
+            toast(ok ? '📋 Copied, paste it in the chat' : 'Could not copy');
+          }}
+        >
+          📋 Copy summary
+        </button>
         <button className={`btn block ${d.closed ? '' : 'mint'}`} onClick={() => update({ closed: !d.closed })}>
           {d.closed ? '↩️ Reopen' : '✅ Mark as settled'}
         </button>
@@ -372,13 +438,34 @@ export function DebtDetail({ id }: { id: string }) {
                 placeholder="Optional"
               />
             </Field>
+            {ev.type === 'repay' && theyOwe && (
+              <div className="card flat">
+                <ToggleRow
+                  title="💰 Also log it as income"
+                  desc="Adds the money to the account it came into"
+                  on={logIncome}
+                  onChange={setLogIncome}
+                />
+                {logIncome && (
+                  <>
+                    <Field label="Came into">
+                      <AccountPickerButton accounts={data.accounts} value={incAcc} onChange={setIncAcc} />
+                    </Field>
+                    <div className="small bold mb">Category</div>
+                    <CategoryGrid categories={data.categories} kind="income" value={incCat} onPick={setIncCat} />
+                  </>
+                )}
+              </div>
+            )}
             <div className="btn-row">
               {d.events.some((x) => x.id === ev.id) && (
                 <button
                   className="btn danger"
-                  onClick={() => {
+                  onClick={async () => {
+                    if (ev.txId) await deleteTx(ev.txId);
                     update({ events: d.events.filter((x) => x.id !== ev.id) });
                     setEv(null);
+                    if (ev.txId) toast('Deleted, with its income entry');
                   }}
                 >
                   Delete
@@ -387,11 +474,42 @@ export function DebtDetail({ id }: { id: string }) {
               <button
                 className="btn primary"
                 disabled={!ev.amount}
-                onClick={() => {
-                  const exists = d.events.some((x) => x.id === ev.id);
-                  update({ events: exists ? d.events.map((x) => (x.id === ev.id ? ev : x)) : [...d.events, ev] });
+                onClick={async () => {
+                  let line = ev;
+                  if (ev.type === 'repay' && theyOwe && logIncome) {
+                    // the payback is income in the account it came into (its own currency, or a wallet holding it)
+                    const acc = incAcc ? data.accountById.get(incAcc) : undefined;
+                    if (!acc) return toast('Choose the account it came into');
+                    if (!incCat) return toast('Pick a category 🏷️');
+                    const inWallet = acc.currency !== cur && accountCurrencies(acc).includes(cur);
+                    const same = acc.currency === cur || inWallet;
+                    const amount = same ? ev.amount : (convert(ev.amount, cur, acc.currency, rates) ?? ev.amount);
+                    const txId = await saveTx(
+                      {
+                        id: ev.txId,
+                        profileId: profile.id,
+                        date: ev.date,
+                        kind: 'income',
+                        accountId: acc.id,
+                        pocket: inWallet ? cur : undefined,
+                        amount: roundTo(amount, decimalsFor(acc.currency)),
+                        origAmount: same ? undefined : ev.amount,
+                        origCurrency: same ? undefined : cur,
+                        categoryId: incCat,
+                        note: `Payback from ${d.person || 'someone'}${ev.note ? `: ${ev.note}` : ''}`,
+                      },
+                      rates,
+                      currency,
+                    );
+                    line = { ...ev, txId };
+                  } else if (ev.txId) {
+                    await deleteTx(ev.txId);
+                    line = { ...ev, txId: undefined };
+                  }
+                  const exists = d.events.some((x) => x.id === line.id);
+                  update({ events: exists ? d.events.map((x) => (x.id === line.id ? line : x)) : [...d.events, line] });
                   setEv(null);
-                  toast('✨ Saved');
+                  toast(line.txId ? '💰 Saved, and logged as income' : '✨ Saved');
                 }}
               >
                 Save
@@ -411,7 +529,16 @@ export function DebtDetail({ id }: { id: string }) {
               label: '🗑️ Delete',
               tone: 'danger',
               run: async () => {
-                if (!(await confirm({ title: 'Delete this line?', ok: 'Delete', danger: true }))) return;
+                if (
+                  !(await confirm({
+                    title: 'Delete this line?',
+                    message: quickEv.txId ? 'Its income entry is deleted too.' : undefined,
+                    ok: 'Delete',
+                    danger: true,
+                  }))
+                )
+                  return;
+                if (quickEv.txId) await deleteTx(quickEv.txId);
                 update({ events: d.events.filter((x) => x.id !== quickEv.id) });
               },
             },

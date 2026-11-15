@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { debtStatus, type Debt } from './debts';
+import { debtStatus, debtSummary, everyoneSummary, type Debt } from './debts';
 import { goalStatus, type Goal } from './goals';
 import { computeBill } from './billSplit';
 
@@ -884,5 +884,47 @@ describe('spreadsheet export keeps text as text', () => {
     expect(row).toContain("'=Bank");
     expect(row).toContain("'=50+20 parking");
     expect(row).toContain(',-50,');
+  });
+});
+
+describe('who owes me summaries', () => {
+  const debt = (p: Partial<Debt>): Debt =>
+    ({
+      id: 'd',
+      profileId: 'p',
+      person: 'June',
+      direction: 'owedToMe',
+      currency: 'THB',
+      interestType: 'none',
+      ratePct: 0,
+      ratePer: 'year',
+      events: [],
+      closed: false,
+      createdAt: 1,
+      updatedAt: 1,
+      ...p,
+    }) as Debt;
+  const fmt = (n: number, c: string) => `${c} ${n.toFixed(2)}`;
+  const day = (d: string) => d;
+  it('one person: each line with its day and note, and what is still owed', () => {
+    const d = debt({
+      events: [
+        { id: '2', date: '2026-11-10', type: 'repay', amount: 200 },
+        { id: '1', date: '2026-11-03', type: 'lend', amount: 500, note: 'Lunch' },
+      ],
+    });
+    expect(debtSummary(d, '2026-11-15', fmt, day)).toBe(
+      'June owes me THB 300.00\n• 2026-11-03 · Lunch: lent THB 500.00\n• 2026-11-10: paid back THB 200.00\nStill owed: THB 300.00 (as of 2026-11-15)',
+    );
+  });
+  it('everyone: people who owe me, then people I owe; settled ones left out', () => {
+    const list = [
+      debt({ id: 'a', person: 'June', events: [{ id: '1', date: '2026-11-03', type: 'lend', amount: 500 }] }),
+      debt({ id: 'b', person: 'Mint', direction: 'iOwe', events: [{ id: '1', date: '2026-11-04', type: 'lend', amount: 100 }] }),
+      debt({ id: 'c', person: 'Old', closed: true, events: [{ id: '1', date: '2026-01-01', type: 'lend', amount: 9 }] }),
+    ];
+    const text = everyoneSummary(list, '2026-11-15', fmt, day);
+    expect(text.indexOf('June owes me')).toBeLessThan(text.indexOf('I owe Mint'));
+    expect(text).not.toContain('Old');
   });
 });

@@ -10,6 +10,8 @@ export interface DebtEvent {
   type: 'lend' | 'repay';
   amount: number;
   note?: string;
+  /** a payback also logged as income: that entry (kept in step when this line changes or is deleted) */
+  txId?: string;
 }
 
 export interface Debt {
@@ -118,4 +120,39 @@ export function debtStatus(debt: Debt, asOf: ISODate, projectTo?: ISODate): Debt
     st.projected = projected;
   }
   return st;
+}
+
+/** Money in a summary: amount and currency (the screen's own formatting). */
+type Fmt = (amount: number, currency: string) => string;
+
+/**
+ * A debt as text to paste in a chat: who owes whom, each line with its day and note, any interest, and what is
+ * still owed.
+ */
+export function debtSummary(d: Debt, today: ISODate, fmt: Fmt, fmtDay: (d: ISODate) => string): string {
+  const s = debtStatus(d, today);
+  const theyOwe = d.direction === 'owedToMe';
+  const who = d.person.trim() || 'Someone';
+  const lines = [theyOwe ? `${who} owes me ${fmt(s.owed, d.currency)}` : `I owe ${who} ${fmt(s.owed, d.currency)}`];
+  const events = [...d.events].filter((e) => e.amount > 0).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  for (const e of events) {
+    const what = e.type === 'lend' ? (theyOwe ? 'lent' : 'borrowed') : 'paid back';
+    lines.push(`• ${fmtDay(e.date)}${e.note ? ` · ${e.note}` : ''}: ${what} ${fmt(e.amount, d.currency)}`);
+  }
+  if (s.totalInterest > 0.005) lines.push(`Interest so far: ${fmt(s.totalInterest, d.currency)}`);
+  lines.push(`Still owed: ${fmt(s.owed, d.currency)} (as of ${fmtDay(today)})`);
+  return lines.join('\n');
+}
+
+/** Everyone at once (open debts only): people who owe me first, then people I owe. */
+export function everyoneSummary(debts: Debt[], today: ISODate, fmt: Fmt, fmtDay: (d: ISODate) => string): string {
+  const open = debts.filter((d) => !d.closed && Math.abs(debtStatus(d, today).owed) > 0.005);
+  const part = (dir: Debt['direction'], title: string) => {
+    const list = open.filter((d) => d.direction === dir);
+    return list.length ? [title, ...list.map((d) => debtSummary(d, today, fmt, fmtDay))].join('\n\n') : '';
+  };
+  return (
+    [part('owedToMe', `💚 Who owes me (${fmtDay(today)})`), part('iOwe', '💗 Who I owe')].filter(Boolean).join('\n\n') ||
+    'Nobody owes anything right now.'
+  );
 }
