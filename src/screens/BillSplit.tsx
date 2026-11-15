@@ -554,7 +554,7 @@ export function BillEdit({ id }: { id: string }) {
         }${s.exempt ? ' (treated to service, VAT & tip)' : ''}`,
       );
     lines.push(
-      `Total ${fmtMoney(r.total, cur)} (service ${b.servicePct}%, VAT ${b.vatPct}%${r.tip > 0 ? `, tip ${fmtMoney(r.tip, cur)}` : ''})`,
+      `Total ${fmtMoney(r.total, cur)}: food ${fmtMoney(r.subtotal, cur)}, service ${fmtMoney(r.service, cur)} (${b.servicePct}%), VAT ${fmtMoney(r.vat, cur)} (${b.vatPct}%)${r.tip > 0 ? `, tip ${fmtMoney(r.tip, cur)}` : ''}`,
     );
     for (const t of plan.transfers) lines.push(`${t.fromName} → ${t.toName}: ${fmtMoney(t.amount, cur)}`);
     return lines.join('\n');
@@ -831,19 +831,26 @@ export function BillEdit({ id }: { id: string }) {
           <Sparkle k="bills" />
           <div className="label">Total bill</div>
           <div className="big">{fmtMoney(r.total, cur)}</div>
-          <div className="stat-row">
+          {/* service charge and VAT shown apart; the tip only when there is one (then two rows of two) */}
+          <div className={`stat-row ${r.tip > 0.005 ? 'four' : ''}`}>
             <div className="stat">
               <div className="k">Food</div>
               <div className="v">{fmtMoney(r.subtotal, cur)}</div>
             </div>
             <div className="stat">
-              <div className="k">Service + VAT</div>
-              <div className="v">{fmtMoney(r.service + r.vat, cur)}</div>
+              <div className="k">Service {b.servicePct ? `${b.servicePct}%` : ''}</div>
+              <div className="v">{fmtMoney(r.service, cur)}</div>
             </div>
             <div className="stat">
-              <div className="k">💁 Tip</div>
-              <div className="v">{fmtMoney(r.tip, cur)}</div>
+              <div className="k">VAT {b.vatPct ? `${b.vatPct}%` : ''}</div>
+              <div className="v">{fmtMoney(r.vat, cur)}</div>
             </div>
+            {r.tip > 0.005 && (
+              <div className="stat">
+                <div className="k">💁 Tip</div>
+                <div className="v">{fmtMoney(r.tip, cur)}</div>
+              </div>
+            )}
           </div>
         </div>
         {r.warnings.map((w) => (

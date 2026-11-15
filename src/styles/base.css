@@ -250,6 +250,9 @@ textarea {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
+.stat-row.four {
+  grid-template-columns: repeat(2, 1fr);
+}
 .stat {
   background: color-mix(in srgb, var(--card) 70%, transparent);
   border-radius: 14px;
