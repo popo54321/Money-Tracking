@@ -204,6 +204,7 @@ export function LiquidLine({ liquid }: { liquid: number }) {
     data.cardCovered,
     rates,
     currency,
+    data.wallets,
   );
   return (
     <div className="small bold mt">
@@ -368,7 +369,7 @@ export function Home() {
   }, [isNew]);
   useEffect(() => onNativeUpdateState(setNativeUpdate), []);
 
-  const nw = netWorth(data.accounts, data.balances, rates, currency);
+  const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets);
   const m = monthKey(today);
   const sum = summarise(data.txs, data.categories, monthStart(m), monthEnd(m), currency, rates);
   const setupDue = (needsSetup?.value as Record<string, boolean> | undefined)?.[profile.id];

@@ -81,6 +81,19 @@ export interface Account {
   splits?: AccountSplit[];
   /** name of the last split: the balance not earmarked */
   leftName?: string;
+  /**
+   * cash and top-up cards: other currencies held besides `currency` (the main wallet), e.g. ['JPY', 'USD'].
+   * Bills set aside, splits and targets stay in the main wallet.
+   */
+  wallets?: string[];
+}
+
+/** Account types that can hold several currencies (wallets). */
+export const WALLET_TYPES = new Set(['cash', 'topup']);
+
+/** Every currency an account holds: its main currency first, then its other wallets. */
+export function accountCurrencies(a: Pick<Account, 'currency' | 'wallets' | 'type'>): string[] {
+  return WALLET_TYPES.has(a.type) ? [a.currency, ...(a.wallets ?? []).filter((c) => c !== a.currency)] : [a.currency];
 }
 
 export interface AccountSplit {
@@ -108,8 +121,14 @@ export interface Tx {
    */
   amount: number;
   toAccountId?: string;
-  /** transfer: amount arriving, in the destination account's currency */
+  /** transfer: amount arriving, in the destination account's currency (or its wallet's) */
   toAmount?: number;
+  /** a wallet other than the account's main one: `amount` is in this currency (cash and top-up cards) */
+  pocket?: string;
+  /** transfer: the wallet of the destination account the money arrives in (not its main one) */
+  toPocket?: string;
+  /** a fee charged on a move: the spending entry is linked to the move it belongs to */
+  feeFor?: string;
   categoryId?: string;
   note?: string;
   /** what was typed, when it was in another currency */

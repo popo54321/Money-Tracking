@@ -2,7 +2,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { balancesByAccount } from '../domain/balances';
+import { balancesByAccount, walletsByAccount } from '../domain/balances';
 import { todayISO } from '../domain/dates';
 import { withBtc, type RateTable } from '../domain/fx';
 import { reservedByAccount, upcomingItems, type UpcomingItem } from '../domain/reserve';
@@ -77,6 +77,8 @@ export interface ProfileData {
   allTxs: Tx[];
   recurring: Recurring[];
   balances: Map<string, number>;
+  /** cash and top-up cards holding other currencies: account → currency → balance (main wallet in `balances`) */
+  wallets: Map<string, Map<string, number>>;
   upcoming: UpcomingItem[];
   reserved: Map<string, number>;
   accountById: Map<string, Account>;
@@ -95,6 +97,8 @@ interface ConfirmOpts {
   ok?: string;
   cancel?: string;
   danger?: boolean;
+  /** put the OK button on the left (a second "are you sure" so a pocket tap can't hit it twice) */
+  swap?: boolean;
 }
 
 interface AppCtx {
@@ -200,6 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       allTxs: txs,
       recurring,
       balances,
+      wallets: walletsByAccount(accs, actual),
       upcoming,
       reserved,
       accountById: new Map(accs.map((a) => [a.id, a])),
@@ -432,7 +437,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             <div className="dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
               <h3>{dialog.title}</h3>
               {dialog.message && <p>{dialog.message}</p>}
-              <div className="btn-row">
+              <div className="btn-row" style={dialog.swap ? { flexDirection: 'row-reverse' } : undefined}>
                 <button
                   className="btn ghost"
                   onClick={() => {

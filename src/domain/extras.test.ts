@@ -641,3 +641,79 @@ describe('account groups belong to each user', () => {
     ]);
   });
 });
+
+describe('several currencies in one cash purse or top-up card', () => {
+  const planet = {
+    id: 'planet',
+    profileId: 'p',
+    name: 'Planet',
+    type: 'topup',
+    group: 'Bank',
+    currency: 'THB',
+    wallets: ['JPY', 'USD'],
+    openingBalance: 1000,
+    openingDate: '2026-11-01',
+    includeInNetWorth: true,
+    archived: false,
+    order: 0,
+  } as Account;
+  const bank = { ...planet, id: 'bank', name: 'Bank', type: 'bank', wallets: undefined, openingBalance: 20000 } as Account;
+  const t = (id: string, p: Partial<Tx>): Tx =>
+    ({
+      id,
+      profileId: 'p',
+      date: '2026-11-10',
+      kind: 'expense',
+      accountId: 'planet',
+      amount: 0,
+      value: 0,
+      valueCurrency: 'THB',
+      createdAt: 1,
+      updatedAt: 1,
+      ...p,
+    }) as Tx;
+  const txs = [
+    // bank buys yen straight into the card: exact amounts both sides
+    t('buy', { kind: 'transfer', accountId: 'bank', toAccountId: 'planet', amount: 3000, toAmount: 12800, toPocket: 'JPY' }),
+    // exchange inside the card: 500 baht into 14 dollars
+    t('ex', { kind: 'transfer', accountId: 'planet', toAccountId: 'planet', amount: 500, toAmount: 14, toPocket: 'USD' }),
+    // a meal paid from the yen wallet
+    t('meal', { amount: 1500, pocket: 'JPY' }),
+  ];
+  it('each wallet keeps its own balance; the main one stays apart', async () => {
+    const { balancesByAccount, walletsByAccount } = await import('./balances');
+    const main = balancesByAccount([planet, bank], txs);
+    expect(main.get('planet')).toBe(500);
+    expect(main.get('bank')).toBe(17000);
+    const w = walletsByAccount([planet, bank], txs).get('planet')!;
+    expect([w.get('JPY'), w.get('USD')]).toEqual([11300, 14]);
+    expect(walletsByAccount([planet, bank], txs).has('bank')).toBe(false);
+  });
+  it('net worth and free money add every wallet at today’s rate', async () => {
+    const { balancesByAccount, freeLiquid, netWorth, walletsByAccount } = await import('./balances');
+    const rates = { perUsd: { USD: 1, THB: 32, JPY: 160 } };
+    const nw = netWorth([planet], balancesByAccount([planet], txs), rates, 'THB', walletsByAccount([planet], txs));
+    // 500 baht + ¥11,300 (2,260 baht) + $14 (448 baht)
+    expect(nw.total).toBeCloseTo(3208, 6);
+    const free = freeLiquid(
+      [planet],
+      balancesByAccount([planet], txs),
+      new Map([['planet', 500]]),
+      new Map(),
+      rates,
+      'THB',
+      walletsByAccount([planet], txs),
+    );
+    expect(free).toBeCloseTo(3208, 6);
+  });
+  it('a wallet that is removed from the account no longer counts', async () => {
+    const { walletsByAccount } = await import('./balances');
+    const w = walletsByAccount([{ ...planet, wallets: ['USD'] }], txs).get('planet')!;
+    expect([...w.keys()]).toEqual(['USD']);
+  });
+  it('only cash and top-up cards hold several currencies', async () => {
+    const { accountCurrencies } = await import('./types');
+    expect(accountCurrencies(planet)).toEqual(['THB', 'JPY', 'USD']);
+    expect(accountCurrencies({ ...planet, type: 'bank' })).toEqual(['THB']);
+  });
+});

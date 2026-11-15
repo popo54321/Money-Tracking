@@ -1,7 +1,7 @@
 // The numbers to copy into a spreadsheet at month end, in the order of the user's accounts and categories.
-import { accountValue, balancesByAccount, netWorth } from '../domain/balances';
+import { accountValue, balancesByAccount, netWorth, walletsByAccount } from '../domain/balances';
 import { addMonthKey, monthEnd, monthStart, type MonthKey } from '../domain/dates';
-import { withBtc, type RateTable } from '../domain/fx';
+import { convert, withBtc, type RateTable } from '../domain/fx';
 import { summarise, type Summary } from '../domain/summary';
 import type { Account, Category, Tx } from '../domain/types';
 import { isGoldAccount } from '../domain/wealth';
@@ -13,6 +13,8 @@ export interface CloseAccountRow {
   /** null when the account was added after this month */
   balance: number | null;
   value: number | null;
+  /** another currency held by a cash or top-up card (its own row) */
+  wallet?: string;
 }
 
 export interface MonthCloseData {
@@ -58,6 +60,7 @@ export async function buildMonthClose(
   const at = await ratesAt(end, currentRates);
   const visible = accounts.filter((a) => !a.archived).sort((a, b) => a.order - b.order);
   const balances = balancesByAccount(visible, txs, end);
+  const wallets = walletsByAccount(visible, txs, end);
 
   // the user's group order, then any other group an account is in
   const groupNames = [...groupOrder];
@@ -68,11 +71,18 @@ export async function buildMonthClose(
     .map((group) => {
       const rows: CloseAccountRow[] = visible
         .filter((a) => a.group === group)
-        .map((account) => {
-          if (account.openingDate > end) return { account, balance: null, value: null };
+        .flatMap((account): CloseAccountRow[] => {
+          if (account.openingDate > end) return [{ account, balance: null, value: null }];
           const balance = balances.get(account.id) ?? 0;
           const value = accountValue(account, balance, at.table, currency);
-          return { account, balance, value };
+          // each other currency held gets its own row
+          const extra = [...(wallets.get(account.id) ?? [])].map(([wallet, b]) => ({
+            account,
+            wallet,
+            balance: b,
+            value: convert(b, wallet, currency, at.table),
+          }));
+          return [{ account, balance, value }, ...extra];
         });
       let total = 0;
       for (const r of rows) {
@@ -143,7 +153,7 @@ export async function buildTrend(
     let nw: number | null = null;
     if (open.length) {
       const at = end === today ? { table: currentRates } : await ratesAt(end, currentRates);
-      nw = netWorth(open, balancesByAccount(open, txs, end), at.table, currency).total;
+      nw = netWorth(open, balancesByAccount(open, txs, end), at.table, currency, walletsByAccount(open, txs, end)).total;
     }
     out.push({ month, income: s.income.total, spending: s.expense.total, netWorth: nw });
   }

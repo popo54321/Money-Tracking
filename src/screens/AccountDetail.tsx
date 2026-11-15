@@ -7,12 +7,13 @@ import { saveDebt } from '../db/repo';
 import { AmountField, CategoryGrid, Field, Sheet, Topbar } from '../components/ui';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { SplitsCard } from '../components/SplitsCard';
-import { accountValue } from '../domain/balances';
+import { accountValue, walletsValue } from '../domain/balances';
+import { convert } from '../domain/fx';
 import { cardStatus } from '../domain/creditCard';
 import { fmtAgo, fmtDate, relativeDays } from '../domain/dates';
 import type { AccountClaims } from '../domain/splits';
 import { fmtMoney } from '../domain/money';
-import type { Account } from '../domain/types';
+import { accountCurrencies, type Account } from '../domain/types';
 import { db } from '../db/db';
 import { setAccountBalance } from '../db/repo';
 import { useApp, useData } from '../state/app';
@@ -23,14 +24,19 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
   const { rates, currency, today, toast } = useApp();
   const data = useData();
   const isCard = account.type === 'credit';
-  const current = data.balances.get(account.id) ?? 0;
+  // an account holding several currencies: which one is being corrected
+  const held = accountCurrencies(account);
+  const [wallet, setWallet] = useState(account.currency);
+  const isMain = wallet === account.currency;
+  const current = isMain ? (data.balances.get(account.id) ?? 0) : (data.wallets.get(account.id)?.get(wallet) ?? 0);
   const shownCurrent = isCard ? -current : current;
   const [value, setValue] = useState<number | null>(null);
   const [step, setStep] = useState<'enter' | 'choose'>('enter');
   const [mode, setMode] = useState<'adjust' | 'log' | 'opening'>('adjust');
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [date, setDate] = useState(today);
-  const hasEntries = data.allTxs.some((t) => t.accountId === account.id || t.toAccountId === account.id);
+  // other currencies have no starting balance of their own, so they always record an entry
+  const hasEntries = !isMain || data.allTxs.some((t) => t.accountId === account.id || t.toAccountId === account.id);
 
   const newBalance = value === null ? null : isCard ? -value : value;
   const delta = newBalance === null ? 0 : newBalance - current;
@@ -53,7 +59,16 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
       toast('Pick a category first 🏷️');
       return;
     }
-    await setAccountBalance({ account, newBalance, mode, categoryId, date, rates, defaultCurrency: currency });
+    await setAccountBalance({
+      account,
+      newBalance,
+      mode,
+      categoryId,
+      date,
+      rates,
+      defaultCurrency: currency,
+      pocket: isMain ? undefined : wallet,
+    });
     toast(mode === 'log' ? (delta > 0 ? '💰 Logged as income' : '💸 Logged as spending') : '🪄 Balance updated');
     close();
   };
@@ -62,21 +77,34 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
     <Sheet open={open} onClose={close} title={isCard ? 'Set amount owed' : 'Set new balance'}>
       {step === 'enter' && (
         <>
+          {held.length > 1 && (
+            <Field label="Which currency">
+              <div className="chips">
+                {held.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`chip ${wallet === c ? 'on' : ''}`}
+                    onClick={() => {
+                      setWallet(c);
+                      setValue(null);
+                    }}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
           <div className="card flat small">
-            Now: <b>{fmtMoney(shownCurrent, account.currency)}</b>
+            Now: <b>{fmtMoney(shownCurrent, wallet)}</b>
             {isCard ? ' owed' : ''}
           </div>
           <Field
             label={isCard ? 'Amount owed now' : 'New total balance'}
             hint="Type what your bank or app shows. I'll work out the difference."
           >
-            <AmountField
-              value={value}
-              onChange={setValue}
-              currency={account.currency}
-              title="New total"
-              allowNegative={!isCard}
-            />
+            <AmountField value={value} onChange={setValue} currency={wallet} title="New total" allowNegative={!isCard} />
           </Field>
           <button
             className="btn primary block"
@@ -95,7 +123,7 @@ function BalanceSheet({ account, open, onClose }: { account: Account; open: bool
           <div className="card center">
             <div className="small muted">Difference</div>
             <div className={`bold ${delta > 0 ? 'pos' : 'neg'}`} style={{ fontSize: 26 }}>
-              {fmtMoney(isCard ? -delta : delta, account.currency, { sign: true })}
+              {fmtMoney(isCard ? -delta : delta, wallet, { sign: true })}
             </div>
           </div>
           <div className="vstack">
@@ -203,7 +231,10 @@ export function AccountDetail({ id }: { id: string }) {
   const a = data.accountById.get(id);
   if (!a) return <Topbar title="Account not found" />;
   const bal = data.balances.get(a.id) ?? 0;
-  const value = accountValue(a, bal, rates, currency);
+  const wallets = [...(data.wallets.get(a.id) ?? [])];
+  const mainValue = accountValue(a, bal, rates, currency);
+  const extraValue = walletsValue(data.wallets.get(a.id), rates, currency);
+  const value = mainValue === null || extraValue === null ? null : mainValue + extraValue;
   const claims = data.claims.get(a.id);
   const txs = data.txs.filter((t) => t.accountId === a.id || t.toAccountId === a.id);
   const isCard = a.type === 'credit';
@@ -241,8 +272,26 @@ export function AccountDetail({ id }: { id: string }) {
               {a.creditLimit ? `, so you can spend up to ${fmtMoney(a.creditLimit + bal, a.currency)} in all` : ''}.
             </div>
           )}
-          {a.currency !== currency && !isCard && (
-            <div className="bold">≈ {value === null ? 'no price yet' : fmtMoney(value, currency)}</div>
+          {wallets.length > 0 && (
+            <div className="chips mt">
+              {wallets.map(([c, v]) => (
+                <span
+                  key={c}
+                  className="pill"
+                  style={{ background: 'color-mix(in srgb, var(--card) 70%, transparent)', color: 'var(--ink)' }}
+                >
+                  {fmtMoney(v, c)}
+                  {c !== currency && Math.abs(v) > 1e-9
+                    ? ` ≈ ${fmtMoney(convert(v, c, currency, rates), currency, { dp: 0 })}`
+                    : ''}
+                </span>
+              ))}
+            </div>
+          )}
+          {(a.currency !== currency || wallets.length > 0) && !isCard && (
+            <div className="bold">
+              {wallets.length > 0 ? 'All together ' : ''}≈ {value === null ? 'no price yet' : fmtMoney(value, currency)}
+            </div>
           )}
           {a.type === 'crypto' && prices.btcPrice && (
             <div className="small mt">

@@ -1,12 +1,15 @@
 // Account balances worked out from the opening balance plus every entry.
 import type { ISODate } from './dates';
 import { convert, GOLD_CODE, type RateTable } from './fx';
-import type { Account, Tx } from './types';
+import { accountCurrencies, type Account, type Tx } from './types';
 
-/** How much `tx` changes the balance of `accountId`, in that account's currency. */
-export function txDelta(tx: Tx, accountId: string): number {
+/**
+ * How much an entry changes one wallet of an account: the main wallet (no `pocket`) or another currency it holds.
+ * A move between two wallets of the same account takes from one and adds to the other.
+ */
+export function txDelta(tx: Tx, accountId: string, pocket?: string): number {
   let d = 0;
-  if (tx.accountId === accountId) {
+  if (tx.accountId === accountId && (tx.pocket || undefined) === pocket) {
     switch (tx.kind) {
       case 'income':
         d += tx.amount;
@@ -20,10 +23,12 @@ export function txDelta(tx: Tx, accountId: string): number {
         break;
     }
   }
-  if (tx.kind === 'transfer' && tx.toAccountId === accountId) d += tx.toAmount ?? tx.amount;
+  if (tx.kind === 'transfer' && tx.toAccountId === accountId && (tx.toPocket || undefined) === pocket)
+    d += tx.toAmount ?? tx.amount;
   return d;
 }
 
+/** The main wallet's balance (for accounts with one currency, the balance). */
 export function balanceOf(account: Account, txs: Tx[], asOf?: ISODate): number {
   let b = account.openingBalance;
   for (const t of txs) {
@@ -33,7 +38,7 @@ export function balanceOf(account: Account, txs: Tx[], asOf?: ISODate): number {
   return b;
 }
 
-/** Balances of all accounts in one pass. */
+/** Main-wallet balances of all accounts in one pass. */
 export function balancesByAccount(accounts: Account[], txs: Tx[], asOf?: ISODate): Map<string, number> {
   const m = new Map<string, number>();
   for (const a of accounts) m.set(a.id, a.openingBalance);
@@ -45,6 +50,41 @@ export function balancesByAccount(accounts: Account[], txs: Tx[], asOf?: ISODate
     }
   }
   return m;
+}
+
+/** The other wallets' balances of every account that has them: account → currency → balance. */
+export function walletsByAccount(accounts: Account[], txs: Tx[], asOf?: ISODate): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const a of accounts) {
+    const extra = accountCurrencies(a).slice(1);
+    if (extra.length) out.set(a.id, new Map(extra.map((c) => [c, 0])));
+  }
+  if (!out.size) return out;
+  for (const t of txs) {
+    if (asOf && t.date > asOf) continue;
+    for (const [id, pocket] of [
+      [t.accountId, t.pocket],
+      [t.toAccountId, t.toPocket],
+    ] as const) {
+      if (!id || !pocket) continue;
+      const w = out.get(id);
+      // each side once: a move between two wallets of one account takes from one and adds to the other
+      if (w && w.has(pocket)) w.set(pocket, w.get(pocket)! + txDelta(t, id, pocket));
+    }
+  }
+  return out;
+}
+
+/** What an account's other wallets are worth together in `target` (null when one has no rate). */
+export function walletsValue(wallets: Map<string, number> | undefined, rates: RateTable, target: string): number | null {
+  let total = 0;
+  for (const [cur, bal] of wallets ?? []) {
+    if (Math.abs(bal) < 1e-9) continue;
+    const v = convert(bal, cur, target, rates);
+    if (v === null) return null;
+    total += v;
+  }
+  return total;
 }
 
 /**
@@ -94,10 +134,13 @@ export function freeLiquid(
   cardCovered: Map<string, number>,
   rates: RateTable,
   target: string,
+  wallets: Map<string, Map<string, number>> = new Map(),
 ): number {
   let total = 0;
   for (const a of accounts) {
     if (a.archived || !a.includeInNetWorth || !isLiquid(a)) continue;
+    // other currencies held are free money too (nothing is set aside in them)
+    total += walletsValue(wallets.get(a.id), rates, target) ?? 0;
     const bal = balances.get(a.id) ?? 0;
     // a card counts its debt only where nothing is set aside for it; extra paid into a card is money to spend
     const own = a.type === 'credit' ? (bal > 0 ? bal : Math.min(0, bal + (cardCovered.get(a.id) ?? 0))) : (free.get(a.id) ?? bal);
@@ -107,18 +150,26 @@ export function freeLiquid(
   return total;
 }
 
-export function netWorth(accounts: Account[], balances: Map<string, number>, rates: RateTable, target: string): NetWorth {
+export function netWorth(
+  accounts: Account[],
+  balances: Map<string, number>,
+  rates: RateTable,
+  target: string,
+  wallets: Map<string, Map<string, number>> = new Map(),
+): NetWorth {
   let total = 0;
   let liquid = 0;
   const missing: string[] = [];
   const byGroup = new Map<string, number>();
   for (const a of accounts) {
     if (a.archived || !a.includeInNetWorth) continue;
-    const v = accountValue(a, balances.get(a.id) ?? 0, rates, target);
-    if (v === null) {
-      if ((balances.get(a.id) ?? 0) !== 0) missing.push(a.name);
+    const main = accountValue(a, balances.get(a.id) ?? 0, rates, target);
+    const extra = walletsValue(wallets.get(a.id), rates, target);
+    if (main === null || extra === null) {
+      if ((balances.get(a.id) ?? 0) !== 0 || extra === null) missing.push(a.name);
       continue;
     }
+    const v = main + extra;
     total += v;
     if (isLiquid(a)) liquid += v;
     byGroup.set(a.group, (byGroup.get(a.group) ?? 0) + v);

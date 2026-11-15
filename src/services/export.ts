@@ -47,10 +47,10 @@ export function entriesCsv(txs: Tx[], accounts: Account[], categories: Category[
         kind,
         a?.name ?? '?',
         t.amount,
-        a?.currency ?? '',
+        t.pocket ?? a?.currency ?? '',
         to?.name ?? '',
         t.kind === 'transfer' ? (t.toAmount ?? t.amount) : '',
-        to?.currency ?? '',
+        to ? (t.toPocket ?? to.currency) : '',
         c?.name ?? '',
         c?.group ?? '',
         roundTo(t.value, decimalsFor(t.valueCurrency)),
@@ -99,9 +99,9 @@ export async function shareMonthXlsx(
     aoa.push([g.group.toUpperCase(), null]);
     for (const r of g.rows) {
       aoa.push([
-        r.account.name,
-        r.balance === null ? null : roundTo(r.balance, decimalsFor(r.account.currency)),
-        r.account.currency,
+        r.wallet ? `${r.account.name} (${r.wallet})` : r.account.name,
+        r.balance === null ? null : roundTo(r.balance, decimalsFor(r.wallet ?? r.account.currency)),
+        r.wallet ?? r.account.currency,
         r2(r.value),
       ]);
     }
@@ -128,7 +128,7 @@ export async function shareMonthXlsx(
       Type: t.kind,
       Account: acc.get(t.accountId)?.name ?? '',
       Amount: t.amount,
-      Currency: acc.get(t.accountId)?.currency ?? '',
+      Currency: t.pocket ?? acc.get(t.accountId)?.currency ?? '',
       'To account': t.toAccountId ? (acc.get(t.toAccountId)?.name ?? '') : '',
       Category: t.categoryId ? (cat.get(t.categoryId)?.name ?? '') : '',
       Group: t.categoryId ? (cat.get(t.categoryId)?.group ?? '') : '',
