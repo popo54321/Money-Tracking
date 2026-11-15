@@ -194,7 +194,7 @@ export function Summary() {
         <div className="tiny muted mt center">Tip: press and hold a category to edit it.</div>
         {editing && <CategoryEditor category={editing} onClose={() => setEditing(null)} />}
         <button className="btn sky block mt" onClick={() => go({ name: 'monthClose' })}>
-          📋 Month close (numbers for my workbook)
+          📋 Month close (month-end numbers)
         </button>
       </div>
     </>

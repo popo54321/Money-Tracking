@@ -330,3 +330,17 @@ describe('instalment plans', () => {
     expect(paid.map((t) => t.date).sort()[9]).toBe('2027-08-13');
   });
 });
+
+describe('account groups', () => {
+  it('renaming a group moves its accounts and keeps its place in the order', async () => {
+    const { renameAccountGroup, saveAccountGroups } = await import('./repo');
+    await db.profiles.put({ id: 'u1', name: 'U', order: 0, accountGroupOrder: ['Credit', 'Bank'] });
+    await saveAccountGroups('u1', ['Bank', 'Credit', 'Bank', ' ']);
+    expect((await db.profiles.get('u1'))!.accountGroups).toEqual(['Bank', 'Credit']);
+    await renameAccountGroup('u1', 'Bank', 'Everyday', ['Bank', 'Credit']);
+    const p = (await db.profiles.get('u1'))!;
+    expect(p.accountGroups).toEqual(['Everyday', 'Credit']);
+    expect(p.accountGroupOrder).toEqual(['Credit', 'Everyday']);
+    expect((await db.accounts.get('bank'))!.group).toBe('Everyday');
+  });
+});

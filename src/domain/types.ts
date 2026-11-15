@@ -9,6 +9,8 @@ export interface Profile {
   order: number;
   /** the user's order of the account groups (Bank, Credit…) */
   accountGroupOrder?: string[];
+  /** the user's own account groups (none = the starting list) */
+  accountGroups?: string[];
   /** the user's order of the spending groups (Eating Out, Fixed…) */
   categoryGroupOrder?: string[];
   /** spending limits on whole groups, by group name (per `groupLimitPeriods`, monthly when missing) */
@@ -29,14 +31,21 @@ export const ACCOUNT_TYPES: { type: AccountType; label: string; defaultGroup: st
   { type: 'credit', label: 'Credit card', defaultGroup: 'Credit' },
   { type: 'topup', label: 'Top-up card', defaultGroup: 'Bank' },
   { type: 'investment', label: 'Investment', defaultGroup: 'Investments' },
-  { type: 'crypto', label: 'Bitcoin (BTC)', defaultGroup: 'Wealth preserve' },
-  { type: 'units', label: 'Gold / units', defaultGroup: 'Wealth preserve' },
+  { type: 'crypto', label: 'Bitcoin (BTC)', defaultGroup: 'Investments' },
+  { type: 'units', label: 'Gold / units', defaultGroup: 'Investments' },
   { type: 'insurance', label: 'Insurance', defaultGroup: 'Insurance' },
   { type: 'other', label: 'Other', defaultGroup: 'Assets' },
 ];
 
-/** Groups in the same order as the year sheets, plus cash and credit cards. */
-export const ACCOUNT_GROUPS = ['Bank', 'Cash', 'Wealth preserve', 'Investments', 'Assets', 'Insurance', 'Business', 'Credit'];
+/** The account groups a new user starts with; each user can add, rename and remove their own. */
+export const DEFAULT_ACCOUNT_GROUPS = ['Bank', 'Cash', 'Credit', 'Investments', 'Assets', 'Insurance'];
+
+/** A user's account groups: their own list (or the starting one), plus any group an account is still in. */
+export function accountGroupsOf(profile: { accountGroups?: string[] }, accounts: { group: string }[]): string[] {
+  const out = [...(profile.accountGroups ?? DEFAULT_ACCOUNT_GROUPS)];
+  for (const a of accounts) if (a.group && !out.includes(a.group)) out.push(a.group);
+  return out;
+}
 
 export interface Account {
   id: string;

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { AccountPickerButton, AmountField, CurrencySheet, Field, NumberInput, ToggleRow, Topbar } from '../components/ui';
+import { AccountPickerButton, AmountField, CurrencySheet, Field, NumberInput, Sheet, ToggleRow, Topbar } from '../components/ui';
 import { isLiquid } from '../domain/balances';
-import { ACCOUNT_GROUPS, ACCOUNT_TYPES, type Account, type AccountType } from '../domain/types';
+import { accountGroupsOf, ACCOUNT_TYPES, type Account, type AccountType } from '../domain/types';
 import { db, uid } from '../db/db';
-import { accountTxCount, deleteAccountCascade, saveAccount } from '../db/repo';
+import { accountTxCount, deleteAccountCascade, renameAccountGroup, saveAccount, saveAccountGroups } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { accountEmoji } from '../ui/emoji';
 
@@ -32,9 +32,12 @@ export function AccountEdit({ id }: { id?: string }) {
   const isCard = a.type === 'credit';
   const hasEntries = !!existing && data.allTxs.some((t) => t.accountId === a.id || t.toAccountId === a.id);
 
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const groups = accountGroupsOf(profile, [...data.accounts.filter((x) => x.id !== a.id), a]);
   const pickType = (t: AccountType) => {
     const def = ACCOUNT_TYPES.find((x) => x.type === t)!;
-    const patch: Partial<Account> = { type: t, group: def.defaultGroup };
+    // the type's usual group, if this user has it; otherwise keep the group chosen
+    const patch: Partial<Account> = { type: t, group: groups.includes(def.defaultGroup) ? def.defaultGroup : a.group };
     if (t === 'crypto') patch.currency = 'BTC';
     else if (t === 'units') {
       patch.currency = a.currency === 'BTC' || a.currency.length === 3 ? 'baht-weight' : a.currency;
@@ -208,9 +211,9 @@ export function AccountEdit({ id }: { id?: string }) {
 
         <div className="card flat">
           <h2>Extra details</h2>
-          <Field label="Group" hint="Matches the sections of your year sheet.">
+          <Field label="Group" hint="Accounts are listed under their group. Add your own or tidy the list.">
             <div className="chips">
-              {[...ACCOUNT_GROUPS, ...(ACCOUNT_GROUPS.includes(a.group) ? [] : [a.group])].map((g) => (
+              {groups.map((g) => (
                 <button
                   key={g}
                   type="button"
@@ -220,8 +223,19 @@ export function AccountEdit({ id }: { id?: string }) {
                   {g}
                 </button>
               ))}
+              <button type="button" className="chip" onClick={() => setGroupsOpen(true)}>
+                ✏️ Edit groups
+              </button>
             </div>
           </Field>
+          {groupsOpen && (
+            <GroupsSheet
+              groups={groups}
+              selected={a.group}
+              onClose={() => setGroupsOpen(false)}
+              onPick={(g) => set({ group: g })}
+            />
+          )}
 
           <Field label="Note">
             <input value={a.note ?? ''} onChange={(e) => set({ note: e.target.value || undefined })} placeholder="Optional" />
@@ -290,5 +304,88 @@ function OrderButtons({ id }: { id: string }) {
         ▼ down
       </button>
     </>
+  );
+}
+
+/** Add, rename and remove account groups. A group with accounts in it can be renamed but not removed. */
+function GroupsSheet({
+  groups,
+  selected,
+  onClose,
+  onPick,
+}: {
+  groups: string[];
+  selected: string;
+  onClose: () => void;
+  onPick: (g: string) => void;
+}) {
+  const { profile, toast } = useApp();
+  const data = useData();
+  const [list, setList] = useState(groups);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [added, setAdded] = useState('');
+  const inUse = (g: string) => data.accounts.filter((x) => x.group === g).length;
+  const save = async (next: string[]) => {
+    setList(next);
+    await saveAccountGroups(profile.id, next);
+  };
+  return (
+    <Sheet open onClose={onClose} title="✏️ Account groups">
+      <div className="list mb">
+        {list.map((g) => {
+          const real = inUse(g);
+          const n = real + (g === selected && real === 0 ? 1 : 0);
+          const typed = names[g] ?? g;
+          return (
+            <div key={g} className="row" style={{ gap: 8 }}>
+              <input
+                className="grow"
+                value={typed}
+                onChange={(e) => setNames({ ...names, [g]: e.target.value })}
+                onBlur={async () => {
+                  const to = typed.trim();
+                  if (!to || to === g) return setNames({ ...names, [g]: g });
+                  if (list.includes(to)) {
+                    toast('That group already exists');
+                    return setNames({ ...names, [g]: g });
+                  }
+                  await renameAccountGroup(profile.id, g, to, list);
+                  setList(list.map((x) => (x === g ? to : x)));
+                  if (selected === g) onPick(to);
+                  setNames({});
+                }}
+                aria-label={`Rename ${g}`}
+              />
+              {n > 0 ? (
+                <span className="tiny muted" style={{ whiteSpace: 'nowrap' }}>
+                  {real === 0 ? 'this account' : `${n} ${n === 1 ? 'account' : 'accounts'}`}
+                </span>
+              ) : (
+                <button className="btn sm ghost" aria-label={`Remove ${g}`} onClick={() => save(list.filter((x) => x !== g))}>
+                  🗑️
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="hstack">
+        <input className="grow" value={added} onChange={(e) => setAdded(e.target.value)} placeholder="New group, e.g. Savings" />
+        <button
+          className="btn primary"
+          onClick={async () => {
+            const g = added.trim();
+            if (!g) return;
+            if (list.includes(g)) return toast('That group already exists');
+            await save([...list, g]);
+            onPick(g);
+            setAdded('');
+          }}
+        >
+          ＋ Add
+        </button>
+      </div>
+      <div className="tiny muted mt">A group with accounts in it can be renamed here; move its accounts to remove it.</div>
+    </Sheet>
   );
 }

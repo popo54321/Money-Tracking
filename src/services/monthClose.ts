@@ -1,9 +1,9 @@
-// The numbers to copy into the workbook at month end, in the year sheet's row order.
+// The numbers to copy into a spreadsheet at month end, in the order of the user's accounts and categories.
 import { accountValue, balancesByAccount, netWorth } from '../domain/balances';
 import { addMonthKey, monthEnd, monthStart, type MonthKey } from '../domain/dates';
 import { withBtc, type RateTable } from '../domain/fx';
 import { summarise, type Summary } from '../domain/summary';
-import { ACCOUNT_GROUPS, type Account, type Category, type Tx } from '../domain/types';
+import type { Account, Category, Tx } from '../domain/types';
 import { isGoldAccount } from '../domain/wealth';
 import { db } from '../db/db';
 import { getPriceCache } from '../db/repo';
@@ -50,6 +50,8 @@ export async function buildMonthClose(
   txs: Tx[],
   currency: string,
   currentRates: RateTable,
+  /** the user's account groups in their order (orderGroups of accountGroupsOf) */
+  groupOrder: string[] = [],
 ): Promise<MonthCloseData> {
   const end = monthEnd(month);
   const summary = summarise(txs, categories, monthStart(month), end, currency, currentRates, true);
@@ -57,7 +59,8 @@ export async function buildMonthClose(
   const visible = accounts.filter((a) => !a.archived).sort((a, b) => a.order - b.order);
   const balances = balancesByAccount(visible, txs, end);
 
-  const groupNames = [...ACCOUNT_GROUPS];
+  // the user's group order, then any other group an account is in
+  const groupNames = [...groupOrder];
   for (const a of visible) if (!groupNames.includes(a.group)) groupNames.push(a.group);
 
   let netWorth = 0;

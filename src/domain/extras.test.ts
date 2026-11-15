@@ -628,3 +628,16 @@ describe('instalment plan dates and amounts', () => {
     expect(instalmentAmount(10000, 3)).toBe(3333.33);
   });
 });
+
+describe('account groups belong to each user', () => {
+  it('starting list for a new user; own list when set; a group still used by an account is never lost', async () => {
+    const { accountGroupsOf, DEFAULT_ACCOUNT_GROUPS } = await import('./types');
+    expect(accountGroupsOf({}, [])).toEqual(DEFAULT_ACCOUNT_GROUPS);
+    expect(DEFAULT_ACCOUNT_GROUPS).not.toContain('Wealth preserve');
+    expect(accountGroupsOf({ accountGroups: ['Bank', 'Savings'] }, [{ group: 'Wealth preserve' }])).toEqual([
+      'Bank',
+      'Savings',
+      'Wealth preserve',
+    ]);
+  });
+});
