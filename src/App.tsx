@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, type ComponentType } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { AppProvider, useApp } from './state/app';
 import { postDuePaydays, postDueRecurring } from './db/repo';
 import { refreshPrices } from './services/prices';
 import { autoBackupIfDue } from './services/backup';
 import { appInBackground, checkNativeUpdate, confirmRunningFiles } from './services/autoUpdate';
 import { isNative } from './services/platform';
+import { onUpdateProgress, takeUpdatedNote, type UpdateProgress } from './services/updateProgress';
 import { Home } from './screens/Home';
 import { Accounts } from './screens/Accounts';
 import { AccountDetail } from './screens/AccountDetail';
@@ -135,9 +136,43 @@ function TabBar() {
   );
 }
 
+/** A new version downloading (a spinner and how far it has got), then "Updating…" while the app restarts on it. */
+function UpdateStatus() {
+  const [p, setP] = useState<UpdateProgress | null>(null);
+  useEffect(() => onUpdateProgress(setP), []);
+  if (!p) return null;
+  if (p.phase === 'applying')
+    return (
+      <div className="update-cover" role="status" aria-live="polite">
+        <div className="update-box">
+          <span className="spinner big" aria-hidden="true" />
+          <b>Updating{p.version ? ` to ${p.version}` : ''}…</b>
+          <span className="small muted">Back in a moment. Your data stays on this phone.</span>
+        </div>
+      </div>
+    );
+  const pct = Math.max(0, Math.min(100, Math.round((p.done / Math.max(1, p.total)) * 100)));
+  return (
+    <div className="update-pill" role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      <span className="grow">
+        Downloading update{p.version ? ` ${p.version}` : ''} · <b>{pct}%</b>
+        <span className="update-bar">
+          <span style={{ width: `${pct}%` }} />
+        </span>
+      </span>
+    </div>
+  );
+}
+
 /** Things to do when the app opens or comes back to the front. */
 function Housekeeping() {
   const { rates, currency, today, toast, settings } = useApp();
+  // just restarted on a new version: say so, so the restart doesn't look like something went wrong
+  useEffect(() => {
+    const v = takeUpdatedNote();
+    if (v) toast(v === 'new' ? '✨ Updated to the newest version' : `✨ Updated to version ${v}`);
+  }, [toast]);
   const repo = settings.githubRepo;
   const ratesRef = useRef(rates);
   ratesRef.current = rates;
@@ -208,6 +243,7 @@ export default function App() {
       </div>
       <TabBar />
       <Tour />
+      <UpdateStatus />
     </AppProvider>
   );
 }

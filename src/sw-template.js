@@ -3,8 +3,27 @@ const VERSION = '__VERSION__';
 const CACHE = 'mt-' + VERSION;
 const FILES = __FILES__;
 
+// download every file, a few at a time, telling open pages how far it has got (for the progress on screen)
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const pages = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+      const tell = (done) =>
+        pages.forEach((p) => p.postMessage({ type: 'UPDATE_PROGRESS', version: VERSION, done, total: FILES.length }));
+      let done = 0;
+      tell(0);
+      const queue = FILES.slice();
+      const worker = async () => {
+        while (queue.length) {
+          await cache.add(queue.shift());
+          done++;
+          tell(done);
+        }
+      };
+      await Promise.all([worker(), worker(), worker(), worker()]);
+    })(),
+  );
 });
 
 self.addEventListener('activate', (event) => {
