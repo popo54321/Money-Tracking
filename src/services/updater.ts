@@ -1,6 +1,7 @@
 // Updates: the Android app downloads the newest APK from GitHub Releases and opens the installer;
 // the web app (iPhone) checks for a newer version of its offline files and reloads.
 import { canApplyNow, onQuietMoment } from './autoUpdate';
+import { setUpdateProgress, switchOver } from './updateProgress';
 import { APP_VERSION, isNative, openExternal } from './platform';
 import { compareVersions } from './version';
 
@@ -81,8 +82,11 @@ export function onWebUpdateReady(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
+let waitingVersion: string | undefined;
+
 function announce(w: ServiceWorker) {
   waitingWorker = w;
+  setUpdateProgress(null);
   listeners.forEach((fn) => fn());
   tryApplyWeb();
 }
@@ -99,6 +103,15 @@ export async function registerServiceWorker(): Promise<void> {
   if (import.meta.env.DEV) return;
   try {
     const hadController = !!navigator.serviceWorker.controller;
+    // a new version downloading: show how far it has got (not for the very first offline copy)
+    navigator.serviceWorker.addEventListener('message', (e: MessageEvent) => {
+      const d = e.data as { type?: string; done?: number; total?: number; version?: string } | null;
+      if (d?.type !== 'UPDATE_PROGRESS' || !navigator.serviceWorker.controller) return;
+      // the worker's version carries the build after a dash (1.18.2-abc123): show the plain version
+      waitingVersion = d.version?.split('-')[0];
+      if ((d.done ?? 0) >= (d.total ?? 0)) return; // finished: "ready" takes over
+      setUpdateProgress({ phase: 'downloading', done: d.done ?? 0, total: d.total ?? 1, version: waitingVersion });
+    });
     const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
     if (reg.waiting && navigator.serviceWorker.controller) announce(reg.waiting);
     reg.addEventListener('updatefound', () => {
@@ -106,6 +119,7 @@ export async function registerServiceWorker(): Promise<void> {
       if (!w) return;
       w.addEventListener('statechange', () => {
         if (w.state === 'installed' && navigator.serviceWorker.controller) announce(w);
+        if (w.state === 'redundant') setUpdateProgress(null);
       });
     });
     let reloading = false;
@@ -138,7 +152,8 @@ export async function checkWebUpdate(): Promise<boolean> {
   return !!waitingWorker;
 }
 
+/** Switch to the downloaded version: "Updating…" for a moment, then the app restarts on it. */
 export function applyWebUpdate(): void {
-  if (waitingWorker) waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-  else location.reload();
+  const w = waitingWorker;
+  void switchOver(waitingVersion, () => (w ? w.postMessage({ type: 'SKIP_WAITING' }) : location.reload()));
 }

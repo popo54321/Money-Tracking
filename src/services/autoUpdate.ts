@@ -5,6 +5,7 @@
 //   changed (a new APK is needed) does Android's own installer have to be confirmed with one tap.
 import { compareVersions } from './version';
 import { APP_VERSION, isNative } from './platform';
+import { setUpdateProgress, switchOver } from './updateProgress';
 
 // ---------- when is it safe to reload? ----------
 
@@ -205,14 +206,24 @@ export async function checkNativeUpdate(repo: string, force = false): Promise<Na
     const folders = new Set([dir, ...m.files.map((f) => `${dir}/${f.path}`.replace(/\/[^/]*$/, ''))]);
     for (const folder of [...folders].sort())
       await Filesystem.mkdir({ path: folder, directory: Directory.Data, recursive: true }).catch(() => undefined);
+    // progress by size, so a big file counts for more than a small one
+    const total = m.files.reduce((s, f) => s + (f.size || 0), 0) || 1;
+    let done = 0;
+    setUpdateProgress({ phase: 'downloading', done, total, version: m.version });
     for (const f of m.files) {
       const path = `${dir}/${f.path}`;
       const have = await Filesystem.stat({ path, directory: Directory.Data }).catch(() => null);
-      if (have && have.size === f.size) continue;
+      done += f.size || 0;
+      if (have && have.size === f.size) {
+        setUpdateProgress({ phase: 'downloading', done, total, version: m.version });
+        continue;
+      }
       await Filesystem.downloadFile({ url: `${site}${f.path}?b=${m.build}`, path, directory: Directory.Data, recursive: true });
       const got = await Filesystem.stat({ path, directory: Directory.Data });
       if (got.size !== f.size) throw new Error(`${f.path} did not download fully`);
+      setUpdateProgress({ phase: 'downloading', done, total, version: m.version });
     }
+    setUpdateProgress(null);
     // the site may have moved on to an even newer version while we downloaded: start again next time
     if ((await fetchManifest(repo)).build !== m.build) throw new Error('the site changed during the download');
     pending = { build: m.build, version: m.version };
@@ -220,6 +231,7 @@ export async function checkNativeUpdate(repo: string, force = false): Promise<Na
     tryApplyNative();
     return 'ready';
   } catch {
+    setUpdateProgress(null);
     setState('error');
     lsSet(KEY_CHECKED, null);
     return 'error';
@@ -238,7 +250,9 @@ export function tryApplyNative(now = false): void {
     lsSet(KEY_TRYING, JSON.stringify(next));
     // reloads the app from the new files; the new files keep themselves once they start (confirmRunningFiles)
     // a plain folder path: no file:// and no slash at the end (Android adds one for folders)
-    await WebView.setServerBasePath({ path: decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/\/+$/, '') });
+    await switchOver(next.version, () =>
+      WebView.setServerBasePath({ path: decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/\/+$/, '') }),
+    );
   })().catch(() => {
     pending = next;
   });
