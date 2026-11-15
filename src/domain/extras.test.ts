@@ -862,3 +862,27 @@ describe('release 1.21 fixes', () => {
     expect(computeTrip(trip).total).toBe(1000);
   });
 });
+
+describe('spreadsheet export keeps text as text', () => {
+  it('notes starting with = + - @ get an apostrophe; numbers stay numbers', async () => {
+    const { entriesCsv } = await import('../services/export');
+    const acc = { id: 'a', name: '=Bank', currency: 'THB' } as Account;
+    const tx = {
+      id: 't',
+      profileId: 'p',
+      date: '2026-11-15',
+      kind: 'expense',
+      accountId: 'a',
+      amount: -50,
+      value: -50,
+      valueCurrency: 'THB',
+      note: '=50+20 parking',
+      createdAt: 1,
+      updatedAt: 1,
+    } as Tx;
+    const row = entriesCsv([tx], [acc], [], []).split('\r\n')[1];
+    expect(row).toContain("'=Bank");
+    expect(row).toContain("'=50+20 parking");
+    expect(row).toContain(',-50,');
+  });
+});

@@ -8,6 +8,7 @@ import { updateSettings, wipeAll } from '../db/repo';
 import { createProfile, deleteProfile, ensureSeeded } from '../db/seed';
 import { backupStats, parseBackup, restoreBackup, shareBackup } from '../services/backup';
 import { lastSafetyCopy, markDataVersion, saveSafetyCopy, undoWithSafetyCopy } from '../services/safety';
+import { useDataKept } from '../services/storage';
 import { entriesCsv, shareEntriesCsv } from '../services/export';
 import { refreshPrices } from '../services/prices';
 import { APP_VERSION, isNative, openExternal, pickTextFile } from '../services/platform';
@@ -188,6 +189,7 @@ export function Settings() {
   const [watchOpen, setWatchOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const counts = useLiveQuery(async () => ({ txs: await db.txs.count(), accounts: await db.accounts.count() }), []);
+  const dataKept = useDataKept();
   // the copy taken before the last Restore or Erase (7 days)
   const [safetyCopy, setSafetyCopy] = useState<Awaited<ReturnType<typeof lastSafetyCopy>>>(null);
   useEffect(() => {
@@ -356,11 +358,15 @@ export function Settings() {
               📄 Export all entries (CSV for Excel)
             </button>
           </div>
-          {!isNative() && (
-            <div className="tiny muted mt">
-              On iPhone, data lives in this web app only. Save a backup regularly, for example to iCloud Drive.
-            </div>
-          )}
+          <div className={`small mt ${dataKept === false ? 'warn-ink' : 'muted'}`}>
+            {isNative()
+              ? '🔒 Your data is kept inside the app, with a daily copy in Documents.'
+              : dataKept
+                ? '🔒 This phone keeps the data safely. Still save a backup now and then, for example to iCloud Drive.'
+                : dataKept === false
+                  ? '⚠️ This browser may clear the data if the app isn’t opened for a while. Add it to your home screen (Share → Add to Home Screen) and save backups often.'
+                  : ''}
+          </div>
         </Section>
 
         <UpdateCard />

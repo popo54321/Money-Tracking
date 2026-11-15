@@ -7,7 +7,9 @@ import { shareFile } from './platform';
 
 function csvCell(v: unknown): string {
   if (v === null || v === undefined) return '';
-  const s = String(v);
+  let s = String(v);
+  // text starting with = + - @ would be read by Excel as a formula: an apostrophe in front keeps it as text
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

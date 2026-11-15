@@ -9,6 +9,7 @@ import { applyWebUpdate, checkWebUpdate } from './services/updater';
 import { getSettings } from './db/repo';
 import { isNative } from './services/platform';
 import { onUpdateProgress, takeUpdatedNote, type UpdateProgress } from './services/updateProgress';
+import { keepDataSafe } from './services/storage';
 import { APP_VERSION } from './services/platform';
 import { compareVersions } from './services/version';
 import { CHANGELOG, changesBetween, type ChangeEntry } from './changelog';
@@ -239,6 +240,8 @@ function Housekeeping() {
   useEffect(() => {
     let alive = true;
     const run = async () => {
+      // ask the phone to keep the data for good (a browser may otherwise clear it)
+      void keepDataSafe();
       // fees saved before the hidden Move fee category go into it (does nothing once done)
       await moveFeesIntoTheirCategory();
       const n = await postDueRecurring(ratesRef.current, currency, today);

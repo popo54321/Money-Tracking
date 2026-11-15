@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.21.1',
+    date: '2026-11-15',
+    title: 'Data kept safe on iPhone',
+    notes: [
+      'The app asks the phone to keep its data for good. Settings → Backup shows whether it is protected.',
+      'If the browser may clear the data, the backup reminder comes after 3 days instead of 7.',
+      'Spreadsheet export: notes starting with = + - or @ stay as text in Excel.',
+    ],
+  },
+  {
     version: '1.21.0',
     date: '2026-11-15',
     title: 'Trip bills in detail, and more accurate cards',
