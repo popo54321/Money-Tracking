@@ -59,6 +59,7 @@ export type Route =
   | { name: 'wealth' }
   | { name: 'convert' }
   | { name: 'settings' }
+  | { name: 'changelog' }
   | { name: 'categories' }
   | { name: 'setup' };
 

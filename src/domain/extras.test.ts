@@ -717,3 +717,20 @@ describe('several currencies in one cash purse or top-up card', () => {
     expect(accountCurrencies({ ...planet, type: 'bank' })).toEqual(['THB']);
   });
 });
+
+describe('update history', () => {
+  it('has the current version, newest first, each once, with a date and notes', async () => {
+    const { CHANGELOG, changesBetween } = await import('../changelog');
+    const { compareVersions } = await import('../services/version');
+    const pkg = await import('../../package.json');
+    expect(CHANGELOG[0].version).toBe(pkg.version);
+    for (let i = 1; i < CHANGELOG.length; i++)
+      expect(compareVersions(CHANGELOG[i - 1].version, CHANGELOG[i].version)).toBeGreaterThan(0);
+    for (const e of CHANGELOG) {
+      expect(e.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(e.notes.length).toBeGreaterThan(0);
+    }
+    expect(CHANGELOG.at(-1)!.version).toBe('0.2.0');
+    expect(changesBetween('1.17.1', '1.18.1', compareVersions).map((e) => e.version)).toEqual(['1.18.1', '1.18.0']);
+  });
+});
