@@ -16,7 +16,11 @@ import { useApp } from '../state/app';
 export function TripList() {
   const { go, profiles, settings, rates, confirm, removeWithUndo } = useApp();
   const [quick, setQuick] = useState<Trip | null>(null);
-  const trips = useLiveQuery(() => db.trips.orderBy('updatedAt').reverse().toArray(), []);
+  const [showSettled, setShowSettled] = useState(false);
+  const allTrips = useLiveQuery(() => db.trips.orderBy('updatedAt').reverse().toArray(), []);
+  // settled trips are hidden until Show settled, like Who owes me
+  const trips = allTrips?.filter((t) => showSettled || !t.settled);
+  const settledCount = allTrips?.filter((t) => t.settled).length ?? 0;
   const create = async () => {
     const base = settings.defaultCurrency;
     const rate = (c: string) => roundTo(rateBetween(c, base, rates) ?? 0, 4);
@@ -41,7 +45,7 @@ export function TripList() {
         <button className="btn primary block mb" onClick={create}>
           ＋ New trip
         </button>
-        {trips && trips.length === 0 && (
+        {allTrips && allTrips.length === 0 && (
           <div className="card center small muted">
             <div style={{ fontSize: 40 }}>✈️</div>
             Log who paid for what in any currency. Mark each bill as shared or personal, and see who pays whom at the end.
@@ -58,10 +62,13 @@ export function TripList() {
                   className="row"
                   onClick={() => go({ name: 'trip', id: t.id })}
                   {...holdProps(() => setQuick(t))}
+                  style={{ opacity: t.settled ? 0.55 : 1 }}
                 >
                   <div className="bubble butter">🧳</div>
                   <div className="main">
-                    <div className="title">{t.name}</div>
+                    <div className="title">
+                      {t.name} {t.settled ? '✅' : ''}
+                    </div>
                     <div className="sub">
                       {t.members.map((m) => m.name).join(', ')} · {t.entries.length} bills
                       {s ? ` · ${s.fromName} pays ${s.toName}` : r.total ? ' · settled' : ''}
@@ -75,6 +82,11 @@ export function TripList() {
             })}
           </div>
         )}
+        {settledCount > 0 && (
+          <button className="btn ghost block mt" onClick={() => setShowSettled(!showSettled)}>
+            {showSettled ? 'Hide settled' : `Show settled (${settledCount})`}
+          </button>
+        )}
       </div>
       {quick && (
         <QuickActions
@@ -83,11 +95,17 @@ export function TripList() {
           actions={[
             { label: '✏️ Open', tone: 'plain', run: () => go({ name: 'trip', id: quick.id }) },
             {
+              label: quick.settled ? '↩️ Reopen' : '✅ Mark as settled',
+              tone: 'sky',
+              run: () => saveTrip({ ...quick, settled: !quick.settled }),
+            },
+            {
               label: '🧳 New trip with the same people',
               tone: 'mint',
               run: async () => {
                 const copy: Trip = {
                   ...quick,
+                  settled: undefined,
                   id: uid(),
                   name: 'New trip',
                   entries: [],
@@ -572,6 +590,9 @@ export function TripEdit({ id }: { id: string }) {
           }}
         >
           📋 Copy summary
+        </button>
+        <button className={`btn block mt ${t.settled ? '' : 'mint'}`} onClick={() => update({ settled: !t.settled })}>
+          {t.settled ? '↩️ Reopen' : '✅ Mark as settled'}
         </button>
       </div>
 
