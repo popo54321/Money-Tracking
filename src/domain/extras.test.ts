@@ -773,3 +773,92 @@ describe('deleting an account with moves, and newer data', () => {
     expect(() => parseBackup(JSON.stringify(b))).toThrow(/newer than this app/);
   });
 });
+
+describe('release 1.21 fixes', () => {
+  it('a target in another currency is not checked against its account (and cannot cut the others)', async () => {
+    const { fitToAccounts } = await import('./goals');
+    const g = (id: string, currency: string, saved: number) =>
+      ({
+        id,
+        profileId: 'p',
+        name: id,
+        emoji: '🎯',
+        price: 100000,
+        currency,
+        source: 'manual',
+        saved,
+        accountId: 'acc',
+        monthly: 0,
+        done: false,
+        order: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      }) as Goal;
+    const rows = fitToAccounts(
+      [g('thb', 'THB', 8000), g('usd', 'USD', 3000)],
+      '2026-11-15',
+      new Map([['acc', 10000]]),
+      new Map([['acc', 'THB']]),
+    );
+    expect(rows.map((r) => r.saved)).toEqual([8000, 3000]);
+  });
+  it('instalments: progress by date, and the last payment makes the total exact', async () => {
+    const { instalmentProgress, lastInstalment } = await import('./recurring');
+    const plan = {
+      freq: 'month' as const,
+      every: 1,
+      startDate: '2026-09-15',
+      endDate: '2026-11-15',
+      amount: 3333.33,
+      instalments: 3,
+      instalmentTotal: 10000,
+    };
+    expect(instalmentProgress({ ...plan, lastPosted: '2026-10-15' })).toEqual({ made: 2, n: 3, left: 3333.34 });
+    expect(instalmentProgress({ ...plan, lastPosted: '2026-11-15' }).left).toBe(0);
+    expect(lastInstalment(plan)).toBe(3333.34);
+    // older plans without the full price: monthly × what is left
+    expect(instalmentProgress({ ...plan, instalmentTotal: undefined, lastPosted: '2026-09-15' }).left).toBe(6666.66);
+  });
+  it('instalments still owed come off net worth, not off liquid money', async () => {
+    const { netWorth } = await import('./balances');
+    const card = {
+      id: 'card',
+      profileId: 'p',
+      name: 'Card',
+      type: 'credit',
+      group: 'Credit',
+      currency: 'THB',
+      openingBalance: -1000,
+      openingDate: '2026-01-01',
+      includeInNetWorth: true,
+      archived: false,
+      order: 0,
+    } as Account;
+    const nw = netWorth(
+      [card],
+      new Map([['card', -1000]]),
+      { perUsd: { USD: 1, THB: 33 } },
+      'THB',
+      new Map(),
+      new Map([['card', 6000]]),
+    );
+    expect([nw.total, nw.liquid]).toEqual([-7000, -1000]);
+  });
+  it('a trip bill settled in a bill split is left out of the trip', async () => {
+    const { computeTrip } = await import('./tripSplit');
+    const trip = {
+      baseCurrency: 'THB',
+      rates: {},
+      payBackCurrency: 'THB',
+      members: [
+        { id: 'a', name: 'A' },
+        { id: 'b', name: 'B' },
+      ],
+      entries: [
+        { id: '1', payerId: 'a', bill: 'Hotel', cost: 1000, currency: 'THB', split: 'all' as const },
+        { id: '2', payerId: 'a', bill: 'Dinner', cost: 600, currency: 'THB', split: 'all' as const, inBillSplit: 'bill1' },
+      ],
+    };
+    expect(computeTrip(trip).total).toBe(1000);
+  });
+});

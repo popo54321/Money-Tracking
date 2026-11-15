@@ -7,6 +7,7 @@ import { db, uid } from '../db/db';
 import {
   accountTxCount,
   deleteAccountCascade,
+  pausePaydaysUsing,
   renameAccountGroup,
   saveAccount,
   saveAccountGroups,
@@ -109,6 +110,11 @@ export function AccountEdit({ id }: { id?: string }) {
       toast('Give it a name 🌼');
       return;
     }
+    // a statement day without a due day: nothing could be set aside for the card
+    if (a.type === 'credit' && a.statementDay && !a.dueDay) {
+      toast('Add the payment due day too');
+      return;
+    }
     if (a.type === 'units' && !a.currency.trim()) {
       toast('Give the unit a name, e.g. baht-weight');
       return;
@@ -162,7 +168,10 @@ export function AccountEdit({ id }: { id?: string }) {
       danger: true,
     });
     if (!ok) return;
-    await removeWithUndo(() => deleteAccountCascade(existing.id));
+    await removeWithUndo(async () => {
+      await deleteAccountCascade(existing.id);
+      if (await pausePaydaysUsing(existing.id)) toast('💰 Payday paused: choose another account in Payday');
+    });
     tab('accounts');
   };
 
@@ -527,6 +536,7 @@ function DeleteSheet({ account, onClose, onDone }: { account: Account; onClose: 
       await db.recurring
         .filter((r) => r.active && (r.accountId === account.id || r.toAccountId === account.id))
         .modify({ active: false });
+      await pausePaydaysUsing(account.id);
     }, `🗑️ ${account.name} removed`);
     onClose();
     onDone();
@@ -548,7 +558,10 @@ function DeleteSheet({ account, onClose, onDone }: { account: Account; onClose: 
       swap: true,
     });
     if (!sure) return;
-    await removeWithUndo(() => deleteAccountCascade(account.id), `🗑️ ${account.name} deleted`);
+    await removeWithUndo(async () => {
+      await deleteAccountCascade(account.id);
+      await pausePaydaysUsing(account.id);
+    }, `🗑️ ${account.name} deleted`);
     onClose();
     onDone();
   };

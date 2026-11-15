@@ -151,6 +151,33 @@ export function instalmentAmount(total: number, n: number): number {
   return Math.round((total / Math.max(1, Math.floor(n))) * 100) / 100;
 }
 
+/**
+ * An instalment plan's progress, counted by date (a deleted entry doesn't change it): payments made of how many,
+ * and how much is still to pay (the full price minus what was paid).
+ */
+export function instalmentProgress(r: {
+  freq: Freq;
+  every: number;
+  startDate: ISODate;
+  endDate?: ISODate;
+  lastPosted?: ISODate;
+  amount: number;
+  instalments?: number;
+  instalmentTotal?: number;
+}): { made: number; n: number; left: number } {
+  const n = r.instalments ?? 0;
+  const made = Math.min(n, r.lastPosted ? occurrencesBetween(r, r.startDate, r.lastPosted).length : 0);
+  const total = r.instalmentTotal ?? r.amount * n;
+  return { made, n, left: made >= n ? 0 : Math.max(0, Math.round((total - r.amount * made) * 100) / 100) };
+}
+
+/** The last payment of an instalment plan: what is left of the full price after the others (exact to the satang). */
+export function lastInstalment(r: { amount: number; instalments?: number; instalmentTotal?: number }): number {
+  const n = r.instalments ?? 1;
+  if (!r.instalmentTotal) return r.amount;
+  return Math.round((r.instalmentTotal - r.amount * (n - 1)) * 100) / 100;
+}
+
 /** Roughly how much this costs per month, to show how much to set aside. */
 export function monthlyEquivalent(amount: number, freq: Freq, every: number): number {
   const e = Math.max(1, every || 1);

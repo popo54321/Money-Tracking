@@ -208,6 +208,8 @@ export interface Recurring {
   aheadMonths?: number;
   /** an instalment plan: this many monthly payments in all, then it stops (endDate is set to the last one) */
   instalments?: number;
+  /** an instalment plan's full price: the last payment takes up the rounding so the payments add up to it */
+  instalmentTotal?: number;
   active: boolean;
   createdAt: number;
 }
@@ -266,6 +268,8 @@ export interface BillSplit {
   paidBy?: string;
   /** several people paid part of the bill each (used instead of paidBy when set) */
   payments?: BillPayment[];
+  /** made from a trip's bill (that bill is settled here, not in the trip) */
+  fromTrip?: { tripId: string; tripName: string; entryId: string };
   createdAt: number;
   updatedAt: number;
 }
@@ -287,6 +291,8 @@ export interface TripEntry {
   /** all = everyone shares, none = payer's own, some = only `sharedBy` */
   split: 'all' | 'none' | 'some';
   sharedBy?: string[];
+  /** worked out in a bill split (its id): left out of the trip's settle-up until brought back */
+  inBillSplit?: string;
 }
 
 export interface Trip {
@@ -342,7 +348,8 @@ export interface BudgetPlan {
     aboveRows: BudgetRow[];
   };
   transfers: BudgetTransfer[];
-  checklist: { month: MonthKey; done: string[] };
+  /** this month's ticks, and the transfers already recorded as moves this month (recorded once only) */
+  checklist: { month: MonthKey; done: string[]; recorded?: string[] };
   updatedAt: number;
 }
 

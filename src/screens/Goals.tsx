@@ -89,9 +89,10 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
         <Field label="Price">
           <AmountField value={g.price || null} onChange={(v) => setG({ ...g, price: v })} currency={g.currency} />
         </Field>
-        <Field label="Currency">
-          <button type="button" className="amount-field" onClick={() => setCurOpen(true)}>
-            {g.currency} <span className="cur">▾</span>
+        <Field label="Currency" hint={keptIn ? `The same as ${keptIn.name}` : undefined}>
+          {/* kept in an account: the target is in that account's currency, so the two can be compared */}
+          <button type="button" className="amount-field" disabled={!!keptIn} onClick={() => setCurOpen(true)}>
+            {g.currency} {!keptIn && <span className="cur">▾</span>}
           </button>
         </Field>
       </div>
@@ -102,7 +103,7 @@ function GoalSheet({ goal, onClose }: { goal: Goal; onClose: () => void }) {
               accounts={data.accounts.filter((a) => a.type !== 'credit')}
               value={g.accountId}
               placeholder="No account"
-              onChange={(v) => setG({ ...g, accountId: v })}
+              onChange={(v) => setG({ ...g, accountId: v, currency: data.accountById.get(v)?.currency ?? g.currency })}
             />
           </div>
           {g.accountId && (
@@ -382,6 +383,11 @@ export function Goals() {
                     <div className="bold">{Math.round(st.progress * 100)}%</div>
                   </div>
                   <ProgressBar value={st.progress} colour={st.reached ? 'mint' : 'lav'} />
+                  {acc && acc.currency !== g.currency && !g.done && (
+                    <div className="tiny muted mt">
+                      Different currency from {acc.name} ({acc.currency}), so it isn’t checked against its balance.
+                    </div>
+                  )}
                   {g.lowered && !g.done && (
                     <div className="lowered-note mt">
                       <span className="grow">

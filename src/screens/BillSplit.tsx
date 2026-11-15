@@ -17,7 +17,7 @@ import {
 import { computeBill, settleBill, type BillResult, type PaymentPlan } from '../domain/billSplit';
 import { fmtDate } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
-import type { BillItem, BillPayment, BillPerson, BillSplit } from '../domain/types';
+import { accountCurrencies, type BillItem, type BillPayment, type BillPerson, type BillSplit } from '../domain/types';
 import { db, uid } from '../db/db';
 import { deleteBill, recordOwed, saveBill, saveTx, type OwedItem } from '../db/repo';
 import { copyText } from '../services/platform';
@@ -181,13 +181,16 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
   const acc = accountId ? data.accountById.get(accountId) : undefined;
   const save = async () => {
     if (!acc || !categoryId) return toast('Choose an account and a category');
-    const sameCur = acc.currency === bill.currency;
+    // a cash purse or top-up card holding the bill's currency pays from that wallet (no conversion)
+    const inWallet = acc.currency !== bill.currency && accountCurrencies(acc).includes(bill.currency);
+    const sameCur = acc.currency === bill.currency || inWallet;
     await saveTx(
       {
         profileId: profile.id,
         date: bill.date,
         kind: 'expense',
         accountId: acc.id,
+        pocket: inWallet ? bill.currency : undefined,
         amount: sameCur ? amount : amount * ((rates.perUsd[acc.currency] ?? 1) / (rates.perUsd[bill.currency] ?? 1)),
         origAmount: sameCur ? undefined : amount,
         origCurrency: sameCur ? undefined : bill.currency,
@@ -576,6 +579,14 @@ export function BillEdit({ id }: { id: string }) {
         }
       />
       <div className="page">
+        {b.fromTrip && (
+          <div className="banner sky">
+            <span>✈️</span>
+            <span className="grow small">
+              From trip: <b>{b.fromTrip.tripName}</b>. It is settled here, not in the trip.
+            </span>
+          </div>
+        )}
         <div className="grid2">
           <Field label="Name">
             <input value={b.title} onChange={(e) => update({ title: e.target.value })} />

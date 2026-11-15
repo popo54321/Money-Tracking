@@ -11,6 +11,20 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.21.0',
+    date: '2026-11-15',
+    title: 'Trip bills in detail, and more accurate cards',
+    notes: [
+      'On a trip, press and hold a bill → Split this bill in detail: it becomes a bill split paid by you, and is settled there instead of in the trip (it can be counted in the trip again).',
+      'Instalment plans still to pay count as card debt: on the card’s page, in available credit and in net worth. The last payment makes the total exact.',
+      'A saving target kept in an account uses that account’s currency.',
+      'Budget plan: Record ticked records each transfer once a month.',
+      'Bill split: Log my share pays from the matching currency of a cash purse or top-up card.',
+      'Payday pauses if its account is deleted, and its categories can’t be deleted.',
+      'A card with a statement day needs its due day too, so money can be set aside.',
+    ],
+  },
+  {
     version: '1.20.0',
     date: '2026-11-15',
     title: 'Safer numbers',

@@ -24,6 +24,7 @@ import {
   holdStart,
   MAX_AHEAD,
   instalmentEnd,
+  instalmentProgress,
 } from '../domain/recurring';
 import type { Freq, Recurring } from '../domain/types';
 import { db, uid } from '../db/db';
@@ -519,10 +520,7 @@ function HowToSetAside({
 
 /** An instalment plan's progress: payments made so far, of how many, and what is left to pay. */
 export function InstalmentLine({ r, cur }: { r: Recurring; cur: string }) {
-  const data = useData();
-  const n = r.instalments ?? 0;
-  const made = Math.min(n, data.txs.filter((t) => t.recurringId === r.id).length);
-  const left = Math.max(0, n - made) * r.amount;
+  const { made, n, left } = instalmentProgress(r);
   return (
     <div className="tiny muted">
       💳 Payment {made} of {n}

@@ -156,6 +156,8 @@ export function netWorth(
   rates: RateTable,
   target: string,
   wallets: Map<string, Map<string, number>> = new Map(),
+  /** owed but not billed yet (a card's instalment plans): comes off net worth, not off liquid money */
+  owedLater: Map<string, number> = new Map(),
 ): NetWorth {
   let total = 0;
   let liquid = 0;
@@ -169,9 +171,10 @@ export function netWorth(
       if ((balances.get(a.id) ?? 0) !== 0 || extra === null) missing.push(a.name);
       continue;
     }
-    const v = main + extra;
+    const later = owedLater.get(a.id) ? (convert(owedLater.get(a.id)!, a.currency, target, rates) ?? 0) : 0;
+    const v = main + extra - later;
     total += v;
-    if (isLiquid(a)) liquid += v;
+    if (isLiquid(a)) liquid += v + later;
     byGroup.set(a.group, (byGroup.get(a.group) ?? 0) + v);
   }
   return { total, liquid, missing, byGroup };

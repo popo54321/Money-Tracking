@@ -69,6 +69,8 @@ export function computeTrip(input: TripInput): TripResult {
   let sharedTotal = 0;
 
   for (const e of input.entries) {
+    // worked out in a bill split instead: not counted in the trip
+    if (e.inBillSplit) continue;
     const amt = entryBase(input, e);
     if (amt === null) {
       missing.add(e.currency);

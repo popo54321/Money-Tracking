@@ -200,12 +200,13 @@ export function Budget() {
   const rule = surplusRule(plan, ruleBal);
   const month = monthKey(today);
   const done = plan.checklist.month === month ? plan.checklist.done : [];
+  const recorded = plan.checklist.month === month ? (plan.checklist.recorded ?? []) : [];
   const isActive = phase.id === plan.activePhaseId;
 
   const toggleDone = async (id: string) => {
     const on = !done.includes(id);
     const list = on ? [...done, id] : done.filter((x) => x !== id);
-    update({ ...plan, checklist: { month, done: list } });
+    update({ ...plan, checklist: { month, done: list, recorded } });
     // splits linked to this transfer's budget categories: tick adds their amounts, untick takes exactly them away
     const t = plan.transfers.find((x) => x.id === id);
     const acc = t?.toAccountId ? data.accountById.get(t.toAccountId) : undefined;
@@ -217,8 +218,10 @@ export function Budget() {
 
   const recordTicked = async () => {
     let n = 0;
+    const now: string[] = [];
     for (const t of plan.transfers) {
-      if (!done.includes(t.id) || !t.fromAccountId || !t.toAccountId) continue;
+      // a transfer is recorded once a month: a second tap skips it
+      if (!done.includes(t.id) || recorded.includes(t.id) || !t.fromAccountId || !t.toAccountId) continue;
       const amt = transferAmount(plan, t, plan.activePhaseId);
       if (!amt) continue;
       const fromAcc = data.accountById.get(t.fromAccountId);
@@ -239,8 +242,16 @@ export function Budget() {
         currency,
       );
       n++;
+      now.push(t.id);
     }
-    toast(n ? `🔄 Recorded ${n} transfers` : 'Tick transfers that have accounts linked first');
+    if (now.length) update({ ...plan, checklist: { month, done, recorded: [...recorded, ...now] } });
+    toast(
+      n
+        ? `🔄 Recorded ${n} transfers`
+        : recorded.length
+          ? 'Those are recorded already this month'
+          : 'Tick transfers that have accounts linked first',
+    );
   };
 
   const importWorkbook = async () => {
@@ -461,6 +472,7 @@ export function Budget() {
                           .join(' + ')
                       : (t.note ?? 'Typed amount')}
                     {t.fromAccountId && t.toAccountId ? ' · 🔗 accounts linked' : ''}
+                    {recorded.includes(t.id) ? ' · ✅ Recorded' : ''}
                   </div>
                 </button>
                 <span className="bold small nowrap">
