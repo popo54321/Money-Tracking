@@ -4,7 +4,7 @@ import { accountValue, netWorth } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
 import { fmtDate } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
-import { ACCOUNT_GROUPS, type Account } from '../domain/types';
+import { accountGroupsOf, type Account } from '../domain/types';
 import { useApp, useData } from '../state/app';
 import { accountColour, accountEmoji } from '../ui/emoji';
 import { LiquidLine, ProfileSwitch } from './Home';
@@ -115,7 +115,7 @@ export function Accounts() {
   const [arrange, setArrange] = useState(false);
   const visible = data.accounts.filter((a) => showArchived || !a.archived);
   const nw = netWorth(data.accounts, data.balances, rates, currency);
-  const groups = orderGroups([...ACCOUNT_GROUPS, ...visible.map((a) => a.group)], profile.accountGroupOrder);
+  const groups = orderGroups(accountGroupsOf(profile, visible), profile.accountGroupOrder);
   const shownGroups = groups.filter((g) => visible.some((a) => a.group === g));
   const archivedCount = data.accounts.filter((a) => a.archived).length;
 

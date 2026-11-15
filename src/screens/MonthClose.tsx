@@ -10,7 +10,8 @@ import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupEmoji } from '../ui/emoji';
 import { holdProps } from '../components/hold';
 import { CategoryEditor } from '../components/CategoryEditor';
-import type { Category } from '../domain/types';
+import { accountGroupsOf, type Category } from '../domain/types';
+import { orderGroups } from '../domain/groups';
 
 /** 0.234 → "23%", tiny but not zero → "<1%". */
 function pct(x: number): string {
@@ -87,11 +88,12 @@ export function MonthClose() {
   const [editing, setEditing] = useState<Category | null>(null);
   useEffect(() => {
     let alive = true;
-    buildMonthClose(month, data.accounts, data.categories, data.txs, currency, rates).then((x) => alive && setD(x));
+    const order = orderGroups(accountGroupsOf(profile, data.accounts), profile.accountGroupOrder);
+    buildMonthClose(month, data.accounts, data.categories, data.txs, currency, rates, order).then((x) => alive && setD(x));
     return () => {
       alive = false;
     };
-  }, [month, data, currency, rates]);
+  }, [month, data, currency, rates, profile]);
   useEffect(() => {
     if (!chartsOpen) return;
     let alive = true;
@@ -157,7 +159,8 @@ export function MonthClose() {
         <div className="banner sky">
           <span>💡</span>
           <span className="grow">
-            Same order as your year sheet. Tap a number to copy it, then paste it into Excel. Hold a row to edit it.
+            In the order of your categories and accounts. Tap a number to copy it, then paste it into your spreadsheet. Hold a row
+            to edit it.
           </span>
         </div>
 

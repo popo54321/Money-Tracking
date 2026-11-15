@@ -7,7 +7,7 @@ import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
 import { orderGroups } from '../domain/groups';
 import { buzz } from '../services/haptics';
 import { noteSuggestions } from '../domain/notes';
-import { ACCOUNT_GROUPS, type Account, type Category, type CategoryKind } from '../domain/types';
+import { accountGroupsOf, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
 import { accountColour, accountEmoji, categoryEmoji, nameColour } from '../ui/emoji';
 import { Mascot } from '../ui/Mascot';
@@ -533,7 +533,7 @@ export function AccountSheet({
 }) {
   const { data, profile } = useApp();
   const list = accounts.filter((a) => !a.archived && a.id !== exclude);
-  const groups = orderGroups([...ACCOUNT_GROUPS, ...list.map((a) => a.group)], profile.accountGroupOrder);
+  const groups = orderGroups(accountGroupsOf(profile, list), profile.accountGroupOrder);
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       {groups.map((g) => {

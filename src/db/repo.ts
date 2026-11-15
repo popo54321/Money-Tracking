@@ -328,6 +328,25 @@ export async function deleteCategoryGroup(
   }
 }
 
+/** Saves the user's own list of account groups (order kept as given). */
+export async function saveAccountGroups(profileId: string, groups: string[]): Promise<void> {
+  await db.profiles.update(profileId, { accountGroups: groups.filter((g, i, a) => g.trim() && a.indexOf(g) === i) });
+}
+
+/** Renames an account group: in the user's list, its place in the order, and on every account in it. */
+export async function renameAccountGroup(profileId: string, from: string, to: string, current: string[]): Promise<void> {
+  await db.transaction('rw', [db.accounts, db.profiles], async () => {
+    await db.accounts
+      .where('profileId')
+      .equals(profileId)
+      .filter((a) => a.group === from)
+      .modify({ group: to });
+    const p = await db.profiles.get(profileId);
+    const swap = (list: string[]) => list.map((g) => (g === from ? to : g)).filter((g, i, a) => a.indexOf(g) === i);
+    await db.profiles.update(profileId, { accountGroups: swap(current), accountGroupOrder: swap(p?.accountGroupOrder ?? []) });
+  });
+}
+
 /** Sets or clears (0 / none) the limit of a whole spending group, per month (default), quarter or year. */
 export async function setGroupLimit(
   profileId: string,
