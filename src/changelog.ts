@@ -11,6 +11,15 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.19.1',
+    date: '2026-11-15',
+    title: 'Update check',
+    notes: [
+      'A small release to try the update screens: the download bar with its percentage, “Updating…”, and this note.',
+      'Nothing else changes.',
+    ],
+  },
+  {
     version: '1.19.0',
     date: '2026-11-15',
     title: 'What’s new and update history',
