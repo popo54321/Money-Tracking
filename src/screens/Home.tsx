@@ -21,6 +21,7 @@ import { db } from '../db/db';
 import { refreshPrices } from '../services/prices';
 import { applyWebUpdate, installApk, latestRelease, onWebUpdateReady } from '../services/updater';
 import { onNativeUpdateState, tryApplyNative, type NativeUpdateState } from '../services/autoUpdate';
+import { useDataKept } from '../services/storage';
 import { isNative } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
@@ -373,8 +374,10 @@ export function Home() {
   const m = monthKey(today);
   const sum = summarise(data.txs, data.categories, monthStart(m), monthEnd(m), currency, rates);
   const setupDue = (needsSetup?.value as Record<string, boolean> | undefined)?.[profile.id];
+  const dataKept = useDataKept();
   const backupDays = settings.lastBackupAt ? (Date.now() - settings.lastBackupAt) / 86400000 : Infinity;
-  const showBackup = data.txs.length >= 5 && backupDays > (isNative() ? 14 : 7);
+  // a browser that may clear the data reminds more often
+  const showBackup = data.txs.length >= 5 && backupDays > (isNative() ? 14 : dataKept ? 7 : 3);
 
   return (
     <>
