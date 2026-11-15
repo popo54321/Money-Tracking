@@ -124,11 +124,11 @@ export function Accounts() {
   const data = useData();
   const [showArchived, setShowArchived] = useState(false);
   const [arrange, setArrange] = useState(false);
-  const visible = data.accounts.filter((a) => showArchived || !a.archived);
+  const visible = data.accounts.filter((a) => !a.removed && (showArchived || !a.archived));
   const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets);
   const groups = orderGroups(accountGroupsOf(profile, visible), profile.accountGroupOrder);
   const shownGroups = groups.filter((g) => visible.some((a) => a.group === g));
-  const archivedCount = data.accounts.filter((a) => a.archived).length;
+  const archivedCount = data.accounts.filter((a) => a.archived && !a.removed).length;
 
   const moveGroup = (g: string, dir: -1 | 1) =>
     saveGroupOrder(profile.id, 'account', [...moveItem(shownGroups, g, dir), ...groups.filter((x) => !shownGroups.includes(x))]);

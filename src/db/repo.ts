@@ -19,7 +19,15 @@ import type {
   Tx,
   TxKind,
 } from '../domain/types';
-import { convert, FALLBACK_BTC_THB, FALLBACK_GOLD_BUY_THB, FALLBACK_GOLD_SELL_THB, FALLBACK_PER_USD } from '../domain/fx';
+import {
+  convert,
+  FALLBACK_BTC_THB,
+  FALLBACK_GOLD_BUY_THB,
+  FALLBACK_GOLD_SELL_THB,
+  FALLBACK_PER_USD,
+  withBtc,
+} from '../domain/fx';
+import { decimalsFor, roundTo } from '../domain/money';
 import type { Debt } from '../domain/debts';
 import type { Goal } from '../domain/goals';
 import type { IndexableType, Table } from 'dexie';
@@ -111,11 +119,34 @@ export function stampValue(draft: TxDraft, account: Account | undefined, rates: 
   return { value: draft.amount * per, valueCurrency: defaultCurrency };
 }
 
+/**
+ * Rates as they were on `date`: the day's saved prices (or the last ones before it) for past days, otherwise the
+ * rates given (today's). So an entry for an earlier day is valued at that day's rate.
+ */
+export async function ratesOn(date: ISODate, current: RateTable): Promise<RateTable> {
+  if (date >= todayISO()) return current;
+  const snap = await db.prices.where('date').belowOrEqual(date).last();
+  return snap ? withBtc(snap.perUsd, snap.btcThb ?? null, 'THB', snap.goldThb ?? null) : current;
+}
+
 export async function saveTx(draft: TxDraft, rates: RateTable, defaultCurrency: string): Promise<string> {
   const account = await db.accounts.get(draft.accountId);
   const now = Date.now();
-  const { value, valueCurrency } = stampValue(draft, account, rates, defaultCurrency);
   const existing = draft.id ? await db.txs.get(draft.id) : undefined;
+  // an edit keeps the value it was given on the day: the same amount keeps it exactly, a new amount keeps its rate;
+  // only a different account, wallet or kind is valued again (at the entry's own date)
+  const sameMoney =
+    !!existing &&
+    existing.accountId === draft.accountId &&
+    (existing.pocket || undefined) === walletOf(account, draft.pocket) &&
+    existing.kind === draft.kind &&
+    existing.amount !== 0;
+  const { value, valueCurrency } = sameMoney
+    ? {
+        value: existing!.amount === draft.amount ? existing!.value : (existing!.value * draft.amount) / existing!.amount,
+        valueCurrency: existing!.valueCurrency,
+      }
+    : stampValue(draft, account, await ratesOn(draft.date, rates), defaultCurrency);
   const tx: Tx = {
     id: draft.id ?? uid(),
     profileId: draft.profileId,
@@ -162,14 +193,51 @@ export async function deleteTx(id: string): Promise<void> {
   });
 }
 
+/** The user's hidden "Move fee" category (made the first time a fee is saved). */
+export async function moveFeeCategory(profileId: string): Promise<string> {
+  const found = await db.categories
+    .where('profileId')
+    .equals(profileId)
+    .filter((c) => c.system === 'moveFee')
+    .first();
+  if (found) return found.id;
+  const count = await db.categories.where('profileId').equals(profileId).count();
+  const c: Category = {
+    id: `movefee-${profileId}`,
+    profileId,
+    kind: 'expense',
+    name: 'Move fee',
+    group: 'Fees',
+    emoji: '🏦',
+    order: count,
+    archived: false,
+    system: 'moveFee',
+  };
+  await db.categories.put(c);
+  return c.id;
+}
+
+/** One-time tidy-up: fees saved before the Move fee category go into it. */
+export async function moveFeesIntoTheirCategory(): Promise<number> {
+  const fees = await db.txs.filter((t) => !!t.feeFor).toArray();
+  let n = 0;
+  for (const t of fees) {
+    const cat = await moveFeeCategory(t.profileId);
+    if (t.categoryId !== cat) {
+      await db.txs.update(t.id, { categoryId: cat });
+      n++;
+    }
+  }
+  return n;
+}
+
 /**
- * A move's fee, as a spending entry from the same account and wallet, linked to the move. A fee of 0 removes it.
- * `categoryId` is the spending category for fees.
+ * A move's fee, as a spending entry from the same account and wallet, linked to the move, in the hidden Move fee
+ * category. A fee of 0 removes it.
  */
 export async function saveMoveFee(
   move: { id: string; profileId: string; date: string; accountId: string; pocket?: string; note?: string },
   fee: number,
-  categoryId: string | undefined,
   rates: RateTable,
   defaultCurrency: string,
 ): Promise<void> {
@@ -178,6 +246,7 @@ export async function saveMoveFee(
     if (existing) await db.txs.delete(existing.id);
     return;
   }
+  const categoryId = await moveFeeCategory(move.profileId);
   await saveTx(
     {
       id: existing?.id,
@@ -273,8 +342,14 @@ export async function accountTxCount(accountId: string): Promise<number> {
 }
 
 /** Delete an account and every entry and repeating entry that uses it. */
+/** Deletes an account with every entry and repeating entry that uses it (and the fees of moves deleted with it). */
 export async function deleteAccountCascade(accountId: string): Promise<void> {
   await db.transaction('rw', [db.accounts, db.txs, db.recurring], async () => {
+    const gone = new Set([
+      ...(await db.txs.where('accountId').equals(accountId).primaryKeys()),
+      ...(await db.txs.where('toAccountId').equals(accountId).primaryKeys()),
+    ]);
+    await db.txs.filter((t) => !!t.feeFor && gone.has(t.feeFor)).delete();
     await db.txs.where('accountId').equals(accountId).delete();
     await db.txs.where('toAccountId').equals(accountId).delete();
     await db.recurring.filter((r) => r.accountId === accountId || r.toAccountId === accountId).delete();
@@ -537,8 +612,18 @@ export async function recordPayday(
   const prof = await db.profiles.get(profileId);
   const p = prof?.payday;
   if (!p) return;
+  const dayRates = await ratesOn(date, rates);
   for (const e of payEntries(p, profileId, month, amounts)) {
     if (await db.txs.get(e.id)) continue;
+    // a line moved into an account in another currency arrives converted at that day's rate
+    let toAmount = e.amount;
+    if (e.kind === 'transfer' && e.toAccountId) {
+      const [from, to] = [await db.accounts.get(e.accountId), await db.accounts.get(e.toAccountId)];
+      if (from && to && from.currency !== to.currency) {
+        const v = convert(e.amount, from.currency, to.currency, dayRates);
+        if (v !== null) toAmount = roundTo(v, decimalsFor(to.currency));
+      }
+    }
     await saveTx(
       {
         id: e.id,
@@ -548,7 +633,7 @@ export async function recordPayday(
         accountId: e.accountId,
         toAccountId: e.toAccountId,
         amount: e.amount,
-        toAmount: e.kind === 'transfer' ? e.amount : undefined,
+        toAmount: e.kind === 'transfer' ? toAmount : undefined,
         categoryId: e.categoryId,
         note: e.note,
       },

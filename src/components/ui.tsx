@@ -644,7 +644,8 @@ export function CategoryGrid({
 }) {
   const { profile } = useApp();
   const [editing, setEditing] = useState<Category | null>(null);
-  const list = categories.filter((c) => c.kind === kind && (!c.archived || c.id === value));
+  // the app's own categories (Move fee) are never picked by hand
+  const list = categories.filter((c) => c.kind === kind && !c.system && (!c.archived || c.id === value));
   const groups = orderGroups(
     list.map((c) => c.group),
     profile.categoryGroupOrder,

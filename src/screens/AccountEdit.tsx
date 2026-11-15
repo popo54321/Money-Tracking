@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AccountPickerButton, AmountField, CurrencySheet, Field, NumberInput, Sheet, ToggleRow, Topbar } from '../components/ui';
-import { isLiquid, walletsByAccount } from '../domain/balances';
+import { deleteEffects, isLiquid, walletsByAccount } from '../domain/balances';
 import { accountGroupsOf, ACCOUNT_TYPES, WALLET_TYPES, type Account, type AccountType } from '../domain/types';
 import { fmtMoney } from '../domain/money';
 import { db, uid } from '../db/db';
@@ -68,7 +68,30 @@ export function AccountEdit({ id }: { id?: string }) {
 
   const [groupsOpen, setGroupsOpen] = useState(false);
   const groups = accountGroupsOf(profile, [...data.accounts.filter((x) => x.id !== a.id), a]);
-  const pickType = (t: AccountType) => {
+  const pickType = async (t: AccountType) => {
+    // leaving cash / top-up: other currencies that still hold money would be lost, so ask twice
+    if (canWallets && !WALLET_TYPES.has(t)) {
+      const held = (a.wallets ?? []).filter((c) => Math.abs(heldIn(c)) > 1e-9);
+      if (held.length) {
+        const list = held.map((c) => fmtMoney(heldIn(c), c)).join(', ');
+        const first = await confirm({
+          title: `Change ${a.name || 'this account'} to ${ACCOUNT_TYPES.find((x) => x.type === t)!.label}?`,
+          message: `Only cash and top-up cards hold other currencies. ${list} would be recorded as gone.`,
+          ok: 'Change it',
+          danger: true,
+        });
+        if (!first) return;
+        const sure = await confirm({
+          title: 'Are you really sure?',
+          message: `${list} will no longer count anywhere.`,
+          ok: 'Yes, change it',
+          cancel: 'Keep it',
+          danger: true,
+          swap: true,
+        });
+        if (!sure) return;
+      }
+    }
     const def = ACCOUNT_TYPES.find((x) => x.type === t)!;
     // the type's usual group, if this user has it; otherwise keep the group chosen
     const patch: Partial<Account> = { type: t, group: groups.includes(def.defaultGroup) ? def.defaultGroup : a.group };
@@ -124,8 +147,11 @@ export function AccountEdit({ id }: { id?: string }) {
     else replace({ name: 'account', id: a.id });
   };
 
+  const [delOpen, setDelOpen] = useState(false);
   const remove = async () => {
     if (!existing) return;
+    // moves with other accounts: deleting them would change those accounts, so offer to keep them
+    if (deleteEffects(existing.id, data.allTxs).length) return setDelOpen(true);
     const n = await accountTxCount(existing.id);
     const ok = await confirm({
       title: `Delete ${existing.name}?`,
@@ -346,6 +372,9 @@ export function AccountEdit({ id }: { id?: string }) {
             Delete account
           </button>
         )}
+        {existing && delOpen && (
+          <DeleteSheet account={existing} onClose={() => setDelOpen(false)} onDone={() => tab('accounts')} />
+        )}
         {existing && (
           <div className="tiny muted center mt">
             Added {a.openingDate}. Order in lists: <OrderButtons id={a.id} />
@@ -474,6 +503,69 @@ function GroupsSheet({
         </button>
       </div>
       <div className="tiny muted mt">A group with accounts in it can be renamed here; move its accounts to remove it.</div>
+    </Sheet>
+  );
+}
+
+/**
+ * Deleting an account that has moves with other accounts: remove it but keep those moves (other balances stay),
+ * or delete it with its moves (saying exactly what changes, and asking twice).
+ */
+function DeleteSheet({ account, onClose, onDone }: { account: Account; onClose: () => void; onDone: () => void }) {
+  const { confirm, removeWithUndo } = useApp();
+  const data = useData();
+  const effects = deleteEffects(account.id, data.allTxs);
+  const lines = effects.map((e) => {
+    const other = data.accountById.get(e.accountId);
+    const cur = e.currency ?? other?.currency ?? '';
+    return `${other?.name ?? '?'} ${e.change > 0 ? 'goes up' : 'goes down'} by ${fmtMoney(Math.abs(e.change), cur)}`;
+  });
+  const keepOthers = async () => {
+    await removeWithUndo(async () => {
+      await db.accounts.update(account.id, { archived: true, removed: true });
+      // nothing repeats into an account that is gone
+      await db.recurring
+        .filter((r) => r.active && (r.accountId === account.id || r.toAccountId === account.id))
+        .modify({ active: false });
+    }, `🗑️ ${account.name} removed`);
+    onClose();
+    onDone();
+  };
+  const deleteAll = async () => {
+    const first = await confirm({
+      title: `Delete ${account.name} and all its moves?`,
+      message: `${lines.join('. ')}.`,
+      ok: 'Delete',
+      danger: true,
+    });
+    if (!first) return;
+    const sure = await confirm({
+      title: 'Are you really sure?',
+      message: 'Those balances change for good.',
+      ok: 'Yes, delete',
+      cancel: 'Keep it',
+      danger: true,
+      swap: true,
+    });
+    if (!sure) return;
+    await removeWithUndo(() => deleteAccountCascade(account.id), `🗑️ ${account.name} deleted`);
+    onClose();
+    onDone();
+  };
+  return (
+    <Sheet open onClose={onClose} title={`Delete ${account.name}?`}>
+      <div className="small mb">
+        It has moves with other accounts. Deleting those moves would change them: {lines.join('; ')}.
+      </div>
+      <button className="btn primary block" onClick={keepOthers}>
+        Remove it, keep other accounts as they are
+      </button>
+      <div className="tiny muted mt mb">
+        Gone from every list and from net worth. Its moves stay, so other balances don’t change.
+      </div>
+      <button className="btn danger block" onClick={deleteAll}>
+        Delete it and all its moves
+      </button>
     </Sheet>
   );
 }

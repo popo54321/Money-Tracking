@@ -179,7 +179,8 @@ export function RecurringList() {
               label: quick.active ? '⏸️ Pause' : '▶️ Resume',
               tone: 'sky',
               run: async () => {
-                await saveRecurring({ ...quick, active: !quick.active });
+                const lastPosted = quick.active ? quick.lastPosted : await askMissed(quick, today, confirm);
+                await saveRecurring({ ...quick, active: !quick.active, lastPosted });
                 toast(quick.active ? '⏸️ Paused' : '▶️ Resumed');
               },
             });
@@ -245,6 +246,8 @@ export function RecurringEdit({ id }: { id?: string }) {
     // "Record now" / "Skip" may have moved lastPosted while this form was open
     const stored = existing ? await db.recurring.get(r.id) : undefined;
     let lastPosted = stored?.lastPosted ?? r.lastPosted;
+    // switched back on after a pause: the dates missed meanwhile are recorded only if asked
+    if (stored && !stored.active && r.active && r.autoPost) lastPosted = await askMissed({ ...r, lastPosted }, today, confirm);
     if (!existing && r.autoPost) {
       const past = dueToPost(r, undefined, today);
       if (past.length > 0) {
@@ -528,4 +531,24 @@ export function InstalmentLine({ r, cur }: { r: Recurring; cur: string }) {
         : ' · paid off ✅'}
     </div>
   );
+}
+
+/**
+ * A paused repeating entry switched back on: ask whether to record the dates missed while it was paused.
+ * Returns the last-recorded date to keep (the last missed date when only from now on).
+ */
+async function askMissed(
+  r: Recurring,
+  today: string,
+  confirm: (o: { title: string; message?: string; ok?: string; cancel?: string }) => Promise<boolean>,
+): Promise<string | undefined> {
+  const missed = r.autoPost ? dueToPost(r, r.lastPosted, today) : [];
+  if (!missed.length) return r.lastPosted;
+  const all = await confirm({
+    title: `Record the ${missed.length} missed ${missed.length === 1 ? 'date' : 'dates'}?`,
+    message: `${r.name} was paused on ${missed.map((d) => fmtDate(d, false)).join(', ')}. Choose “Only from now on” if those didn’t happen or are logged already.`,
+    ok: 'Record them',
+    cancel: 'Only from now on',
+  });
+  return all ? r.lastPosted : missed[missed.length - 1];
 }

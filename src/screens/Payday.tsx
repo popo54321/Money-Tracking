@@ -2,9 +2,10 @@
 // "Payday's here" records it early (that month then does not record itself again).
 import { useState } from 'react';
 import { AccountPickerButton, AmountField, Field, NumberInput, Seg, Sheet, ToggleRow, Topbar } from '../components/ui';
-import { fmtDate, relativeDays, addMonthKey, fmtMonth } from '../domain/dates';
+import { diffDays, fmtDate, relativeDays, addMonthKey, fmtMonth, monthKey } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
 import {
+  dueMonths,
   firstMonthFrom,
   mainDeduction,
   nextPayDate,
@@ -37,7 +38,7 @@ function CategorySelect({
     <select value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
       <option value="">{empty}</option>
       {categories
-        .filter((c) => c.kind === kind && (!c.archived || c.id === value))
+        .filter((c) => c.kind === kind && !c.system && (!c.archived || c.id === value))
         .map((c) => (
           <option key={c.id} value={c.id}>
             {c.emoji ? `${c.emoji} ` : ''}
@@ -88,7 +89,21 @@ export function PaydayEdit() {
     if (rest > 0.005 && !p.deductCategoryId) return toast('Choose a category for what is taken off');
     if (p.extras.some((e) => e.amount > 0 && !e.categoryId && !e.toAccountId))
       return toast('Each extra line needs a category or an account');
-    await savePayday(profile.id, p);
+    // switched back on after a pause: the paydays missed meanwhile are recorded only if asked
+    let toSave = p;
+    if (profile.payday && !profile.payday.active && p.active) {
+      const missed = dueMonths(p, today);
+      if (missed.length) {
+        const all = await confirm({
+          title: `Record the ${missed.length} ${missed.length === 1 ? 'payday' : 'paydays'} you missed?`,
+          message: `Payday was paused for ${missed.map((m) => fmtMonth(m)).join(', ')}. Choose “Only from now on” if there was no pay then or it is logged already.`,
+          ok: 'Record them',
+          cancel: 'Only from now on',
+        });
+        if (!all) toSave = { ...p, paidMonth: missed[missed.length - 1] };
+      }
+    }
+    await savePayday(profile.id, toSave);
     if (isNew && otherIncome.length) {
       const pause = await confirm({
         title: 'Pause your repeating salary?',
@@ -267,7 +282,7 @@ export function PaydayEdit() {
 
 /** "Payday's here": record this month's pay now, with this month's amounts (overtime, a changed tax amount). */
 export function PaydaySheet({ onClose }: { onClose: () => void }) {
-  const { profile, today, rates, currency, removeWithUndo } = useApp();
+  const { profile, today, rates, currency, removeWithUndo, confirm } = useApp();
   const data = useData();
   const p = profile.payday!;
   const cur = data.accountById.get(p.accountId)?.currency ?? currency;
@@ -297,6 +312,17 @@ export function PaydaySheet({ onClose }: { onClose: () => void }) {
         className="btn primary block"
         disabled={rest < -0.005 || !(gross > 0)}
         onClick={async () => {
+          // more than 10 days early (easy to tap twice): ask first
+          const due = payDate(p, month);
+          if (diffDays(today, due) > 10) {
+            const ok = await confirm({
+              title: `Record ${fmtMonth(month)}’s pay now?`,
+              message: `It isn’t due until ${fmtDate(due)}.`,
+              ok: 'Record it now',
+              cancel: 'Not yet',
+            });
+            if (!ok) return;
+          }
           await removeWithUndo(
             () => recordPayday(profile.id, month, today, rates, currency, { gross, takeHome }),
             `💰 Payday recorded: ${fmtMoney(takeHome, cur)} into ${data.accountById.get(p.accountId)?.name ?? 'the account'}`,
@@ -333,6 +359,9 @@ export function PaydayCard() {
         <div className="small mt">
           {fmtMoney(p.takeHome, acc?.currency ?? currency)} take-home into {acc?.name ?? '?'}
         </div>
+        {p.paidMonth && p.paidMonth >= monthKey(today) && (
+          <div className="small pos mt">✅ {fmtMonth(p.paidMonth)} pay recorded</div>
+        )}
         {before > 0 && <div className="small muted">Bills due before payday: {fmtMoney(before, currency)}</div>}
         {/* pay can arrive early (before a holiday, a bonus month): record it any time */}
         <span
