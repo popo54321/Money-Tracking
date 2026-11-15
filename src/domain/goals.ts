@@ -110,12 +110,19 @@ export interface GoalRow {
  * money that left the account is treated as spent, so targets never go back up by themselves.
  * `room`: per account, what is there for targets (balance minus the account's own splits).
  */
-export function fitToAccounts(goals: Goal[], today: ISODate, room: Map<string, number>): GoalRow[] {
+export function fitToAccounts(
+  goals: Goal[],
+  today: ISODate,
+  room: Map<string, number>,
+  /** each account's currency: a target in another currency isn't checked against it (amounts can't be added) */
+  currencyOf: Map<string, string> = new Map(),
+): GoalRow[] {
   const rows = goals.map((g) => ({ goal: g, recorded: goalSaved(g, today), saved: goalSaved(g, today) }));
   const byAccount = new Map<string, GoalRow[]>();
   for (const r of rows) {
     const id = r.goal.accountId;
     if (!id || r.goal.done || !room.has(id)) continue;
+    if (currencyOf.has(id) && currencyOf.get(id) !== r.goal.currency) continue;
     byAccount.set(id, [...(byAccount.get(id) ?? []), r]);
   }
   for (const [id, list] of byAccount) {

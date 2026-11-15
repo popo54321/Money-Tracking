@@ -2,7 +2,7 @@
 import { todayISO, type ISODate, type MonthKey } from '../domain/dates';
 import { unitValue, balanceOf, walletsByAccount } from '../domain/balances';
 import type { RateTable } from '../domain/fx';
-import { dueToPost, instalmentEnd } from '../domain/recurring';
+import { dueToPost, instalmentEnd, lastInstalment } from '../domain/recurring';
 import { dueMonths, payDate, payEntries, type Payday } from '../domain/payday';
 import type {
   Freq,
@@ -519,7 +519,27 @@ export async function setGroupLimit(
 export async function categoryInUse(id: string): Promise<boolean> {
   const n = await db.txs.filter((t) => t.categoryId === id).count();
   const r = await db.recurring.filter((x) => x.categoryId === id).count();
-  return n + r > 0;
+  // payday's categories are in use too (its entries would lose their category)
+  const pay = (await db.profiles.toArray()).some(
+    (p) =>
+      !!p.payday &&
+      (p.payday.incomeCategoryId === id || p.payday.deductCategoryId === id || p.payday.extras.some((e) => e.categoryId === id)),
+  );
+  return n + r > 0 || pay;
+}
+
+/** Payday stops when an account it uses is deleted or removed (it never records into a missing account). */
+export async function pausePaydaysUsing(accountId: string): Promise<number> {
+  let n = 0;
+  for (const p of await db.profiles.toArray()) {
+    const pd = p.payday;
+    if (!pd || !pd.active) continue;
+    if (pd.accountId === accountId || pd.extras.some((e) => e.toAccountId === accountId)) {
+      await db.profiles.update(p.id, { payday: { ...pd, active: false } });
+      n++;
+    }
+  }
+  return n;
 }
 
 export async function deleteCategory(id: string): Promise<void> {
@@ -536,6 +556,8 @@ export interface RepeatOptions {
   reserve: boolean;
   /** an instalment plan: this many monthly payments, then it stops */
   instalments?: number;
+  /** its full price (the last payment takes up the rounding) */
+  instalmentTotal?: number;
 }
 
 /**
@@ -573,6 +595,7 @@ export async function saveNewEntry(
     autoPost: repeat.autoPost,
     reserve: kind !== 'income' && repeat.reserve,
     instalments: repeat.instalments,
+    instalmentTotal: repeat.instalments ? repeat.instalmentTotal : undefined,
     endDate: repeat.instalments ? instalmentEnd(draft.date, repeat.instalments) : undefined,
     active: true,
     createdAt: Date.now(),
@@ -649,6 +672,10 @@ export async function postDuePaydays(rates: RateTable, defaultCurrency: string, 
   let n = 0;
   for (const prof of await db.profiles.toArray()) {
     if (!prof.payday) continue;
+    // never into an account that is gone or removed
+    const used = [prof.payday.accountId, ...prof.payday.extras.map((e) => e.toAccountId).filter((x): x is string => !!x)];
+    const accs = await db.accounts.bulkGet(used);
+    if (accs.some((a) => !a || a.removed)) continue;
     for (const m of dueMonths(prof.payday, today)) {
       await recordPayday(prof.id, m, payDate(prof.payday, m), rates, defaultCurrency);
       n++;
@@ -700,7 +727,8 @@ export async function postOccurrence(
         date: date > today ? today : date,
         kind: r.kind,
         accountId: r.accountId,
-        amount: r.amount,
+        // an instalment plan's last payment takes up the rounding
+        amount: r.instalments && r.endDate === date ? lastInstalment(r) : r.amount,
         toAccountId: r.toAccountId,
         toAmount: r.toAmount,
         categoryId: r.categoryId,

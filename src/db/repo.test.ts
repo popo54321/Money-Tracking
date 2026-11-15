@@ -466,3 +466,34 @@ describe('release 1.20 fixes', () => {
     expect(await moveFeesIntoTheirCategory()).toBe(0);
   });
 });
+
+describe('release 1.21 fixes (storage)', () => {
+  it('the last instalment records the rest of the price', async () => {
+    const { postDueRecurring } = await import('./repo');
+    const buy = { ...draft('2026-09-15'), amount: 3333.33, note: 'Phone' };
+    await saveNewEntry(buy, { ...monthly, name: 'Phone', instalments: 3, instalmentTotal: 10000 }, rates, 'THB', '2026-09-15');
+    await postDueRecurring(rates, 'THB', '2026-12-31');
+    const paid = (await db.txs.toArray()).map((t) => t.amount).sort();
+    expect(paid).toEqual([3333.33, 3333.33, 3333.34]);
+  });
+  it('payday categories count as in use; payday pauses and never records into a missing account', async () => {
+    const { categoryInUse, pausePaydaysUsing } = await import('./repo');
+    const payday = {
+      active: true,
+      accountId: 'gone',
+      incomeCategoryId: 'salary',
+      gross: 100,
+      takeHome: 100,
+      extras: [],
+      rule: 'day' as const,
+      day: 1,
+      fromMonth: '2026-10',
+    };
+    await db.profiles.put({ id: 'u1', name: 'U', order: 0, payday });
+    expect(await categoryInUse('salary')).toBe(true);
+    expect(await postDuePaydays(rates, 'THB', '2026-11-15')).toBe(0);
+    await db.profiles.put({ id: 'u1', name: 'U', order: 0, payday: { ...payday, accountId: 'bank' } });
+    expect(await pausePaydaysUsing('bank')).toBe(1);
+    expect((await db.profiles.get('u1'))!.payday!.active).toBe(false);
+  });
+});

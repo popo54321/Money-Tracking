@@ -4,9 +4,9 @@ import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Spa
 import { computeTrip, entryBase, type TripResult } from '../domain/tripSplit';
 import { rateBetween } from '../domain/fx';
 import { fmtMoney, roundTo } from '../domain/money';
-import type { Trip, TripEntry, TripMember } from '../domain/types';
+import type { BillSplit, Trip, TripEntry, TripMember } from '../domain/types';
 import { db, uid } from '../db/db';
-import { deleteTrip, recordOwed, saveTrip, type OwedItem } from '../db/repo';
+import { deleteTrip, recordOwed, saveBill, saveTrip, type OwedItem } from '../db/repo';
 import { todayISO } from '../domain/dates';
 import { copyText } from '../services/platform';
 import { holdProps } from '../components/hold';
@@ -283,7 +283,7 @@ function TripOwedButton({ t, settlements }: { t: Trip; settlements: TripResult['
 }
 
 export function TripEdit({ id }: { id: string }) {
-  const { back, confirm, toast, rates, removeWithUndo } = useApp();
+  const { back, confirm, toast, rates, removeWithUndo, profile, go } = useApp();
   const stored = useLiveQuery(() => db.trips.get(id), [id]);
   const [t, setT] = useState<Trip | null>(null);
   const [entry, setEntry] = useState<TripEntry | null>(null);
@@ -427,7 +427,7 @@ export function TripEdit({ id }: { id: string }) {
                   <div className="main">
                     <div className="title">{e.bill || 'Bill'}</div>
                     <div className="sub">
-                      {nameOf(e.payerId)} paid · {splitText}
+                      {e.inBillSplit ? '🧾 Settled in Bill split · not counted here' : `${nameOf(e.payerId)} paid · ${splitText}`}
                     </div>
                   </div>
                   <div className="end">
@@ -634,6 +634,60 @@ export function TripEdit({ id }: { id: string }) {
           title={quickEntry.bill || 'Bill'}
           onClose={() => setQuickEntry(null)}
           actions={[
+            ...(quickEntry.inBillSplit
+              ? [
+                  {
+                    label: '🧾 Open its bill split',
+                    tone: 'mint' as const,
+                    run: async () => {
+                      if (await db.bills.get(quickEntry.inBillSplit!)) go({ name: 'bill', id: quickEntry.inBillSplit! });
+                      else toast('That bill split was deleted. Count it in the trip again below.');
+                    },
+                  },
+                  {
+                    label: '↩️ Count it in the trip again',
+                    tone: 'sky' as const,
+                    run: () =>
+                      update({ entries: t.entries.map((x) => (x.id === quickEntry.id ? { ...x, inBillSplit: undefined } : x)) }),
+                  },
+                ]
+              : [
+                  {
+                    label: '🧾 Split this bill in detail',
+                    tone: 'mint' as const,
+                    run: async () => {
+                      // a bill split with everyone on the trip, the whole bill as one item, paid by you
+                      const me =
+                        t.members.find((m) => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase()) ?? t.members[0];
+                      const bill: BillSplit = {
+                        id: uid(),
+                        title: quickEntry.bill || 'Bill',
+                        date: quickEntry.date ?? todayISO(),
+                        currency: quickEntry.currency,
+                        people: t.members.map((m) => ({ id: m.id, name: m.name })),
+                        items: [{ id: uid(), name: 'Whole bill', price: quickEntry.cost, sharedBy: [], shared: false }],
+                        servicePct: 0,
+                        vatPct: 0,
+                        vatOnService: true,
+                        mode: 'itemised',
+                        roundWhole: false,
+                        paidBy: me?.id,
+                        fromTrip: { tripId: t.id, tripName: t.name, entryId: quickEntry.id },
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                      };
+                      await saveBill(bill);
+                      const next = {
+                        ...t,
+                        entries: t.entries.map((x) => (x.id === quickEntry.id ? { ...x, inBillSplit: bill.id } : x)),
+                      };
+                      clearTimeout(saveTimer.current);
+                      await saveTrip(next);
+                      setT(next);
+                      go({ name: 'bill', id: bill.id });
+                    },
+                  },
+                ]),
             { label: '✏️ Edit', tone: 'plain', run: () => setEntry(quickEntry) },
             { label: '📄 Duplicate', tone: 'mint', run: () => update({ entries: [...t.entries, { ...quickEntry, id: uid() }] }) },
             {

@@ -83,7 +83,7 @@ export function PaydayEdit() {
   const otherIncome = data.recurring.filter((r) => r.active && r.kind === 'income' && r.categoryId === p.incomeCategoryId);
 
   const save = async () => {
-    if (!acc) return toast('Choose the account your pay arrives in');
+    if (!acc || acc.removed) return toast('Choose the account your pay arrives in');
     if (!(p.gross > 0) || !(p.takeHome > 0)) return toast('Enter the full salary and the take-home pay');
     if (rest < -0.005) return toast('The lines taken off add up to more than full salary minus take-home');
     if (rest > 0.005 && !p.deductCategoryId) return toast('Choose a category for what is taken off');
@@ -125,6 +125,12 @@ export function PaydayEdit() {
           Your salary records itself on payday: the full salary as income and what is taken off as spending, so the account goes
           up by your take-home pay. If it comes early, tap “Pay arrived?”.
         </div>
+        {!isNew && (!acc || acc.removed) && (
+          <div className="banner pink">
+            <span>⚠️</span>
+            <span className="grow small">The account payday used is gone. Choose another below, then switch payday on.</span>
+          </div>
+        )}
         {!isNew && profile.payday?.active && (
           <button className="btn mint block mb" onClick={() => setEarly(true)}>
             💰 Pay arrived? Record it now

@@ -369,7 +369,7 @@ export function Home() {
   }, [isNew]);
   useEffect(() => onNativeUpdateState(setNativeUpdate), []);
 
-  const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets);
+  const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets, data.instalmentsLeft);
   const m = monthKey(today);
   const sum = summarise(data.txs, data.categories, monthStart(m), monthEnd(m), currency, rates);
   const setupDue = (needsSetup?.value as Record<string, boolean> | undefined)?.[profile.id];

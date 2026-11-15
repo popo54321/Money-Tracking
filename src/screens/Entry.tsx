@@ -244,6 +244,7 @@ export function Entry({ route }: { route: EntryRoute }) {
           autoPost: true,
           reserve: true,
           instalments: plan,
+          instalmentTotal: charged,
         }
       : repeat && !existing && kind !== 'adjust'
         ? {

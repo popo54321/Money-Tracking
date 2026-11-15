@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { balancesByAccount, walletsByAccount } from '../domain/balances';
+import { instalmentProgress } from '../domain/recurring';
 import { todayISO } from '../domain/dates';
 import { withBtc, type RateTable } from '../domain/fx';
 import { reservedByAccount, upcomingItems, type UpcomingItem } from '../domain/reserve';
@@ -15,11 +16,6 @@ import { DEFAULT_SETTINGS } from '../db/seed';
 import { getSkin, setPlainIcons, type SkinDef } from '../ui/skins';
 import { setQuietCheck } from '../services/autoUpdate';
 import { setHapticsEnabled } from '../services/haptics';
-
-/** Currency of an account (targets in another currency are not lowered). */
-function byIdCurrency(accounts: Account[], id: string | undefined): string | undefined {
-  return accounts.find((a) => a.id === id)?.currency;
-}
 
 // ---------- navigation ----------
 
@@ -85,6 +81,8 @@ export interface ProfileData {
   balances: Map<string, number>;
   /** cash and top-up cards holding other currencies: account → currency → balance (main wallet in `balances`) */
   wallets: Map<string, Map<string, number>>;
+  /** per card: what its instalment plans still have to pay (owed, though not billed yet) */
+  instalmentsLeft: Map<string, number>;
   upcoming: UpcomingItem[];
   reserved: Map<string, number>;
   accountById: Map<string, Account>;
@@ -211,6 +209,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       recurring,
       balances,
       wallets: walletsByAccount(accs, actual),
+      instalmentsLeft: recurring.reduce((m, r) => {
+        if (!r.instalments) return m;
+        const { left } = instalmentProgress(r);
+        if (left > 0.005) m.set(r.accountId, (m.get(r.accountId) ?? 0) + left);
+        return m;
+      }, new Map<string, number>()),
       upcoming,
       reserved,
       accountById: new Map(accs.map((a) => [a.id, a])),
@@ -228,7 +232,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return [a.id, (balances.get(a.id) ?? 0) - splits];
           }),
         ),
-      ).map((r) => (r.goal.currency === byIdCurrency(accs, r.goal.accountId) ? r : { ...r, saved: r.recorded })),
+        new Map(accs.map((a) => [a.id, a.currency])),
+      ),
     };
     for (const a of accs)
       out.claims.set(a.id, accountClaims(a, balances.get(a.id) ?? 0, reserved.get(a.id) ?? 0, actual, out.goals));

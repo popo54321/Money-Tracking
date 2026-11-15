@@ -241,6 +241,8 @@ export function AccountDetail({ id }: { id: string }) {
   const st = isCard ? cardStatus(a, data.txs, today) : null;
   const payFrom = a.payFromAccountId ? data.accountById.get(a.payFromAccountId) : undefined;
   const reservedHere = data.upcoming.filter((u) => u.reserveAccountId === a.id && u.reserved);
+  /** instalment plans still to pay on this card */
+  const later = data.instalmentsLeft.get(a.id) ?? 0;
 
   return (
     <>
@@ -346,6 +348,12 @@ export function AccountDetail({ id }: { id: string }) {
               <div className="small muted">Add the statement day and due day in ✏️ Edit to see what to pay and when.</div>
             ) : (
               <>
+                {!a.dueDay && (
+                  <div className="banner pink mb">
+                    <span>⚠️</span>
+                    <span className="grow small">Add the due day in ✏️ Edit so money can be set aside for this card.</span>
+                  </div>
+                )}
                 <table className="t">
                   <tbody>
                     <tr>
@@ -376,6 +384,20 @@ export function AccountDetail({ id }: { id: string }) {
                     </span>
                   </div>
                 )}
+                {later > 0.005 && (
+                  <table className="t mt">
+                    <tbody>
+                      <tr>
+                        <td>Instalments still to pay</td>
+                        <td>{fmtMoney(later, a.currency)}</td>
+                      </tr>
+                      <tr className="total">
+                        <td>Owed incl. instalments</td>
+                        <td className="neg">{fmtMoney(Math.max(0, -bal) + later, a.currency)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
                 <table className="t mt">
                   <tbody>
                     <tr>
@@ -391,7 +413,7 @@ export function AccountDetail({ id }: { id: string }) {
                 <div className="small muted">
                   {st.nextDue ? `Goes on the next statement, due ${fmtDate(st.nextDue)}` : 'Goes on the next statement'}
                   {a.creditLimit
-                    ? ` · limit ${fmtMoney(a.creditLimit, a.currency, { compact: true })} · available ${fmtMoney(st.available ?? 0, a.currency, { compact: true })}`
+                    ? ` · limit ${fmtMoney(a.creditLimit, a.currency, { compact: true })} · available ${fmtMoney((st.available ?? 0) - later, a.currency, { compact: true })}`
                     : ''}
                 </div>
                 {payFrom && <div className="small muted">Paid from {payFrom.name}</div>}

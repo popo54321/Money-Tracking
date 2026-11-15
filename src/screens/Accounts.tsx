@@ -37,9 +37,12 @@ export function AccountLine({ a }: { a: Account }) {
           ? `+${fmtMoney(st.extraCredit, a.currency)} extra`
           : fmtMoney(0, a.currency);
     mainCls = st.owedNow > 0 ? 'neg' : st.extraCredit > 0 ? 'pos' : '';
+    // instalment plans still to pay are owed too: they hold part of the limit
+    const later = data.instalmentsLeft.get(a.id) ?? 0;
     if (st.remaining > 0 && st.dueDate)
       sub = `${fmtMoney(st.remaining, a.currency)} due ${fmtDate(st.dueDate, false)}${st.overdue ? ' ⚠️' : ''}`;
-    else if (st.available !== undefined) sub = `${fmtMoney(st.available, a.currency, { compact: true })} available`;
+    else if (st.available !== undefined) sub = `${fmtMoney(st.available - later, a.currency, { compact: true })} available`;
+    if (later > 0.005) sub = `${sub} · ${fmtMoney(later, a.currency, { compact: true })} in instalments`;
     second = null;
   } else if (a.type === 'units') {
     main = `${fmtMoney(bal, a.currency, { compact: true })}`;
@@ -125,7 +128,7 @@ export function Accounts() {
   const [showArchived, setShowArchived] = useState(false);
   const [arrange, setArrange] = useState(false);
   const visible = data.accounts.filter((a) => !a.removed && (showArchived || !a.archived));
-  const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets);
+  const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets, data.instalmentsLeft);
   const groups = orderGroups(accountGroupsOf(profile, visible), profile.accountGroupOrder);
   const shownGroups = groups.filter((g) => visible.some((a) => a.group === g));
   const archivedCount = data.accounts.filter((a) => a.archived && !a.removed).length;
