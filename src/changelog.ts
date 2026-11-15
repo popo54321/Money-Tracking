@@ -11,6 +11,15 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.21.2',
+    date: '2026-11-15',
+    title: 'Service charge and VAT apart',
+    notes: [
+      'Bill split shows the service charge and VAT as separate amounts (with their %), and the tip only when there is one.',
+      'The shared bill summary lists food, service, VAT and tip amounts.',
+    ],
+  },
+  {
     version: '1.21.1',
     date: '2026-11-15',
     title: 'Data kept safe on iPhone',
