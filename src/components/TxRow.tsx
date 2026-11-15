@@ -24,7 +24,8 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
   let colour = 'lav';
   let title = '';
   let amount = tx.amount;
-  let cur = acc?.currency ?? '';
+  // a wallet other than the account's main one has its own currency
+  let cur = tx.pocket ?? acc?.currency ?? '';
   let cls = '';
   if (tx.kind === 'income' || tx.kind === 'expense') {
     emoji = categoryEmoji(cat);
@@ -35,10 +36,13 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
   } else if (tx.kind === 'transfer') {
     emoji = '🔄';
     colour = 'lav';
-    title = `${acc?.name ?? '?'} → ${to?.name ?? '?'}`;
-    if (contextAccountId && contextAccountId === tx.toAccountId) {
+    title =
+      tx.toAccountId === tx.accountId
+        ? `${acc?.name ?? '?'}: ${tx.pocket ?? acc?.currency} → ${tx.toPocket ?? acc?.currency}`
+        : `${acc?.name ?? '?'} → ${to?.name ?? '?'}`;
+    if (contextAccountId && contextAccountId === tx.toAccountId && tx.toAccountId !== tx.accountId) {
       amount = tx.toAmount ?? tx.amount;
-      cur = to?.currency ?? cur;
+      cur = tx.toPocket ?? to?.currency ?? cur;
       cls = 'pos';
     } else {
       amount = contextAccountId ? -tx.amount : tx.amount;
@@ -83,8 +87,14 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
         </div>
         <div className="end">
           <div className={`amt ${cls}`}>{fmtMoney(amount, cur, { sign: tx.kind !== 'transfer' || !!contextAccountId })}</div>
-          {tx.origCurrency && tx.origAmount !== undefined && (
+          {tx.origCurrency && tx.origAmount !== undefined ? (
             <div className="amt2">{fmtMoney(tx.origAmount, tx.origCurrency)}</div>
+          ) : (
+            // an exchange: what arrived, in the other currency
+            tx.kind === 'transfer' &&
+            tx.toAccountId === tx.accountId && (
+              <div className="amt2">→ {fmtMoney(tx.toAmount ?? tx.amount, tx.toPocket ?? acc?.currency ?? '')}</div>
+            )
           )}
         </div>
       </button>

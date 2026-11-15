@@ -344,3 +344,59 @@ describe('account groups', () => {
     expect((await db.accounts.get('bank'))!.group).toBe('Everyday');
   });
 });
+
+describe('wallets and move fees', () => {
+  const cash: Account = { ...bank, id: 'cash', name: 'Cash', type: 'cash', wallets: ['JPY'], openingBalance: 0 };
+  it('spending from a wallet is valued from its own currency', async () => {
+    const { saveTx } = await import('./repo');
+    await db.accounts.put(cash);
+    const id = await saveTx(
+      { ...draft('2026-11-10'), accountId: 'cash', amount: 1500, pocket: 'JPY' },
+      { perUsd: { USD: 1, THB: 32, JPY: 160 } },
+      'THB',
+    );
+    const t = (await db.txs.get(id))!;
+    expect([t.pocket, t.value, t.valueCurrency]).toEqual(['JPY', 300, 'THB']);
+    // the main currency is stored as no wallet
+    const id2 = await saveTx({ ...draft('2026-11-10'), accountId: 'cash', amount: 10, pocket: 'THB' }, rates, 'THB');
+    expect((await db.txs.get(id2))!.pocket).toBeUndefined();
+  });
+  it('setting a wallet’s amount records an adjustment in that wallet', async () => {
+    await db.accounts.put(cash);
+    await setAccountBalance({
+      account: cash,
+      pocket: 'JPY',
+      newBalance: 5000,
+      mode: 'opening',
+      date: '2026-11-10',
+      rates,
+      defaultCurrency: 'THB',
+    });
+    const [t] = await db.txs.toArray();
+    expect([t.kind, t.pocket, t.amount]).toEqual(['adjust', 'JPY', 5000]);
+    expect((await db.accounts.get('cash'))!.openingBalance).toBe(0);
+  });
+  it('a move’s fee is its own spending entry, updated, and deleted with the move', async () => {
+    const { saveMoveFee, saveTx, deleteTx } = await import('./repo');
+    const moveId = await saveTx(
+      {
+        profileId: 'u1',
+        date: '2026-11-10',
+        kind: 'transfer',
+        accountId: 'bank',
+        toAccountId: 'bank',
+        amount: 100,
+        toAmount: 100,
+      },
+      rates,
+      'THB',
+    );
+    const move = { id: moveId, profileId: 'u1', date: '2026-11-10', accountId: 'bank' };
+    await saveMoveFee(move, 25, 'fees', rates, 'THB');
+    await saveMoveFee(move, 30, 'fees', rates, 'THB');
+    const fees = (await db.txs.toArray()).filter((t) => t.feeFor === moveId);
+    expect(fees.map((t) => [t.kind, t.amount, t.categoryId])).toEqual([['expense', 30, 'fees']]);
+    await deleteTx(moveId);
+    expect(await db.txs.count()).toBe(0);
+  });
+});

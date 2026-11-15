@@ -1,6 +1,6 @@
 // Reading and writing app data.
 import { todayISO, type ISODate, type MonthKey } from '../domain/dates';
-import { unitValue, balanceOf } from '../domain/balances';
+import { unitValue, balanceOf, walletsByAccount } from '../domain/balances';
 import type { RateTable } from '../domain/fx';
 import { dueToPost, instalmentEnd } from '../domain/recurring';
 import { dueMonths, payDate, payEntries, type Payday } from '../domain/payday';
@@ -19,7 +19,7 @@ import type {
   Tx,
   TxKind,
 } from '../domain/types';
-import { FALLBACK_BTC_THB, FALLBACK_GOLD_BUY_THB, FALLBACK_GOLD_SELL_THB, FALLBACK_PER_USD } from '../domain/fx';
+import { convert, FALLBACK_BTC_THB, FALLBACK_GOLD_BUY_THB, FALLBACK_GOLD_SELL_THB, FALLBACK_PER_USD } from '../domain/fx';
 import type { Debt } from '../domain/debts';
 import type { Goal } from '../domain/goals';
 import type { IndexableType, Table } from 'dexie';
@@ -84,10 +84,26 @@ export interface TxDraft {
   origCurrency?: string;
   recurringId?: string;
   fromSplits?: { splitId: string; amount: number }[];
+  /** the account's wallet when not its main one (cash and top-up cards holding several currencies) */
+  pocket?: string;
+  /** transfer: the destination account's wallet when not its main one */
+  toPocket?: string;
+  /** a move's fee: the move this spending belongs to */
+  feeFor?: string;
+}
+
+/** A wallet that is the account's main currency is stored as no wallet. */
+function walletOf(account: Account | undefined, pocket: string | undefined): string | undefined {
+  return pocket && account && pocket !== account.currency ? pocket : undefined;
 }
 
 /** Stamp the entry with its value in the default currency at today's rates. */
 export function stampValue(draft: TxDraft, account: Account | undefined, rates: RateTable, defaultCurrency: string) {
+  const pocket = walletOf(account, draft.pocket);
+  if (pocket) {
+    const v = convert(draft.amount, pocket, defaultCurrency, rates);
+    return v === null ? { value: draft.amount, valueCurrency: pocket } : { value: v, valueCurrency: defaultCurrency };
+  }
   const per = account ? unitValue(account, rates, defaultCurrency) : null;
   if (per === null || !account) {
     return { value: draft.amount, valueCurrency: account?.currency ?? defaultCurrency };
@@ -113,6 +129,15 @@ export async function saveTx(draft: TxDraft, rates: RateTable, defaultCurrency: 
     note: draft.note?.trim() || undefined,
     origAmount: draft.origAmount,
     origCurrency: draft.origCurrency,
+    pocket: walletOf(account, draft.pocket),
+    toPocket:
+      draft.kind === 'transfer' && draft.toPocket
+        ? walletOf(
+            draft.toAccountId === draft.accountId ? account : await db.accounts.get(draft.toAccountId ?? ''),
+            draft.toPocket,
+          )
+        : undefined,
+    feeFor: draft.feeFor ?? existing?.feeFor,
     value,
     valueCurrency,
     recurringId: draft.recurringId ?? existing?.recurringId,
@@ -128,8 +153,47 @@ export async function saveTx(draft: TxDraft, rates: RateTable, defaultCurrency: 
   return tx.id;
 }
 
+/** Deletes an entry, and a move's fee with it. */
 export async function deleteTx(id: string): Promise<void> {
-  await db.txs.delete(id);
+  await db.transaction('rw', db.txs, async () => {
+    // fees are few: found by looking (no index needed)
+    await db.txs.filter((t) => t.feeFor === id).delete();
+    await db.txs.delete(id);
+  });
+}
+
+/**
+ * A move's fee, as a spending entry from the same account and wallet, linked to the move. A fee of 0 removes it.
+ * `categoryId` is the spending category for fees.
+ */
+export async function saveMoveFee(
+  move: { id: string; profileId: string; date: string; accountId: string; pocket?: string; note?: string },
+  fee: number,
+  categoryId: string | undefined,
+  rates: RateTable,
+  defaultCurrency: string,
+): Promise<void> {
+  const existing = await db.txs.filter((t) => t.feeFor === move.id).first();
+  if (!(fee > 0)) {
+    if (existing) await db.txs.delete(existing.id);
+    return;
+  }
+  await saveTx(
+    {
+      id: existing?.id,
+      profileId: move.profileId,
+      date: move.date,
+      kind: 'expense',
+      accountId: move.accountId,
+      pocket: move.pocket,
+      amount: fee,
+      categoryId,
+      note: move.note ? `Fee: ${move.note}` : 'Fee',
+      feeFor: move.id,
+    },
+    rates,
+    defaultCurrency,
+  );
 }
 
 /**
@@ -145,26 +209,33 @@ export async function setAccountBalance(opts: {
   note?: string;
   rates: RateTable;
   defaultCurrency: string;
+  /** one of the account's other wallets (none = the main one) */
+  pocket?: string;
 }): Promise<void> {
   const { account } = opts;
+  const pocket = walletOf(account, opts.pocket);
   const txs = await db.txs.where('accountId').equals(account.id).toArray();
   const incoming = await db.txs.where('toAccountId').equals(account.id).toArray();
   const all = [...txs, ...incoming.filter((t) => t.accountId !== account.id)];
   // entries dated after the chosen day haven't happened yet, so they don't count
-  const current = balanceOf(account, all, opts.date);
+  const current = pocket
+    ? (walletsByAccount([account], all, opts.date).get(account.id)?.get(pocket) ?? 0)
+    : balanceOf(account, all, opts.date);
   const delta = opts.newBalance - current;
   if (Math.abs(delta) < 1e-12) return;
-  if (opts.mode === 'opening') {
+  // other wallets have no starting balance of their own: their changes are always entries
+  if (opts.mode === 'opening' && !pocket) {
     await db.accounts.update(account.id, { openingBalance: account.openingBalance + delta });
     return;
   }
-  if (opts.mode === 'adjust') {
+  if (opts.mode === 'adjust' || opts.mode === 'opening') {
     await saveTx(
       {
         profileId: account.profileId,
         date: opts.date,
         kind: 'adjust',
         accountId: account.id,
+        pocket,
         amount: delta,
         note: opts.note || 'Balance adjusted',
       },
@@ -179,6 +250,7 @@ export async function setAccountBalance(opts: {
       date: opts.date,
       kind: delta > 0 ? 'income' : 'expense',
       accountId: account.id,
+      pocket,
       amount: Math.abs(delta),
       categoryId: opts.categoryId,
       note: opts.note,

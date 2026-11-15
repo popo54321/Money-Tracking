@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AccountPickerButton,
   AmountField,
@@ -20,9 +20,9 @@ import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
 import { describeSchedule, instalmentAmount, instalmentEnd } from '../domain/recurring';
 import { fmtDate } from '../domain/dates';
 import { splitView } from '../domain/splits';
-import type { Freq, TxKind } from '../domain/types';
-import { db } from '../db/db';
-import { deleteTx, saveNewEntry, saveTx } from '../db/repo';
+import { accountCurrencies, WALLET_TYPES, type Account, type Freq, type TxKind } from '../domain/types';
+import { db, uid } from '../db/db';
+import { deleteTx, saveCategory, saveMoveFee, saveNewEntry, saveTx } from '../db/repo';
 import { useApp, useData, type Route } from '../state/app';
 
 type EntryRoute = Extract<Route, { name: 'entry' }>;
@@ -70,7 +70,9 @@ export function Entry({ route }: { route: EntryRoute }) {
 
   const startAmount = existing ? (existing.origAmount ?? Math.abs(existing.amount)) : route.amount;
   const calc = useCalc(startAmount ? String(roundTo(startAmount, 8)) : '');
-  const [typedCurrency, setTypedCurrency] = useState<string>(existing?.origCurrency ?? acc?.currency ?? currency);
+  const [typedCurrency, setTypedCurrency] = useState<string>(
+    existing?.origCurrency ?? existing?.pocket ?? acc?.currency ?? currency,
+  );
   const [chargedOverride, setChargedOverride] = useState<number | null>(existing?.origCurrency ? existing.amount : null);
   const [toAmountOverride, setToAmountOverride] = useState<number | null>(existing?.toAmount ?? null);
   const [categoryId, setCategoryId] = useState<string | undefined>(existing?.categoryId ?? route.categoryId);
@@ -93,19 +95,49 @@ export function Entry({ route }: { route: EntryRoute }) {
   const [months, setMonths] = useState(10);
 
   const amount = calc.value;
-  const accCur = acc?.currency ?? currency;
+  // cash and top-up cards can hold several currencies: the typed currency's wallet is used (never converted)
+  const holds = (a: Account | undefined, c: string) => !!a && accountCurrencies(a).includes(c);
+  const walletAccount = !!acc && WALLET_TYPES.has(acc.type);
+  const accCur = walletAccount && holds(acc, typedCurrency) ? typedCurrency : (acc?.currency ?? currency);
+  const pocket = acc && accCur !== acc.currency ? accCur : undefined;
+  /** cash and top-up cards that don't hold the typed currency can't be picked */
+  const lacks = (a: Account) => (WALLET_TYPES.has(a.type) && !holds(a, typedCurrency) ? `No ${typedCurrency} in it` : undefined);
   const foreign = !!acc && acc.type !== 'units' && typedCurrency !== accCur;
   const autoCharged = foreign && amount !== null ? convert(amount, typedCurrency, accCur, rates) : null;
   const charged = foreign ? (chargedOverride ?? autoCharged) : amount;
 
-  const transferCross = kind === 'transfer' && !!toAcc && !!acc && toAcc.currency !== accCur;
+  // a move into a cash or top-up card goes into one of its currencies (another account's, or this account's own)
+  const toHeld = toAcc ? accountCurrencies(toAcc) : [];
+  const [toWallet, setToWallet] = useState<string | undefined>(existing?.toPocket);
+  const toCur =
+    toAcc && toWallet && toHeld.includes(toWallet)
+      ? toWallet
+      : toAcc && toAcc.id === acc?.id
+        ? (toHeld.find((c) => c !== accCur) ?? toAcc.currency)
+        : toAcc && WALLET_TYPES.has(toAcc.type) && toHeld.includes(typedCurrency)
+          ? typedCurrency
+          : (toAcc?.currency ?? currency);
+  const toPocket = toAcc && toCur !== toAcc.currency ? toCur : undefined;
+  const sameAccount = kind === 'transfer' && !!acc && toAcc?.id === acc.id;
+  const transferCross = kind === 'transfer' && !!toAcc && !!acc && toCur !== accCur;
   const autoTo = useMemo(() => {
     if (!transferCross || charged === null || !acc || !toAcc) return null;
-    const v1 = unitValue(acc, rates, 'USD');
-    const v2 = unitValue(toAcc, rates, 'USD');
+    const v1 = pocket ? convert(1, pocket, 'USD', rates) : unitValue(acc, rates, 'USD');
+    const v2 = toPocket ? convert(1, toPocket, 'USD', rates) : unitValue(toAcc, rates, 'USD');
     if (v1 === null || v2 === null || v2 === 0) return null;
-    return roundTo((charged * v1) / v2, decimalsFor(toAcc.currency));
-  }, [transferCross, charged, acc, toAcc, rates]);
+    return roundTo((charged * v1) / v2, decimalsFor(toCur));
+  }, [transferCross, charged, acc, toAcc, rates, pocket, toPocket, toCur]);
+  // a move can carry a fee (spending from the same account and currency)
+  const existingFee = existing ? data.allTxs.find((t) => t.feeFor === existing.id) : undefined;
+  const [fee, setFee] = useState<number | null>(existingFee?.amount ?? null);
+  // the account picked (often the last one used) doesn't hold the currency typed: pick again
+  useEffect(() => {
+    if (acc && lacks(acc)) {
+      setAccountId(undefined);
+      toast(`${acc.name} has no ${typedCurrency}. Pick another account.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedCurrency, accountId]);
   const toAmount = transferCross ? (toAmountOverride ?? autoTo) : charged;
   const takeSplits = (kind === 'expense' || kind === 'transfer') && !!acc?.splits?.length;
   const splitRows = takeSplits
@@ -136,7 +168,8 @@ export function Entry({ route }: { route: EntryRoute }) {
   const pickAccount = (id: string) => {
     setAccountId(id);
     const a = data.accountById.get(id);
-    if (a && a.type !== 'units') setTypedCurrency(a.currency);
+    // a cash or top-up card holding the typed currency keeps it; other accounts switch to their own currency
+    if (a && a.type !== 'units' && !(WALLET_TYPES.has(a.type) && holds(a, typedCurrency))) setTypedCurrency(a.currency);
     setChargedOverride(null);
     setToAmountOverride(null);
   };
@@ -153,7 +186,8 @@ export function Entry({ route }: { route: EntryRoute }) {
     }
     if (kind === 'transfer') {
       if (!toAcc) return toast('Choose where the money goes 👛');
-      if (toAcc.id === acc.id) return toast('Pick two different accounts');
+      if (toAcc.id === acc.id && toCur === accCur) return toast('Pick two different accounts, or two different currencies');
+      if (fee !== null && fee < 0) return toast('A fee can’t be below 0');
       if (toAmount === null) return toast('Type how much arrives');
     } else if ((kind === 'income' || kind === 'expense') && !categoryId) {
       toast('Pick a category 🏷️');
@@ -167,7 +201,8 @@ export function Entry({ route }: { route: EntryRoute }) {
     if (instalOn && months < 2) return toast('Instalments need at least 2 months');
     const plan = instalOn ? Math.round(months) : 0;
     const draft = {
-      id: existing?.id,
+      // a new move gets its id now, so its fee can point to it
+      id: existing?.id ?? (kind === 'transfer' && !repeat ? uid() : undefined),
       profileId: profile.id,
       date,
       kind,
@@ -182,6 +217,8 @@ export function Entry({ route }: { route: EntryRoute }) {
             : charged,
       toAccountId: kind === 'transfer' ? toAcc?.id : undefined,
       toAmount: kind === 'transfer' ? (toAmount ?? charged) : undefined,
+      pocket,
+      toPocket: kind === 'transfer' ? toPocket : undefined,
       categoryId,
       note,
       origAmount: foreign ? amount : undefined,
@@ -218,6 +255,31 @@ export function Entry({ route }: { route: EntryRoute }) {
       ? (await saveTx(draft, rates, currency), 'saved')
       : await saveNewEntry(draft, repeatOpts, rates, currency, today);
     if (kind !== 'adjust') writeLast(profile.id, kind, acc.id);
+    // the move's fee: spending from the same account and currency, in a Fees category (made if missing)
+    if (kind === 'transfer' && draft.id && ((fee ?? 0) > 0 || existingFee)) {
+      let feeCat = data.categories.find((c) => c.kind === 'expense' && !c.archived && /\bfees?\b/i.test(c.name));
+      if (!feeCat && (fee ?? 0) > 0) {
+        const groups = data.categories.filter((c) => c.kind === 'expense' && !c.archived).map((c) => c.group);
+        feeCat = {
+          id: uid(),
+          profileId: profile.id,
+          kind: 'expense',
+          name: 'Fees',
+          group: groups.includes('Fixed') ? 'Fixed' : (groups[0] ?? 'Fixed'),
+          emoji: '🏦',
+          order: data.categories.length,
+          archived: false,
+        };
+        await saveCategory(feeCat);
+      }
+      await saveMoveFee(
+        { id: draft.id, profileId: profile.id, date, accountId: acc.id, pocket, note: note.trim() || undefined },
+        fee ?? 0,
+        feeCat?.id,
+        rates,
+        currency,
+      );
+    }
     if (plan) {
       toast(
         `💳 ${plan} monthly payments of ${fmtMoney(draft.amount, acc.currency)}, paid off ${fmtDate(instalmentEnd(date, plan))}`,
@@ -329,6 +391,7 @@ export function Entry({ route }: { route: EntryRoute }) {
               setFromSplits({});
               pickAccount(id);
             }}
+            off={lacks}
           />
         </Field>
         {takeSplits && splitRows && (
@@ -384,22 +447,50 @@ export function Entry({ route }: { route: EntryRoute }) {
               value={toAccountId}
               onChange={(id) => {
                 setToAccountId(id);
+                setToWallet(undefined);
                 setToAmountOverride(null);
               }}
-              exclude={accountId}
+              // an account holding several currencies can exchange between them
+              exclude={acc && accountCurrencies(acc).length > 1 ? undefined : accountId}
             />
+          </Field>
+        )}
+        {kind === 'transfer' && toAcc && toHeld.length > 1 && (
+          <Field label={sameAccount ? 'Exchange into' : 'Into which currency'}>
+            <div className="chips">
+              {toHeld
+                .filter((c) => !sameAccount || c !== accCur)
+                .map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`chip ${toCur === c ? 'on' : ''}`}
+                    onClick={() => {
+                      setToWallet(c);
+                      setToAmountOverride(null);
+                    }}
+                  >
+                    {c}
+                  </button>
+                ))}
+            </div>
           </Field>
         )}
         {transferCross && toAcc && (
           <Field
-            label={`Arrives as (${toAcc.currency})`}
+            label={`Arrives as (${toCur})`}
             hint={
-              toAcc.currency === 'BTC'
+              toCur === 'BTC'
                 ? 'Type the exact BTC you received.'
-                : 'Estimated from the latest rate. Tap to type the real amount.'
+                : 'Type the exact amount you got, so the real exchange rate is kept.'
             }
           >
-            <AmountField value={toAmount} onChange={setToAmountOverride} currency={toAcc.currency} />
+            <AmountField value={toAmount} onChange={setToAmountOverride} currency={toCur} />
+          </Field>
+        )}
+        {kind === 'transfer' && (
+          <Field label={`Fee (${accCur})`} hint="Charged on top, from the same account. Leave at 0 for none.">
+            <AmountField value={fee} onChange={setFee} currency={accCur} placeholder="0" title="Fee" />
           </Field>
         )}
 

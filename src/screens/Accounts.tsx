@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Topbar, Sparkle, SkinName } from '../components/ui';
-import { accountValue, netWorth } from '../domain/balances';
+import { accountValue, netWorth, walletsValue } from '../domain/balances';
 import { cardStatus } from '../domain/creditCard';
 import { fmtDate } from '../domain/dates';
 import { fmtMoney } from '../domain/money';
@@ -18,12 +18,15 @@ export function AccountLine({ a }: { a: Account }) {
   const [quick, setQuick] = useState(false);
   const data = useData();
   const bal = data.balances.get(a.id) ?? 0;
-  const value = accountValue(a, bal, rates, currency);
+  const wallets = data.wallets.get(a.id);
+  const mainValue = accountValue(a, bal, rates, currency);
+  const extraValue = walletsValue(wallets, rates, currency);
+  const value = mainValue === null || extraValue === null ? null : mainValue + extraValue;
   const claims = data.claims.get(a.id);
   const claimed = claims ? claims.setAside + claims.splits + claims.targets : 0;
   let sub: ReactNode = a.type === 'credit' ? 'Credit card' : a.group;
   let main = fmtMoney(bal, a.currency);
-  let second: string | null = a.currency !== currency ? fmtMoney(value, currency) : null;
+  let second: string | null = a.currency !== currency || (wallets && extraValue) ? fmtMoney(value, currency) : null;
   let mainCls = bal < 0 ? 'neg' : '';
   if (a.type === 'credit') {
     const st = cardStatus(a, data.txs, today);
@@ -52,6 +55,14 @@ export function AccountLine({ a }: { a: Account }) {
       </>
     );
   }
+  // other currencies held: "+ ¥12,300 · $85"
+  const held = [...(wallets ?? [])].filter(([, v]) => Math.abs(v) > 1e-9);
+  if (held.length)
+    sub = (
+      <>
+        {sub} · + {held.map(([c, v]) => fmtMoney(v, c, { compact: true })).join(' · ')}
+      </>
+    );
   const isCard = a.type === 'credit';
   const nSplits = a.splits?.length ?? 0;
   if (nSplits)
@@ -114,7 +125,7 @@ export function Accounts() {
   const [showArchived, setShowArchived] = useState(false);
   const [arrange, setArrange] = useState(false);
   const visible = data.accounts.filter((a) => showArchived || !a.archived);
-  const nw = netWorth(data.accounts, data.balances, rates, currency);
+  const nw = netWorth(data.accounts, data.balances, rates, currency, data.wallets);
   const groups = orderGroups(accountGroupsOf(profile, visible), profile.accountGroupOrder);
   const shownGroups = groups.filter((g) => visible.some((a) => a.group === g));
   const archivedCount = data.accounts.filter((a) => a.archived).length;
@@ -179,7 +190,10 @@ export function Accounts() {
           const total = items.reduce(
             (s, a) =>
               s +
-              (a.archived || !a.includeInNetWorth ? 0 : (accountValue(a, data.balances.get(a.id) ?? 0, rates, currency) ?? 0)),
+              (a.archived || !a.includeInNetWorth
+                ? 0
+                : (accountValue(a, data.balances.get(a.id) ?? 0, rates, currency) ?? 0) +
+                  (walletsValue(data.wallets.get(a.id), rates, currency) ?? 0)),
             0,
           );
           return (

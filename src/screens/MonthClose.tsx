@@ -242,10 +242,10 @@ export function MonthClose() {
                   <div className="cat-group-name">{g.group}</div>
                   {g.rows.map((r) => (
                     <CopyRow
-                      key={r.account.id}
+                      key={`${r.account.id}:${r.wallet ?? ''}`}
                       label={
-                        r.account.currency !== currency && r.balance !== null
-                          ? `${r.account.name} (${fmtMoney(r.balance, r.account.currency)})`
+                        (r.wallet ?? r.account.currency) !== currency && r.balance !== null
+                          ? `${r.account.name} (${fmtMoney(r.balance, r.wallet ?? r.account.currency)})`
                           : r.account.name
                       }
                       value={r.value}

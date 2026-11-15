@@ -7,7 +7,7 @@ import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
 import { orderGroups } from '../domain/groups';
 import { buzz } from '../services/haptics';
 import { noteSuggestions } from '../domain/notes';
-import { accountGroupsOf, type Account, type Category, type CategoryKind } from '../domain/types';
+import { accountCurrencies, accountGroupsOf, type Account, type Category, type CategoryKind } from '../domain/types';
 import { useApp } from '../state/app';
 import { accountColour, accountEmoji, categoryEmoji, nameColour } from '../ui/emoji';
 import { Mascot } from '../ui/Mascot';
@@ -492,22 +492,34 @@ export function CurrencySheet({
   );
 }
 
-export function AccountRowView({ a, right, onClick }: { a: Account; right?: ReactNode; onClick?: () => void }) {
+export function AccountRowView({
+  a,
+  right,
+  onClick,
+  off,
+}: {
+  a: Account;
+  right?: ReactNode;
+  onClick?: () => void;
+  /** greyed out and not tappable, with the reason shown */
+  off?: string;
+}) {
   const { go } = useApp();
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag
       className="row"
-      onClick={onClick}
+      onClick={off ? undefined : onClick}
+      disabled={Tag === 'button' && !!off ? true : undefined}
+      aria-disabled={off ? true : undefined}
+      style={off ? { opacity: 0.4 } : undefined}
       type={onClick ? 'button' : undefined}
       {...holdProps(() => go({ name: 'accountEdit', id: a.id }))}
     >
       <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
       <div className="main">
         <div className="title">{a.name}</div>
-        <div className="sub">
-          {a.group} · {a.currency}
-        </div>
+        <div className="sub">{off ?? `${a.group} · ${accountCurrencies(a).join(', ')}`}</div>
       </div>
       {right && <div className="end">{right}</div>}
     </Tag>
@@ -522,6 +534,7 @@ export function AccountSheet({
   onPick,
   title = 'Choose account',
   exclude,
+  off,
 }: {
   open: boolean;
   onClose: () => void;
@@ -530,6 +543,8 @@ export function AccountSheet({
   onPick: (id: string) => void;
   title?: string;
   exclude?: string;
+  /** an account that can't be picked now, and why (shown greyed out) */
+  off?: (a: Account) => string | undefined;
 }) {
   const { data, profile } = useApp();
   const list = accounts.filter((a) => !a.archived && a.id !== exclude);
@@ -547,6 +562,7 @@ export function AccountSheet({
                 <AccountRowView
                   key={a.id}
                   a={a}
+                  off={off?.(a)}
                   onClick={() => {
                     onPick(a.id);
                     onClose();
@@ -574,6 +590,7 @@ export function AccountPickerButton({
   placeholder = 'Choose account',
   title,
   exclude,
+  off,
 }: {
   accounts: Account[];
   value?: string;
@@ -581,6 +598,7 @@ export function AccountPickerButton({
   placeholder?: string;
   title?: string;
   exclude?: string;
+  off?: (a: Account) => string | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const a = accounts.find((x) => x.id === value);
@@ -607,6 +625,7 @@ export function AccountPickerButton({
         onPick={onChange}
         title={title}
         exclude={exclude}
+        off={off}
       />
     </>
   );

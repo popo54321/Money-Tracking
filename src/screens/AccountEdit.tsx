@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { AccountPickerButton, AmountField, CurrencySheet, Field, NumberInput, Sheet, ToggleRow, Topbar } from '../components/ui';
-import { isLiquid } from '../domain/balances';
-import { accountGroupsOf, ACCOUNT_TYPES, type Account, type AccountType } from '../domain/types';
+import { isLiquid, walletsByAccount } from '../domain/balances';
+import { accountGroupsOf, ACCOUNT_TYPES, WALLET_TYPES, type Account, type AccountType } from '../domain/types';
+import { fmtMoney } from '../domain/money';
 import { db, uid } from '../db/db';
-import { accountTxCount, deleteAccountCascade, renameAccountGroup, saveAccount, saveAccountGroups } from '../db/repo';
+import {
+  accountTxCount,
+  deleteAccountCascade,
+  renameAccountGroup,
+  saveAccount,
+  saveAccountGroups,
+  setAccountBalance,
+} from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { accountEmoji } from '../ui/emoji';
 
 export function AccountEdit({ id }: { id?: string }) {
-  const { profile, back, replace, toast, confirm, today, tab, removeWithUndo } = useApp();
+  const { profile, back, replace, toast, confirm, today, tab, removeWithUndo, rates, currency } = useApp();
   const data = useData();
   const existing = id ? data.accountById.get(id) : undefined;
   const [a, setA] = useState<Account>(
@@ -28,6 +36,32 @@ export function AccountEdit({ id }: { id?: string }) {
       },
   );
   const [curOpen, setCurOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const canWallets = WALLET_TYPES.has(a.type);
+  const heldIn = (c: string) => data.wallets.get(a.id)?.get(c) ?? 0;
+  /** Remove a currency: straight away when empty; with money in it, ask twice (buttons swap sides). */
+  const removeWallet = async (c: string) => {
+    const bal = heldIn(c);
+    if (Math.abs(bal) > 1e-9) {
+      const first = await confirm({
+        title: `Remove ${c}?`,
+        message: `${fmtMoney(bal, c)} is still in it. Removing it records that money as gone from ${a.name || 'this account'}.`,
+        ok: 'Remove',
+        danger: true,
+      });
+      if (!first) return;
+      const sure = await confirm({
+        title: 'Are you really sure?',
+        message: `${fmtMoney(bal, c)} will no longer count anywhere.`,
+        ok: `Yes, remove ${c}`,
+        cancel: 'Keep it',
+        danger: true,
+        swap: true,
+      });
+      if (!sure) return;
+    }
+    set({ wallets: (a.wallets ?? []).filter((x) => x !== c) });
+  };
   const set = (patch: Partial<Account>) => setA((x) => ({ ...x, ...patch }));
   const isCard = a.type === 'credit';
   const hasEntries = !!existing && data.allTxs.some((t) => t.accountId === a.id || t.toAccountId === a.id);
@@ -58,7 +92,33 @@ export function AccountEdit({ id }: { id?: string }) {
     }
     // keep any order change made with the ▲▼ buttons while this form was open
     const stored = existing ? await db.accounts.get(a.id) : undefined;
-    await saveAccount({ ...a, name: a.name.trim(), order: stored?.order ?? a.order });
+    // a removed currency that still held money: record it going to 0, so the history explains it
+    if (stored) {
+      const txs = [
+        ...(await db.txs.where('accountId').equals(a.id).toArray()),
+        ...(await db.txs.where('toAccountId').equals(a.id).toArray()),
+      ];
+      const held = walletsByAccount([stored], txs).get(a.id);
+      const kept = WALLET_TYPES.has(a.type) ? (a.wallets ?? []) : [];
+      for (const [c, bal] of held ?? [])
+        if (!kept.includes(c) && Math.abs(bal) > 1e-9)
+          await setAccountBalance({
+            account: stored,
+            pocket: c,
+            newBalance: 0,
+            mode: 'adjust',
+            date: today,
+            note: `${c} removed`,
+            rates,
+            defaultCurrency: currency,
+          });
+    }
+    await saveAccount({
+      ...a,
+      name: a.name.trim(),
+      order: stored?.order ?? a.order,
+      wallets: WALLET_TYPES.has(a.type) && a.wallets?.length ? a.wallets.filter((c) => c !== a.currency) : undefined,
+    });
     toast(existing ? '✨ Saved' : '🎉 Account added');
     if (existing) back();
     else replace({ name: 'account', id: a.id });
@@ -133,6 +193,25 @@ export function AccountEdit({ id }: { id?: string }) {
             <span>🪙</span>
             <span className="grow">Amounts are in BTC. The value uses the live BTC price.</span>
           </div>
+        )}
+
+        {canWallets && (
+          <Field
+            label="Other currencies held"
+            hint="For travel money: each currency keeps its own balance. Bills, splits and targets stay in the main one."
+          >
+            <div className="chips">
+              {(a.wallets ?? []).map((c) => (
+                <button key={c} type="button" className="chip on" onClick={() => removeWallet(c)} aria-label={`Remove ${c}`}>
+                  {c}
+                  {existing && Math.abs(heldIn(c)) > 1e-9 ? ` · ${fmtMoney(heldIn(c), c, { compact: true })}` : ''} ✕
+                </button>
+              ))}
+              <button type="button" className="chip" onClick={() => setWalletOpen(true)}>
+                ＋ Add currency
+              </button>
+            </div>
+          </Field>
         )}
 
         {a.type === 'units' && (
@@ -278,6 +357,15 @@ export function AccountEdit({ id }: { id?: string }) {
         onClose={() => setCurOpen(false)}
         value={a.type === 'units' ? a.unitPriceCurrency : a.currency}
         onPick={(c) => (a.type === 'units' ? set({ unitPriceCurrency: c }) : set({ currency: c }))}
+      />
+      <CurrencySheet
+        open={walletOpen}
+        onClose={() => setWalletOpen(false)}
+        value={undefined}
+        onPick={(c) => {
+          if (c === a.currency || (a.wallets ?? []).includes(c)) return toast(`${c} is already held`);
+          set({ wallets: [...(a.wallets ?? []), c] });
+        }}
       />
     </>
   );
