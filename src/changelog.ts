@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.22.2',
+    date: '2026-11-15',
+    title: 'Settle bills and trips',
+    notes: [
+      'Bill split and Travel split can be marked as settled (on the bill or trip, or press and hold it in the list). Settled ones are hidden until Show settled, like Who owes me.',
+    ],
+  },
+  {
     version: '1.22.1',
     date: '2026-11-15',
     title: 'Plainer debt summaries',

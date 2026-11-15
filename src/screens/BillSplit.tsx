@@ -28,7 +28,11 @@ import { useApp, useData } from '../state/app';
 export function BillList() {
   const { go, profile, today, settings, confirm, removeWithUndo } = useApp();
   const [quick, setQuick] = useState<BillSplit | null>(null);
-  const bills = useLiveQuery(() => db.bills.orderBy('updatedAt').reverse().toArray(), []);
+  const [showSettled, setShowSettled] = useState(false);
+  const allBills = useLiveQuery(() => db.bills.orderBy('updatedAt').reverse().toArray(), []);
+  // settled bills are hidden until Show settled, like Who owes me
+  const bills = allBills?.filter((b) => showSettled || !b.settled);
+  const settledCount = allBills?.filter((b) => b.settled).length ?? 0;
   const create = async () => {
     const me: BillPerson = { id: uid(), name: profile.name };
     const b: BillSplit = {
@@ -57,7 +61,7 @@ export function BillList() {
         <button className="btn primary block mb" onClick={create}>
           ＋ New bill
         </button>
-        {bills && bills.length === 0 && (
+        {allBills && allBills.length === 0 && (
           <div className="card center small muted">
             <div style={{ fontSize: 40 }}>🍜</div>
             Add who ate, what they ordered and shared dishes or drinks. Service charge and VAT are shared fairly.
@@ -73,10 +77,13 @@ export function BillList() {
                   className="row"
                   onClick={() => go({ name: 'bill', id: b.id })}
                   {...holdProps(() => setQuick(b))}
+                  style={{ opacity: b.settled ? 0.55 : 1 }}
                 >
                   <div className="bubble peach">🍽️</div>
                   <div className="main">
-                    <div className="title">{b.title}</div>
+                    <div className="title">
+                      {b.title} {b.settled ? '✅' : ''}
+                    </div>
                     <div className="sub">
                       {fmtDate(b.date)} · {b.people.length} people
                     </div>
@@ -89,6 +96,11 @@ export function BillList() {
             })}
           </div>
         )}
+        {settledCount > 0 && (
+          <button className="btn ghost block mt" onClick={() => setShowSettled(!showSettled)}>
+            {showSettled ? 'Hide settled' : `Show settled (${settledCount})`}
+          </button>
+        )}
       </div>
       {quick && (
         <QuickActions
@@ -97,11 +109,17 @@ export function BillList() {
           actions={[
             { label: '✏️ Open', tone: 'plain', run: () => go({ name: 'bill', id: quick.id }) },
             {
+              label: quick.settled ? '↩️ Reopen' : '✅ Mark as settled',
+              tone: 'sky',
+              run: () => saveBill({ ...quick, settled: !quick.settled }),
+            },
+            {
               label: '📄 Duplicate for today',
               tone: 'mint',
               run: async () => {
                 const copy: BillSplit = {
                   ...quick,
+                  settled: undefined,
                   id: uid(),
                   title: `${quick.title} (copy)`,
                   date: today,
@@ -906,6 +924,9 @@ export function BillEdit({ id }: { id: string }) {
             💸 Log my spending
           </button>
         </div>
+        <button className={`btn block mt ${b.settled ? '' : 'mint'}`} onClick={() => update({ settled: !b.settled })}>
+          {b.settled ? '↩️ Reopen' : '✅ Mark as settled'}
+        </button>
       </div>
 
       <Sheet open={!!personEdit} onClose={() => setPersonEdit(null)} title="Person">

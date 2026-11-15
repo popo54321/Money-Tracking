@@ -270,6 +270,8 @@ export interface BillSplit {
   payments?: BillPayment[];
   /** made from a trip's bill (that bill is settled here, not in the trip) */
   fromTrip?: { tripId: string; tripName: string; entryId: string };
+  /** everyone has paid: hidden from the list until Show settled */
+  settled?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -304,6 +306,8 @@ export interface Trip {
   payBackCurrency: string;
   members: TripMember[];
   entries: TripEntry[];
+  /** everyone has paid: hidden from the list until Show settled */
+  settled?: boolean;
   createdAt: number;
   updatedAt: number;
 }
