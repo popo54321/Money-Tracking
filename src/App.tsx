@@ -6,6 +6,11 @@ import { autoBackupIfDue } from './services/backup';
 import { appInBackground, checkNativeUpdate, confirmRunningFiles } from './services/autoUpdate';
 import { isNative } from './services/platform';
 import { onUpdateProgress, takeUpdatedNote, type UpdateProgress } from './services/updateProgress';
+import { APP_VERSION } from './services/platform';
+import { compareVersions } from './services/version';
+import { CHANGELOG, changesBetween, type ChangeEntry } from './changelog';
+import { Sheet } from './components/ui';
+import { ChangeNotes } from './screens/UpdateHistory';
 import { Home } from './screens/Home';
 import { Accounts } from './screens/Accounts';
 import { AccountDetail } from './screens/AccountDetail';
@@ -42,6 +47,7 @@ const Goals = named(() => import('./screens/Goals'), 'Goals');
 const Wealth = named(() => import('./screens/Wealth'), 'Wealth');
 const Convert = named(() => import('./screens/Convert'), 'Convert');
 const Settings = named(() => import('./screens/Settings'), 'Settings');
+const UpdateHistory = named(() => import('./screens/UpdateHistory'), 'UpdateHistory');
 const Categories = named(() => import('./screens/Categories'), 'Categories');
 const Setup = named(() => import('./screens/Setup'), 'Setup');
 
@@ -101,6 +107,8 @@ function Screen() {
       return <Wealth />;
     case 'settings':
       return <Settings />;
+    case 'changelog':
+      return <UpdateHistory />;
     case 'categories':
       return <Categories />;
     case 'setup':
@@ -165,14 +173,63 @@ function UpdateStatus() {
   );
 }
 
+const LAST_SEEN = 'mt.lastSeenVersion';
+
+/** After an update: what is new in the version(s) since the one last opened. A fresh install shows nothing. */
+function WhatsNew() {
+  const { go } = useApp();
+  const [entries, setEntries] = useState<ChangeEntry[]>([]);
+  useEffect(() => {
+    const updated = takeUpdatedNote();
+    let last: string | null = null;
+    try {
+      last = localStorage.getItem(LAST_SEEN);
+      localStorage.setItem(LAST_SEEN, APP_VERSION);
+    } catch {
+      // without storage there is no way to know what is new
+    }
+    if (last && compareVersions(APP_VERSION, last) > 0) setEntries(changesBetween(last, APP_VERSION, compareVersions));
+    // the first update after this feature arrived: just this version's notes
+    else if (!last && updated) setEntries(CHANGELOG.filter((e) => e.version === APP_VERSION));
+  }, []);
+  if (!entries.length) return null;
+  const close = () => setEntries([]);
+  return (
+    <Sheet open onClose={close} title={`✨ What’s new in ${APP_VERSION}`}>
+      <div className="small muted mb">Updated to version {APP_VERSION}. Your data stays as it was.</div>
+      {entries.map((e) => (
+        <div key={e.version} className="mb">
+          {entries.length > 1 && (
+            <div className="bold small">
+              {e.version} · {e.title}
+            </div>
+          )}
+          {entries.length === 1 && <div className="bold">{e.title}</div>}
+          <ChangeNotes notes={e.notes} />
+        </div>
+      ))}
+      <div className="btn-row">
+        <button
+          className="btn ghost"
+          onClick={() => {
+            close();
+            go({ name: 'changelog' });
+          }}
+        >
+          All updates
+        </button>
+        <button className="btn primary" onClick={close}>
+          Got it
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 /** Things to do when the app opens or comes back to the front. */
 function Housekeeping() {
   const { rates, currency, today, toast, settings } = useApp();
-  // just restarted on a new version: say so, so the restart doesn't look like something went wrong
-  useEffect(() => {
-    const v = takeUpdatedNote();
-    if (v) toast(v === 'new' ? '✨ Updated to the newest version' : `✨ Updated to version ${v}`);
-  }, [toast]);
+
   const repo = settings.githubRepo;
   const ratesRef = useRef(rates);
   ratesRef.current = rates;
@@ -244,6 +301,7 @@ export default function App() {
       <TabBar />
       <Tour />
       <UpdateStatus />
+      <WhatsNew />
     </AppProvider>
   );
 }

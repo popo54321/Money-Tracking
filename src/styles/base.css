@@ -1984,3 +1984,14 @@ button.row.is-pressed {
     animation-duration: 2.4s;
   }
 }
+
+/* what changed in a version: a plain list */
+.change-notes {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.change-notes li + li {
+  margin-top: 4px;
+}

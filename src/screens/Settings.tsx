@@ -77,7 +77,7 @@ function ProfileEditor({ p, canDelete }: { p: Profile; canDelete: boolean }) {
 }
 
 function UpdateCard() {
-  const { settings, toast } = useApp();
+  const { settings, toast, go } = useApp();
   const [rel, setRel] = useState<ReleaseInfo | null>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
@@ -129,6 +129,9 @@ function UpdateCard() {
       </div>
       <button className="btn sky block" onClick={check} disabled={busy}>
         {busy ? '…' : '🔍 Check for a new version'}
+      </button>
+      <button className="btn block mt" onClick={() => go({ name: 'changelog' })}>
+        📜 Update history
       </button>
       {status && <div className="small mt">{status}</div>}
       {rel && native && isNewer(rel) && (
