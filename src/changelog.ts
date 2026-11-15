@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.22.1',
+    date: '2026-11-15',
+    title: 'Plainer debt summaries',
+    notes: [
+      'Debt summaries show each item as its day, what it was for and the amount; paybacks show as “Paid back” with a minus.',
+    ],
+  },
+  {
     version: '1.22.0',
     date: '2026-11-15',
     title: 'Paybacks as income, and debt summaries',

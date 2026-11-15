@@ -914,7 +914,7 @@ describe('who owes me summaries', () => {
       ],
     });
     expect(debtSummary(d, '2026-11-15', fmt, day)).toBe(
-      'June owes me THB 300.00\n• 2026-11-03 · Lunch: lent THB 500.00\n• 2026-11-10: paid back THB 200.00\nStill owed: THB 300.00 (as of 2026-11-15)',
+      'June owes me THB 300.00\n• 2026-11-03 · Lunch: THB 500.00\n• 2026-11-10 · Paid back: −THB 200.00\nStill owed: THB 300.00 (as of 2026-11-15)',
     );
   });
   it('everyone: people who owe me, then people I owe; settled ones left out', () => {

@@ -135,9 +135,11 @@ export function debtSummary(d: Debt, today: ISODate, fmt: Fmt, fmtDay: (d: ISODa
   const who = d.person.trim() || 'Someone';
   const lines = [theyOwe ? `${who} owes me ${fmt(s.owed, d.currency)}` : `I owe ${who} ${fmt(s.owed, d.currency)}`];
   const events = [...d.events].filter((e) => e.amount > 0).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // each item is just its day, what it was for and the amount; paybacks say so, with a minus
   for (const e of events) {
-    const what = e.type === 'lend' ? (theyOwe ? 'lent' : 'borrowed') : 'paid back';
-    lines.push(`• ${fmtDay(e.date)}${e.note ? ` · ${e.note}` : ''}: ${what} ${fmt(e.amount, d.currency)}`);
+    const label = e.type === 'repay' ? `Paid back${e.note ? ` (${e.note})` : ''}` : e.note;
+    const amount = e.type === 'repay' ? `−${fmt(e.amount, d.currency)}` : fmt(e.amount, d.currency);
+    lines.push(`• ${fmtDay(e.date)}${label ? ` · ${label}` : ''}: ${amount}`);
   }
   if (s.totalInterest > 0.005) lines.push(`Interest so far: ${fmt(s.totalInterest, d.currency)}`);
   lines.push(`Still owed: ${fmt(s.owed, d.currency)} (as of ${fmtDay(today)})`);
