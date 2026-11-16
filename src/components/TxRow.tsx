@@ -11,11 +11,18 @@ import { fmtMoney } from '../domain/money';
 import type { Tx } from '../domain/types';
 import { useApp, useData } from '../state/app';
 import { categoryEmoji, groupColour } from '../ui/emoji';
+import { moneyBackOn } from '../domain/balances';
+import { MoneyBackSheet } from './MoneyBack';
 
 export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountId?: string; ghost?: boolean }) {
   const { go, confirm, removeWithUndo, today } = useApp();
   const [menu, setMenu] = useState(false);
-  const { accountById, categoryById } = useData();
+  const [backOpen, setBackOpen] = useState(false);
+  const { accountById, categoryById, moneyBack, allTxs } = useData();
+  const isBack = tx.kind === 'expense' && tx.amount < 0;
+  const backs = tx.kind === 'expense' && !isBack ? (moneyBack.get(tx.id) ?? []) : [];
+  const backTotal = backs.length ? moneyBackOn(tx, backs, (id) => accountById.get(id)?.currency) : 0;
+  const canGetBack = tx.kind === 'expense' && !isBack && !tx.feeFor && !ghost;
   const acc = accountById.get(tx.accountId);
   const to = tx.toAccountId ? accountById.get(tx.toAccountId) : undefined;
   const cat = tx.categoryId ? categoryById.get(tx.categoryId) : undefined;
@@ -33,6 +40,12 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
     title = cat?.name ?? (tx.kind === 'income' ? 'Income' : 'Spending');
     amount = tx.kind === 'income' ? tx.amount : -tx.amount;
     cls = tx.kind === 'income' ? 'pos' : 'neg';
+    if (isBack) {
+      // money back: adds to the account, takes off the category's spending
+      title = `Money back · ${cat?.name ?? 'Spending'}`;
+      colour = 'mint';
+      cls = 'pos';
+    }
   } else if (tx.kind === 'transfer') {
     emoji = '🔄';
     colour = 'lav';
@@ -58,6 +71,7 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
     ghost ? `Scheduled · ${fmtDate(tx.date, false)} (${relativeDays(today, tx.date)})` : '',
     tx.kind === 'transfer' ? '' : acc?.name,
     tx.note,
+    backTotal > 0.005 ? `💸 ${fmtMoney(backTotal, cur)} back · yours ${fmtMoney(tx.amount - backTotal, cur)}` : '',
     tx.recurringId ? '🔁' : '',
   ]
     .filter(Boolean)
@@ -93,7 +107,7 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
         <div className="end">
           <div className={`amt ${cls}`}>{fmtMoney(amount, cur, { sign: tx.kind !== 'transfer' || !!contextAccountId })}</div>
           {tx.origCurrency && tx.origAmount !== undefined ? (
-            <div className="amt2">{fmtMoney(tx.origAmount, tx.origCurrency)}</div>
+            <div className="amt2">{fmtMoney(Math.abs(tx.origAmount), tx.origCurrency)}</div>
           ) : (
             // an exchange: what arrived, in the other currency
             tx.kind === 'transfer' &&
@@ -108,39 +122,79 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
           title={`${title} · ${fmtMoney(amount, cur)}`}
           onClose={() => setMenu(false)}
           actions={
-            tx.feeFor
+            isBack
               ? [
-                  {
-                    label: '🔄 Open the move (its fee is changed there)',
-                    tone: 'plain',
-                    run: () => go({ name: 'entry', id: tx.feeFor! }),
-                  },
-                ]
-              : [
                   { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
-                  { label: '📄 Duplicate (log it again today)', tone: 'mint', run: duplicate },
+                  ...(tx.refundOf && allTxs.some((t) => t.id === tx.refundOf)
+                    ? [
+                        {
+                          label: '🧾 Open the spending',
+                          tone: 'plain' as const,
+                          run: () => go({ name: 'entry', id: tx.refundOf! }),
+                        },
+                      ]
+                    : []),
                   {
                     label: '🗑️ Delete',
                     tone: 'danger',
                     run: async () => {
-                      if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
-                      await removeWithUndo(async () => {
-                        await deleteTx(tx.id);
-                        if (tx.recurringId) {
-                          // keep the repeating entry from recording this date again
-                          const r = await db.recurring.get(tx.recurringId);
-                          if (r && (!r.lastPosted || r.lastPosted < tx.date))
-                            await db.recurring.update(r.id, { lastPosted: tx.date });
-                        }
-                      });
+                      if (!(await confirm({ title: 'Delete this money back?', ok: 'Delete', danger: true }))) return;
+                      await removeWithUndo(() => deleteTx(tx.id));
                     },
                   },
                 ]
+              : tx.feeFor
+                ? [
+                    {
+                      label: '🔄 Open the move (its fee is changed there)',
+                      tone: 'plain',
+                      run: () => go({ name: 'entry', id: tx.feeFor! }),
+                    },
+                  ]
+                : [
+                    ...(canGetBack ? [{ label: '💸 Got money back', tone: 'mint' as const, run: () => setBackOpen(true) }] : []),
+                    { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
+                    { label: '📄 Duplicate (log it again today)', tone: 'plain', run: duplicate },
+                    {
+                      label: '🗑️ Delete',
+                      tone: 'danger',
+                      run: async () => {
+                        if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
+                        const alsoBacks = backs.length > 0 && (await askDeleteBacks(confirm, backTotal, cur));
+                        await removeWithUndo(async () => {
+                          await deleteTx(tx.id);
+                          if (alsoBacks) for (const b of backs) await deleteTx(b.id);
+                          if (tx.recurringId) {
+                            // keep the repeating entry from recording this date again
+                            const r = await db.recurring.get(tx.recurringId);
+                            if (r && (!r.lastPosted || r.lastPosted < tx.date))
+                              await db.recurring.update(r.id, { lastPosted: tx.date });
+                          }
+                        });
+                      },
+                    },
+                  ]
           }
         />
       )}
+      {backOpen && <MoneyBackSheet spending={tx} open={backOpen} onClose={() => setBackOpen(false)} />}
     </>
   );
+}
+
+/** A spending with money back is being deleted: delete its money back too? (No keeps them as they are.) */
+export async function askDeleteBacks(
+  confirm: (o: { title: string; message?: string; ok?: string; cancel?: string; danger?: boolean }) => Promise<boolean>,
+  total: number,
+  currency: string,
+): Promise<boolean> {
+  return confirm({
+    title: 'Delete its money back too?',
+    message: `${fmtMoney(total, currency)} came back for this spending. Delete that as well, or keep it (the money did arrive)?`,
+    ok: 'Delete it too',
+    cancel: 'Keep it',
+    danger: true,
+  });
 }
 
 function dayLabel(d: string): string {

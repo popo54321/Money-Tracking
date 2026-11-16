@@ -26,15 +26,23 @@ export interface LimitLine {
   /** set when the limit is on one category */
   category?: Category;
   group?: string;
+  /** the limit you set */
   limit: number;
+  /** this period's limit: the one you set, raised when more money came back than was spent */
+  limitNow: number;
+  /** how much the limit is raised this period (money back beyond what was spent), else 0 */
+  raised: number;
+  /** money back this period, already taken off `spent` */
+  back: number;
   period: LimitPeriod;
   /** the dates the limit covers now */
   from: ISODate;
   to: ISODate;
+  /** spent after money back (never below 0: the rest raises the limit) */
   spent: number;
   /** still to come in the period: repeating payments not yet recorded and entries dated later this month */
   planned: number;
-  /** limit − spent − planned */
+  /** limitNow − spent − planned */
   left: number;
   /** (spent + planned) ÷ limit */
   used: number;
@@ -150,20 +158,42 @@ export function limitLines(
   const from = periodRange(period, today).from;
   const spentByCat = new Map<string, number>();
   const spentByGroup = new Map<string, number>();
+  const backByCat = new Map<string, number>();
+  const backByGroup = new Map<string, number>();
   for (const g of summary.expense.groups) {
     spentByGroup.set(g.group, g.total);
-    for (const c of g.cats) if (c.category) spentByCat.set(c.category.id, c.total);
+    backByGroup.set(g.group, g.back);
+    for (const c of g.cats)
+      if (c.category) {
+        spentByCat.set(c.category.id, c.total);
+        backByCat.set(c.category.id, c.back);
+      }
   }
   const plannedByGroup = new Map<string, number>();
   for (const c of categories)
     if (planned.has(c.id)) plannedByGroup.set(c.group, (plannedByGroup.get(c.group) ?? 0) + (planned.get(c.id) ?? 0));
-  const line = (key: string, name: string, limit: number, spent: number, plan: number, extra: Partial<LimitLine>): LimitLine => {
-    const left = limit - spent - plan;
-    const used = limit > 0 ? (spent + plan) / limit : 0;
+  const line = (
+    key: string,
+    name: string,
+    limit: number,
+    net: number,
+    back: number,
+    plan: number,
+    extra: Partial<LimitLine>,
+  ): LimitLine => {
+    // money back beyond what was spent raises this period's limit (the next period starts from the limit you set)
+    const raised = Math.max(0, -net);
+    const spent = Math.max(0, net);
+    const limitNow = limit + raised;
+    const left = limitNow - spent - plan;
+    const used = limitNow > 0 ? (spent + plan) / limitNow : 0;
     return {
       key: `${period}:${key}`,
       name,
       limit,
+      limitNow,
+      raised,
+      back,
       period,
       from,
       to: periodEnd,
@@ -182,11 +212,21 @@ export function limitLines(
   const out: LimitLine[] = [];
   for (const [group, limit] of Object.entries(groupLimits ?? {}))
     if (limit > 0 && (groupPeriods[group] ?? 'month') === period)
-      out.push(line(`g:${group}`, group, limit, spentByGroup.get(group) ?? 0, plannedByGroup.get(group) ?? 0, { group }));
+      out.push(
+        line(
+          `g:${group}`,
+          group,
+          limit,
+          spentByGroup.get(group) ?? 0,
+          backByGroup.get(group) ?? 0,
+          plannedByGroup.get(group) ?? 0,
+          { group },
+        ),
+      );
   for (const c of categories)
     if (c.kind === 'expense' && !c.archived && c.limit && c.limit > 0 && (c.limitPeriod ?? 'month') === period)
       out.push(
-        line(`c:${c.id}`, c.name, c.limit, spentByCat.get(c.id) ?? 0, planned.get(c.id) ?? 0, {
+        line(`c:${c.id}`, c.name, c.limit, spentByCat.get(c.id) ?? 0, backByCat.get(c.id) ?? 0, planned.get(c.id) ?? 0, {
           category: c,
           group: c.group,
         }),

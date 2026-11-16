@@ -121,7 +121,7 @@ export interface Tx {
   kind: TxKind;
   accountId: string;
   /**
-   * In the account's currency. Income/expense/transfer: positive (negative expense = refund).
+   * In the account's currency. Income/expense/transfer: positive (negative expense = money back).
    * Adjust: signed change to the balance.
    */
   amount: number;
@@ -134,6 +134,11 @@ export interface Tx {
   toPocket?: string;
   /** a fee charged on a move: the spending entry is linked to the move it belongs to */
   feeFor?: string;
+  /**
+   * Money back: spending with a negative amount (it adds to the account and takes off the category's spending in
+   * the month it arrives). The spending it came back for, when known.
+   */
+  refundOf?: string;
   categoryId?: string;
   note?: string;
   /** what was typed, when it was in another currency */
@@ -272,6 +277,8 @@ export interface BillSplit {
   fromTrip?: { tripId: string; tripName: string; entryId: string };
   /** everyone has paid: hidden from the list until Show settled */
   settled?: boolean;
+  /** what I paid was logged as my spending (the whole bill, or what I paid): friends' paybacks are money back on it */
+  logged?: { txId: string; categoryId: string };
   createdAt: number;
   updatedAt: number;
 }
@@ -308,6 +315,8 @@ export interface Trip {
   entries: TripEntry[];
   /** everyone has paid: hidden from the list until Show settled */
   settled?: boolean;
+  /** what I paid was logged as my spending: friends' paybacks are money back on it */
+  logged?: { txId: string; categoryId: string };
   createdAt: number;
   updatedAt: number;
 }

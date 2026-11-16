@@ -98,6 +98,8 @@ export interface TxDraft {
   toPocket?: string;
   /** a move's fee: the move this spending belongs to */
   feeFor?: string;
+  /** money back (negative spending): the spending it came back for */
+  refundOf?: string;
 }
 
 /** A wallet that is the account's main currency is stored as no wallet. */
@@ -169,6 +171,7 @@ export async function saveTx(draft: TxDraft, rates: RateTable, defaultCurrency: 
           )
         : undefined,
     feeFor: draft.feeFor ?? existing?.feeFor,
+    refundOf: draft.kind === 'expense' && draft.amount < 0 ? (draft.refundOf ?? existing?.refundOf) : undefined,
     value,
     valueCurrency,
     recurringId: draft.recurringId ?? existing?.recurringId,
@@ -807,6 +810,9 @@ export interface OwedItem {
   note: string;
   /** the same key (e.g. bill + person) always updates the same line, so adding twice never doubles it */
   key: string;
+  /** I paid it as part of my logged spending: their payback is money back on this category (and spending) */
+  spentCategoryId?: string;
+  spentTxId?: string;
 }
 
 /**
@@ -818,7 +824,15 @@ export async function recordOwed(profileId: string, items: OwedItem[]): Promise<
   let n = 0;
   for (const it of items) {
     if (!(it.amount > 0) || !it.person.trim()) continue;
-    const event = { id: it.key, date: it.date, type: 'lend' as const, amount: it.amount, note: it.note };
+    const event = {
+      id: it.key,
+      date: it.date,
+      type: 'lend' as const,
+      amount: it.amount,
+      note: it.note,
+      spentCategoryId: it.spentCategoryId,
+      spentTxId: it.spentTxId,
+    };
     const same = (d: Debt) =>
       !d.closed &&
       d.direction === it.direction &&

@@ -11,6 +11,19 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.0',
+    date: '2026-11-16',
+    title: 'Money back',
+    notes: [
+      'Paid for friends, or got a refund? Hold a spending and pick “💸 Got money back”, or tap it and use “＋ Got money back”.',
+      'Money back isn’t income: it takes the amount off that spending’s category in the month it arrives, so your limit gets the room back.',
+      'If more comes back than you spent that month, the limit is raised for that month only. The next month starts from the limit you set.',
+      'Who owes me: a payback can be logged as money back on a category, or as income.',
+      'Bill split: “I paid it all” logs the whole bill and adds what friends owe to Who owes me. Their paybacks come off that spending.',
+      'Travel split: “Log what I paid” does the same for a trip.',
+    ],
+  },
+  {
     version: '1.22.2',
     date: '2026-11-15',
     title: 'Settle bills and trips',

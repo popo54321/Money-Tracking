@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
 import { holdProps } from '../components/hold';
 import { CurrencySheet, ProgressBar, Sheet, Topbar, Sparkle, useFold } from '../components/ui';
-import { limitLines, periodRange, plannedSpending, type LimitLine } from '../domain/limits';
+import { limitLines, periodRange, plannedSpending, PERIOD_WORD, type LimitLine } from '../domain/limits';
 import type { LimitPeriod } from '../domain/types';
 import { categoryEmoji, groupColour, groupEmoji } from '../ui/emoji';
 import { QuickActions } from '../components/QuickActions';
@@ -279,7 +279,10 @@ function LimitsCard() {
                   </span>
                 </div>
                 <div className="sub">
-                  {fmtMoney(l.spent, currency)} of {fmtMoney(l.limit, currency)} {PERIOD_LABEL[l.period](today)}
+                  {fmtMoney(l.spent, currency)} of {fmtMoney(l.limitNow, currency)} {PERIOD_LABEL[l.period](today)}
+                  {l.back > 0.005 && ` · ${fmtMoney(l.back, currency)} came back`}
+                  {l.raised > 0.005 &&
+                    ` · limit raised from ${fmtMoney(l.limit, currency)} for this ${PERIOD_WORD[l.period]} only`}
                   {l.planned > 0 && ` · ${fmtMoney(l.planned, currency)} coming up`}
                   {l.period === 'month' || l.monthsLeft === 1
                     ? l.perDay !== null &&
@@ -288,8 +291,8 @@ function LimitsCard() {
                       ` · about ${fmtMoney(l.perMonth, currency, { dp: 0 })} a month for ${l.monthsLeft} months`}
                 </div>
                 <ProgressBar
-                  value={l.limit > 0 ? l.spent / l.limit : 0}
-                  planned={l.limit > 0 ? l.planned / l.limit : 0}
+                  value={l.limitNow > 0 ? l.spent / l.limitNow : 0}
+                  planned={l.limitNow > 0 ? l.planned / l.limitNow : 0}
                   colour={l.level === 'ok' ? 'mint' : l.level}
                 />
               </div>

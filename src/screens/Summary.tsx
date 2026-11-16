@@ -93,7 +93,10 @@ export function Summary() {
         </div>
         <div className="sub">
           {c.count} {c.count === 1 ? 'entry' : 'entries'}
-          {kind === 'expense' && s.expense.total > 0 ? ` · ${Math.round((c.total / s.expense.total) * 100)}% of spending` : ''}
+          {kind === 'expense' && c.back > 0.005 ? ` · 💸 ${fmtMoney(c.back, currency)} came back` : ''}
+          {kind === 'expense' && s.expense.total > 0 && c.total > 0
+            ? ` · ${Math.round((c.total / s.expense.total) * 100)}% of spending`
+            : ''}
           {delta(c.total, prevCat.get(c.category?.id ?? (kind === 'income' ? 'in:none' : 'out:none')), kind)}
         </div>
         <ProgressBar value={c.total / max} colour={kind === 'income' ? 'mint' : ''} />

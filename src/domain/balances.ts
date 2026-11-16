@@ -204,3 +204,22 @@ export function deleteEffects(accountId: string, txs: Tx[]): { accountId: string
   for (const t of txs) if (t.feeFor && ids.has(t.feeFor) && t.accountId !== accountId) add(t.accountId, t.pocket, t.amount);
   return [...out.values()].filter((e) => Math.abs(e.change) > 1e-9);
 }
+
+/** Money back: spending with a negative amount (it adds to the account and takes off the category's spending). */
+export function isMoneyBack(tx: Tx): boolean {
+  return tx.kind === 'expense' && tx.amount < 0;
+}
+
+/**
+ * How much of a spending came back, in the spending's own currency: entries in the same currency count as they
+ * are, others by their value at the time.
+ */
+export function moneyBackOn(spending: Tx, backs: Tx[], currencyOf: (accountId: string) => string | undefined): number {
+  const cur = (t: Tx) => t.pocket ?? currencyOf(t.accountId);
+  let total = 0;
+  for (const b of backs) {
+    if (cur(b) === cur(spending)) total -= b.amount;
+    else if (b.valueCurrency === spending.valueCurrency && spending.value) total -= (b.value / spending.value) * spending.amount;
+  }
+  return total;
+}
