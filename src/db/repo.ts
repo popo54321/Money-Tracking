@@ -28,7 +28,7 @@ import {
   withBtc,
 } from '../domain/fx';
 import { decimalsFor, roundTo } from '../domain/money';
-import type { Debt } from '../domain/debts';
+import { paybackFor, type Debt } from '../domain/debts';
 import type { Goal } from '../domain/goals';
 import type { IndexableType, Table } from 'dexie';
 import { db, uid } from './db';
@@ -829,7 +829,8 @@ export async function recordOwed(profileId: string, items: OwedItem[]): Promise<
       date: it.date,
       type: 'lend' as const,
       amount: it.amount,
-      note: it.note,
+      // a friend's share of a bill or trip: "Alex payback for Xiamen trip"
+      note: it.direction === 'owedToMe' && /^(bill|trip):/.test(it.key) ? paybackFor(it.person, it.note) : it.note,
       spentCategoryId: it.spentCategoryId,
       spentTxId: it.spentTxId,
     };

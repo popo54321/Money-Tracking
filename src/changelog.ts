@@ -11,6 +11,15 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.1',
+    date: '2026-11-16',
+    title: 'Clearer payback names',
+    notes: [
+      'What a friend owes from a bill or trip split now reads “Alex payback for Lunch out” in Who owes me.',
+      'Their payback, logged in your money, uses the same name instead of just the bill or trip name.',
+    ],
+  },
+  {
     version: '1.23.0',
     date: '2026-11-16',
     title: 'Money back',

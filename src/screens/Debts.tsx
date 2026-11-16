@@ -15,7 +15,7 @@ import {
   Avatar,
   CalcSheet,
 } from '../components/ui';
-import { debtStatus, debtSummary, everyoneSummary, type Debt, type DebtEvent } from '../domain/debts';
+import { debtStatus, debtSummary, everyoneSummary, paybackNote, type Debt, type DebtEvent } from '../domain/debts';
 import { addDays, fmtDate } from '../domain/dates';
 import { convert } from '../domain/fx';
 import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
@@ -531,7 +531,7 @@ export function DebtDetail({ id }: { id: string }) {
                         origCurrency: same ? undefined : cur,
                         categoryId: catId,
                         refundOf: spentTx?.id,
-                        note: `Payback from ${d.person || 'someone'}${ev.note ? `: ${ev.note}` : ''}`,
+                        note: paybackNote(d, ev.note),
                       },
                       rates,
                       currency,

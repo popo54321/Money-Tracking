@@ -29,3 +29,27 @@ describe('money back on a spending', () => {
     expect(moneyBackOn(spending, [back1, back2], cur)).toBe(1625);
   });
 });
+
+describe('payback notes', () => {
+  it('names the friend and the bill or trip', async () => {
+    const { paybackNote } = await import('./debts');
+    const d = {
+      id: 'd',
+      profileId: 'p',
+      person: 'Alex',
+      direction: 'owedToMe' as const,
+      currency: 'THB',
+      interestType: 'none' as const,
+      ratePct: 0,
+      ratePer: 'year' as const,
+      closed: false,
+      createdAt: 0,
+      updatedAt: 0,
+      events: [{ id: 'trip:t1:alex:in', date: '2026-11-01', type: 'lend' as const, amount: 500, note: 'Xiamen trip' }],
+    };
+    expect(paybackNote(d)).toBe('Alex payback for Xiamen trip');
+    const newer = { ...d, events: [{ ...d.events[0], note: 'Alex payback for Xiamen trip' }] };
+    expect(paybackNote(newer, 'cash')).toBe('Alex payback for Xiamen trip: cash');
+    expect(paybackNote({ ...d, events: [{ ...d.events[0], id: 'x' }] })).toBe('Payback from Alex');
+  });
+});
