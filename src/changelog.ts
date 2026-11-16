@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.2',
+    date: '2026-11-16',
+    title: 'Trip bills on their own days',
+    notes: [
+      'Travel split: “Log the bills I paid” now logs each bill you paid as its own spending, on the day set on the bill.',
+      'Each entry is named after its bill, like “Hotel · Xiamen trip”. Tap one to change its category, card or amount.',
+      'Bills with no day go in on the day you log them. Bills already logged are skipped, so logging again only adds new ones.',
+    ],
+  },
+  {
     version: '1.23.1',
     date: '2026-11-16',
     title: 'Clearer payback names',
