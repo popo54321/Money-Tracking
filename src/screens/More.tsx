@@ -16,7 +16,7 @@ export function More() {
       tiles: [
         { k: 'recurring', t: 'Repeating', d: 'Salary, bills, subscriptions', c: 'lav', r: { name: 'recurring' } },
         { k: 'bills', t: 'Bill split', d: 'Eating out with friends', c: 'pink', r: { name: 'bills' } },
-        { k: 'trips', t: 'Travel split', d: 'Trips with friends & family', c: 'butter', r: { name: 'trips' } },
+        { k: 'trips', t: 'Trip split', d: 'Trips, days out & group plans', c: 'butter', r: { name: 'trips' } },
         { k: 'debts', t: 'Who owes me', d: 'Loans, repayments, interest', c: 'sky', r: { name: 'debts' } },
       ],
     },

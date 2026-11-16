@@ -167,7 +167,7 @@ export function groupColour(group: string): Pastel {
   }
 }
 
-/** Stable pastel for a name (people in bill and travel split). */
+/** Stable pastel for a name (people in bill and trip split). */
 export function nameColour(name: string): Pastel {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;

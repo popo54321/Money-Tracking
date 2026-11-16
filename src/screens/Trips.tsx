@@ -53,15 +53,16 @@ export function TripList() {
   };
   return (
     <>
-      <Topbar title="Travel split 🧳" />
+      <Topbar title="Trip split 🧳" />
       <div className="page">
         <button className="btn primary block mb" onClick={create}>
           ＋ New trip
         </button>
         {allTrips && allTrips.length === 0 && (
           <div className="card center small muted">
-            <div style={{ fontSize: 40 }}>✈️</div>
-            Log who paid for what in any currency. Mark each bill as shared or personal, and see who pays whom at the end.
+            <div style={{ fontSize: 40 }}>🧳</div>
+            For trips, days out and anything you do with a group. Log who paid for what in any currency. Mark each bill as shared
+            or personal, and see who pays whom at the end.
           </div>
         )}
         {trips && trips.length > 0 && (
@@ -585,7 +586,7 @@ export function TripEdit({ id }: { id: string }) {
           <input value={t.name} onChange={(e) => update({ name: e.target.value })} placeholder="e.g. Xiamen / China" />
         </Field>
 
-        <div className="section-title">👯 Travellers ({t.members.length})</div>
+        <div className="section-title">👯 People ({t.members.length})</div>
         <div className="chips mb">
           {t.members.map((m) => (
             <button key={m.id} className="chip" onClick={() => setMember(m)}>
@@ -595,7 +596,7 @@ export function TripEdit({ id }: { id: string }) {
         </div>
         <div className="hstack mb">
           <input
-            placeholder="Add a traveller"
+            placeholder="Add a person"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addMember()}
@@ -807,7 +808,7 @@ export function TripEdit({ id }: { id: string }) {
           } else await splitInDetail(e);
         }}
       />
-      <Sheet open={!!member} onClose={() => setMember(null)} title="Traveller">
+      <Sheet open={!!member} onClose={() => setMember(null)} title="Person">
         {member && (
           <>
             <Field label="Name">
