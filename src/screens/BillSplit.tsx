@@ -668,7 +668,7 @@ export function BillEdit({ id }: { id: string }) {
       <div className="page">
         {b.fromTrip && (
           <div className="banner sky">
-            <span>✈️</span>
+            <span>🧳</span>
             <span className="grow small">
               From trip: <b>{b.fromTrip.tripName}</b>. It is settled here, not in the trip.
             </span>

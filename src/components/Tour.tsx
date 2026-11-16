@@ -84,7 +84,7 @@ const STEPS: Step[] = [
     tab: 'more',
     target: '[data-tour="tile-bills"]',
     title: 'Splitting a bill',
-    text: 'Tap Bill split when eating out with friends. Travel split, next to it, is for trips.',
+    text: 'Tap Bill split when eating out with friends. Trip split, next to it, is for trips, days out and other group plans.',
   },
   {
     tab: 'more',

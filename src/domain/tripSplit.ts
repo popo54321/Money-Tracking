@@ -1,4 +1,4 @@
-// Travel split for any number of people, following the Trip Split sheet:
+// Trip split for any number of people, following the Trip Split sheet:
 // each bill has a payer, a cost in any currency (converted at the trip's fixed rates),
 // and is either personal, shared by everyone, or shared by the people ticked.
 import { roundTo } from './money';

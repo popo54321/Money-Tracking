@@ -11,6 +11,15 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.3',
+    date: '2026-11-16',
+    title: 'Trip split',
+    notes: [
+      'Travel split is now Trip split: for trips, days out and anything you do with a group.',
+      'The people on a trip are “People” instead of “Travellers”.',
+    ],
+  },
+  {
     version: '1.23.2',
     date: '2026-11-16',
     title: 'Trip bills on their own days',

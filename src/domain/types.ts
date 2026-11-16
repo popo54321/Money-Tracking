@@ -283,7 +283,7 @@ export interface BillSplit {
   updatedAt: number;
 }
 
-// ---------- Travel split ----------
+// ---------- Trip split ----------
 
 export interface TripMember {
   id: string;
