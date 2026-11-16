@@ -315,8 +315,11 @@ export interface Trip {
   entries: TripEntry[];
   /** everyone has paid: hidden from the list until Show settled */
   settled?: boolean;
-  /** what I paid was logged as my spending: friends' paybacks are money back on it */
-  logged?: { txId: string; categoryId: string };
+  /**
+   * The bills I paid were logged as my spending, one entry per bill on its day (`byEntry`: bill → entry). Friends'
+   * paybacks are money back on this category. (`txId`: one entry for the whole trip, from 1.23.0.)
+   */
+  logged?: { txId?: string; categoryId: string; byEntry?: Record<string, string> };
   createdAt: number;
   updatedAt: number;
 }

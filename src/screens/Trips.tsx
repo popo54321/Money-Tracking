@@ -15,12 +15,12 @@ import {
   Avatar,
 } from '../components/ui';
 import { computeTrip, entryBase, type TripResult } from '../domain/tripSplit';
-import { rateBetween } from '../domain/fx';
-import { fmtMoney, roundTo } from '../domain/money';
+import { convert, rateBetween } from '../domain/fx';
+import { decimalsFor, fmtMoney, roundTo } from '../domain/money';
 import { accountCurrencies, type BillSplit, type Trip, type TripEntry, type TripMember } from '../domain/types';
 import { db, uid } from '../db/db';
 import { deleteTrip, recordOwed, saveBill, saveTrip, saveTx, type OwedItem } from '../db/repo';
-import { todayISO } from '../domain/dates';
+import { fmtDate, todayISO } from '../domain/dates';
 import { copyText } from '../services/platform';
 import { holdProps } from '../components/hold';
 import { QuickActions } from '../components/QuickActions';
@@ -266,8 +266,16 @@ function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (pat
   const [meId, setMeId] = useState<string | undefined>(guess);
   const [added, setAdded] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
-  const myPaid = r.members.find((m) => m.id === meId)?.paidTotal ?? 0;
-  if (settlements.length === 0 && !(myPaid > 0)) return null;
+  const data = useData();
+  // the bills I paid (not the ones worked out in a bill split: that bill split logs them)
+  const myBills = t.entries.filter((e) => e.payerId === meId && !e.inBillSplit && e.cost > 0);
+  const loggedIds = new Set(
+    Object.entries(t.logged?.byEntry ?? {})
+      .filter(([, txId]) => data.allTxs.some((x) => x.id === txId))
+      .map(([id]) => id),
+  );
+  const newBills = myBills.filter((e) => !loggedIds.has(e.id));
+  if (settlements.length === 0 && myBills.length === 0) return null;
   const mine: OwedItem[] = meId
     ? settlements
         .filter((s) => s.toId === meId || s.fromId === meId)
@@ -282,7 +290,7 @@ function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (pat
             note: t.name || 'Trip',
             key: `trip:${t.id}:${theyOweMe ? s.fromId : s.toId}:${theyOweMe ? 'in' : 'out'}`,
             // what I paid was logged: their payback is money back on it
-            ...(theyOweMe && t.logged ? { spentCategoryId: t.logged.categoryId, spentTxId: t.logged.txId } : {}),
+            ...(theyOweMe && t.logged ? { spentCategoryId: t.logged.categoryId } : {}),
           };
         })
     : [];
@@ -305,9 +313,11 @@ function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (pat
           ))}
         </div>
       </div>
-      {meId && myPaid > 0 && (
-        <button className="btn pink block mb" onClick={() => setLogOpen(true)}>
-          💸 {t.logged ? 'Log again' : 'Log what I paid'} {fmtMoney(myPaid, t.baseCurrency)}
+      {meId && myBills.length > 0 && (
+        <button className="btn pink block mb" disabled={newBills.length === 0} onClick={() => setLogOpen(true)}>
+          {newBills.length === 0
+            ? `✓ All ${myBills.length} bills you paid are logged`
+            : `💸 Log the ${newBills.length} ${newBills.length === 1 ? 'bill' : 'bills'} I paid${loggedIds.size ? ' (new ones)' : ''}`}
         </button>
       )}
       {settlements.length > 0 &&
@@ -329,13 +339,13 @@ function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (pat
           </button>
         ))}
       <div className="tiny muted mt">
-        Paid for others? Log what you paid: their paybacks then come off that spending as money back. Adding again after changes
-        updates the amounts; it never counts twice.
+        Paid for others? Log the bills you paid: each goes in on its own day, and friends' paybacks then come off that spending as
+        money back. Adding to Who owes me again after changes updates the amounts; it never counts twice.
       </div>
       {logOpen && meId && (
         <TripLogSheet
           t={t}
-          amount={myPaid}
+          bills={newBills}
           owed={mine.filter((m) => m.direction === 'owedToMe')}
           onClose={() => setLogOpen(false)}
           onLogged={(logged, addedOwed) => {
@@ -348,22 +358,25 @@ function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (pat
   );
 }
 
-/** Log everything I paid on the trip as my spending; what the others owe me goes to Who owes me, linked to it. */
+/**
+ * Log each bill I paid as its own spending, on the bill's day (no day: today), named after the bill. One account and
+ * category for all of them; each can be changed afterwards. What the others owe me goes to Who owes me.
+ */
 function TripLogSheet({
   t,
-  amount,
+  bills,
   owed,
   onClose,
   onLogged,
 }: {
   t: Trip;
-  /** in the trip's base currency */
-  amount: number;
+  /** the bills to log (the ones I paid, not logged yet) */
+  bills: TripEntry[];
   owed: OwedItem[];
   onClose: () => void;
   onLogged: (logged: Trip['logged'], addedOwed: boolean) => void;
 }) {
-  const { profile, rates, currency, toast } = useApp();
+  const { profile, rates, currency, toast, today } = useApp();
   const data = useData();
   const travel = data.categories.find((c) => c.kind === 'expense' && !c.archived && /travel|trip/i.test(c.name))?.id;
   const [categoryId, setCategoryId] = useState<string | undefined>(
@@ -373,53 +386,98 @@ function TripLogSheet({
     data.accounts.find((a) => !a.archived && (a.type === 'bank' || a.type === 'credit'))?.id,
   );
   const [addOwed, setAddOwed] = useState(true);
-  const cur = t.baseCurrency;
+  const [busy, setBusy] = useState(false);
+  const base = t.baseCurrency;
   const owedTotal = owed.reduce((x, o) => x + o.amount, 0);
-  const pay = t.payBackCurrency || cur;
+  const pay = t.payBackCurrency || base;
+  // by day, in date order; bills with no day go in today
+  const days = new Map<string, TripEntry[]>();
+  for (const e of [...bills].sort((a, b) => ((a.date ?? today) < (b.date ?? today) ? -1 : 1))) {
+    const d = e.date ?? today;
+    days.set(d, [...(days.get(d) ?? []), e]);
+  }
+  const baseOf = (e: TripEntry) => entryBase(t, e);
+  const total = bills.reduce((x, e) => x + (baseOf(e) ?? 0), 0);
+  const undated = bills.filter((e) => !e.date).length;
+
   const save = async () => {
     const acc = accountId ? data.accountById.get(accountId) : undefined;
     if (!acc || !categoryId) return toast('Choose an account and a category');
-    const inWallet = acc.currency !== cur && accountCurrencies(acc).includes(cur);
-    const sameCur = acc.currency === cur || inWallet;
-    const prev = t.logged && data.allTxs.some((x) => x.id === t.logged!.txId) ? t.logged.txId : undefined;
-    const txId = await saveTx(
-      {
-        id: prev,
-        profileId: profile.id,
-        date: todayISO(),
-        kind: 'expense',
-        accountId: acc.id,
-        pocket: inWallet ? cur : undefined,
-        amount: sameCur ? amount : amount * ((rates.perUsd[acc.currency] ?? 1) / (rates.perUsd[cur] ?? 1)),
-        origAmount: sameCur ? undefined : amount,
-        origCurrency: sameCur ? undefined : cur,
-        categoryId,
-        note: `${t.name || 'Trip'} (what I paid)`,
-      },
-      rates,
-      currency,
-    );
+    setBusy(true);
+    const byEntry: Record<string, string> = { ...(t.logged?.byEntry ?? {}) };
+    for (const e of bills) {
+      // a cash purse or top-up card holding the bill's currency pays from that wallet (no conversion)
+      const inWallet = acc.currency !== e.currency && accountCurrencies(acc).includes(e.currency);
+      const same = acc.currency === e.currency || inWallet;
+      let amount = e.cost;
+      if (!same) {
+        // the trip's own rate into its base currency, then into the account's currency
+        const b = baseOf(e);
+        const viaBase = b === null ? null : acc.currency === base ? b : convert(b, base, acc.currency, rates);
+        amount = viaBase ?? convert(e.cost, e.currency, acc.currency, rates) ?? e.cost;
+      }
+      byEntry[e.id] = await saveTx(
+        {
+          profileId: profile.id,
+          date: e.date ?? today,
+          kind: 'expense',
+          accountId: acc.id,
+          pocket: inWallet ? e.currency : undefined,
+          amount: roundTo(amount, decimalsFor(acc.currency)),
+          origAmount: same ? undefined : e.cost,
+          origCurrency: same ? undefined : e.currency,
+          categoryId,
+          note: `${e.bill.trim() || 'Bill'} · ${t.name || 'Trip'}`,
+        },
+        rates,
+        currency,
+      );
+    }
     const doOwed = addOwed && owed.length > 0;
     if (doOwed)
       await recordOwed(
         profile.id,
-        owed.map((o) => ({ ...o, spentCategoryId: categoryId, spentTxId: txId })),
+        owed.map((o) => ({ ...o, spentCategoryId: categoryId })),
       );
-    onLogged({ txId, categoryId }, doOwed);
-    toast(doOwed ? `🌸 Logged, and ${owed.length} added to Who owes me` : '🌸 Logged');
+    onLogged({ txId: t.logged?.txId, categoryId, byEntry }, doOwed);
+    toast(
+      `🌸 ${bills.length} ${bills.length === 1 ? 'bill' : 'bills'} logged${doOwed ? `, and ${owed.length} added to Who owes me` : ''}`,
+    );
     onClose();
   };
   return (
-    <Sheet open onClose={onClose} title="💸 Log what I paid">
+    <Sheet open onClose={onClose} title="💸 Log the bills I paid">
       <div className="small mb">
-        Everything you paid on this trip: <b>{fmtMoney(amount, cur)}</b>
-        {t.logged ? ' (updates the entry logged before)' : ''}
+        Each bill goes in as its own spending on its own day, named after the bill. Change any of them later (category, card,
+        amount) by tapping it.
+      </div>
+      <div className="card flat">
+        {[...days.entries()].map(([d, list]) => (
+          <div key={d} className="between small" style={{ padding: '3px 0' }}>
+            <span>
+              {fmtDate(d)}
+              {d === today && undated ? ' (today: no day set)' : ''} · {list.length} {list.length === 1 ? 'bill' : 'bills'}
+            </span>
+            <b>
+              {fmtMoney(
+                list.reduce((x, e) => x + (baseOf(e) ?? 0), 0),
+                base,
+              )}
+            </b>
+          </div>
+        ))}
+        <div className="between small bold" style={{ paddingTop: 6 }}>
+          <span>
+            {bills.length} {bills.length === 1 ? 'bill' : 'bills'}
+          </span>
+          <span>{fmtMoney(total, base)}</span>
+        </div>
       </div>
       {owed.length > 0 && (
         <div className="card flat">
           <ToggleRow
             title={`🦉 They pay me back ${fmtMoney(owedTotal, pay)}`}
-            desc={`Adds ${owed.map((o) => `${o.person} ${fmtMoney(o.amount, pay)}`).join(', ')} to Who owes me. When they pay, it comes off this spending as money back.`}
+            desc={`Adds ${owed.map((o) => `${o.person} ${fmtMoney(o.amount, pay)}`).join(', ')} to Who owes me. When they pay, it comes off this category as money back.`}
             on={addOwed}
             onChange={setAddOwed}
           />
@@ -429,8 +487,8 @@ function TripLogSheet({
         <AccountPickerButton accounts={data.accounts} value={accountId} onChange={setAccountId} />
       </Field>
       <CategoryGrid categories={data.categories} kind="expense" value={categoryId} onPick={setCategoryId} />
-      <button className="btn primary block mt" onClick={save}>
-        Log {fmtMoney(amount, cur)}
+      <button className="btn primary block mt" disabled={busy} onClick={save}>
+        Log {bills.length} {bills.length === 1 ? 'bill' : 'bills'}
       </button>
     </Sheet>
   );
