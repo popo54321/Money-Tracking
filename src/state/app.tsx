@@ -77,6 +77,8 @@ export interface ProfileData {
   scheduled: Tx[];
   /** every entry, for looking one up by id */
   allTxs: Tx[];
+  /** money back entries by the spending they came back for */
+  moneyBack: Map<string, Tx[]>;
   recurring: Recurring[];
   balances: Map<string, number>;
   /** cash and top-up cards holding other currencies: account → currency → balance (main wallet in `balances`) */
@@ -206,6 +208,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       txs: actual,
       scheduled,
       allTxs: txs,
+      moneyBack: txs.reduce((m, t) => {
+        if (t.refundOf && t.kind === 'expense' && t.amount < 0) m.set(t.refundOf, [...(m.get(t.refundOf) ?? []), t]);
+        return m;
+      }, new Map<string, Tx[]>()),
       recurring,
       balances,
       wallets: walletsByAccount(accs, actual),

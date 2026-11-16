@@ -218,17 +218,27 @@ export function DebtDetail({ id }: { id: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // a payback can also be logged as income: into which account, as which category
   const [logIncome, setLogIncome] = useState(false);
+  // logged as money back (takes it off a spending category, e.g. a dinner you paid for them) or as income
+  const [logAs, setLogAs] = useState<'back' | 'income'>('income');
   const [incAcc, setIncAcc] = useState<string | undefined>();
   const [incCat, setIncCat] = useState<string | undefined>();
+  const [backCat, setBackCat] = useState<string | undefined>();
+  // the latest thing lent as part of my spending (a bill or trip): its category, and the spending when logged
+  const spentLend = d
+    ? [...d.events].filter((x) => x.type === 'lend' && x.spentCategoryId).sort((a, b) => (a.date < b.date ? 1 : -1))[0]
+    : undefined;
   useEffect(() => {
     if (!ev || !d) return;
     const tx = ev.txId ? data.allTxs.find((t) => t.id === ev.txId) : undefined;
     const isNewLine = !d.events.some((x) => x.id === ev.id);
     setLogIncome(!!tx || (isNewLine && d.direction === 'owedToMe'));
+    setLogAs(tx ? (tx.kind === 'expense' ? 'back' : 'income') : spentLend ? 'back' : 'income');
     setIncAcc(tx?.accountId ?? data.accounts.find((a) => !a.archived && (a.type === 'bank' || a.type === 'cash'))?.id);
     setIncCat(
-      tx?.categoryId ?? data.categories.find((c) => c.kind === 'income' && !c.archived && /pay ?back|repay/i.test(c.name))?.id,
+      (tx?.kind === 'income' ? tx.categoryId : undefined) ??
+        data.categories.find((c) => c.kind === 'income' && !c.archived && /pay ?back|repay/i.test(c.name))?.id,
     );
+    setBackCat((tx?.kind === 'expense' ? tx.categoryId : undefined) ?? spentLend?.spentCategoryId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ev?.id]);
   useEffect(() => {
@@ -441,18 +451,35 @@ export function DebtDetail({ id }: { id: string }) {
             {ev.type === 'repay' && theyOwe && (
               <div className="card flat">
                 <ToggleRow
-                  title="💰 Also log it as income"
+                  title="💰 Also log it in my money"
                   desc="Adds the money to the account it came into"
                   on={logIncome}
                   onChange={setLogIncome}
                 />
                 {logIncome && (
                   <>
+                    <Seg
+                      value={logAs}
+                      onChange={setLogAs}
+                      options={[
+                        { v: 'back', label: '💸 Money back', cls: 'expense' },
+                        { v: 'income', label: '💰 Income', cls: 'income' },
+                      ]}
+                    />
+                    <div className="tiny muted mt mb">
+                      {logAs === 'back'
+                        ? 'For something you paid for them: takes it off that spending category this month (if more comes back than you spent, the limit is raised for this month only).'
+                        : 'For money that is new to you, like interest on a loan.'}
+                    </div>
                     <Field label="Came into">
                       <AccountPickerButton accounts={data.accounts} value={incAcc} onChange={setIncAcc} />
                     </Field>
-                    <div className="small bold mb">Category</div>
-                    <CategoryGrid categories={data.categories} kind="income" value={incCat} onPick={setIncCat} />
+                    <div className="small bold mb">{logAs === 'back' ? 'Which spending was it for?' : 'Category'}</div>
+                    {logAs === 'back' ? (
+                      <CategoryGrid categories={data.categories} kind="expense" value={backCat} onPick={setBackCat} />
+                    ) : (
+                      <CategoryGrid categories={data.categories} kind="income" value={incCat} onPick={setIncCat} />
+                    )}
                   </>
                 )}
               </div>
@@ -465,7 +492,7 @@ export function DebtDetail({ id }: { id: string }) {
                     if (ev.txId) await deleteTx(ev.txId);
                     update({ events: d.events.filter((x) => x.id !== ev.id) });
                     setEv(null);
-                    if (ev.txId) toast('Deleted, with its income entry');
+                    if (ev.txId) toast('Deleted, with its entry in your money');
                   }}
                 >
                   Delete
@@ -480,7 +507,14 @@ export function DebtDetail({ id }: { id: string }) {
                     // the payback is income in the account it came into (its own currency, or a wallet holding it)
                     const acc = incAcc ? data.accountById.get(incAcc) : undefined;
                     if (!acc) return toast('Choose the account it came into');
-                    if (!incCat) return toast('Pick a category 🏷️');
+                    const asBack = logAs === 'back';
+                    const catId = asBack ? backCat : incCat;
+                    if (!catId) return toast('Pick a category 🏷️');
+                    // money back points at the spending it was part of, when that was logged
+                    const spentTx =
+                      asBack && spentLend?.spentTxId && spentLend.spentCategoryId === catId
+                        ? data.allTxs.find((t) => t.id === spentLend.spentTxId)
+                        : undefined;
                     const inWallet = acc.currency !== cur && accountCurrencies(acc).includes(cur);
                     const same = acc.currency === cur || inWallet;
                     const amount = same ? ev.amount : (convert(ev.amount, cur, acc.currency, rates) ?? ev.amount);
@@ -489,13 +523,14 @@ export function DebtDetail({ id }: { id: string }) {
                         id: ev.txId,
                         profileId: profile.id,
                         date: ev.date,
-                        kind: 'income',
+                        kind: asBack ? 'expense' : 'income',
                         accountId: acc.id,
                         pocket: inWallet ? cur : undefined,
-                        amount: roundTo(amount, decimalsFor(acc.currency)),
-                        origAmount: same ? undefined : ev.amount,
+                        amount: (asBack ? -1 : 1) * roundTo(amount, decimalsFor(acc.currency)),
+                        origAmount: same ? undefined : (asBack ? -1 : 1) * ev.amount,
                         origCurrency: same ? undefined : cur,
-                        categoryId: incCat,
+                        categoryId: catId,
+                        refundOf: spentTx?.id,
                         note: `Payback from ${d.person || 'someone'}${ev.note ? `: ${ev.note}` : ''}`,
                       },
                       rates,
@@ -509,7 +544,13 @@ export function DebtDetail({ id }: { id: string }) {
                   const exists = d.events.some((x) => x.id === line.id);
                   update({ events: exists ? d.events.map((x) => (x.id === line.id ? line : x)) : [...d.events, line] });
                   setEv(null);
-                  toast(line.txId ? '💰 Saved, and logged as income' : '✨ Saved');
+                  toast(
+                    line.txId
+                      ? logAs === 'back'
+                        ? '💸 Saved, and logged as money back'
+                        : '💰 Saved, and logged as income'
+                      : '✨ Saved',
+                  );
                 }}
               >
                 Save
@@ -532,7 +573,7 @@ export function DebtDetail({ id }: { id: string }) {
                 if (
                   !(await confirm({
                     title: 'Delete this line?',
-                    message: quickEv.txId ? 'Its income entry is deleted too.' : undefined,
+                    message: quickEv.txId ? 'Its entry in your money is deleted too.' : undefined,
                     ok: 'Delete',
                     danger: true,
                   }))

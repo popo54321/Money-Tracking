@@ -1,17 +1,30 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState } from 'react';
-import { AmountField, CurrencySheet, Field, NumberInput, Seg, Sheet, Topbar, Sparkle, Avatar } from '../components/ui';
+import {
+  AccountPickerButton,
+  AmountField,
+  CategoryGrid,
+  CurrencySheet,
+  Field,
+  NumberInput,
+  Seg,
+  Sheet,
+  ToggleRow,
+  Topbar,
+  Sparkle,
+  Avatar,
+} from '../components/ui';
 import { computeTrip, entryBase, type TripResult } from '../domain/tripSplit';
 import { rateBetween } from '../domain/fx';
 import { fmtMoney, roundTo } from '../domain/money';
-import type { BillSplit, Trip, TripEntry, TripMember } from '../domain/types';
+import { accountCurrencies, type BillSplit, type Trip, type TripEntry, type TripMember } from '../domain/types';
 import { db, uid } from '../db/db';
-import { deleteTrip, recordOwed, saveBill, saveTrip, type OwedItem } from '../db/repo';
+import { deleteTrip, recordOwed, saveBill, saveTrip, saveTx, type OwedItem } from '../db/repo';
 import { todayISO } from '../domain/dates';
 import { copyText } from '../services/platform';
 import { holdProps } from '../components/hold';
 import { QuickActions } from '../components/QuickActions';
-import { useApp } from '../state/app';
+import { useApp, useData } from '../state/app';
 
 export function TripList() {
   const { go, profiles, settings, rates, confirm, removeWithUndo } = useApp();
@@ -106,6 +119,7 @@ export function TripList() {
                 const copy: Trip = {
                   ...quick,
                   settled: undefined,
+                  logged: undefined,
                   id: uid(),
                   name: 'New trip',
                   entries: [],
@@ -245,12 +259,15 @@ function EntrySheet({
 }
 
 /** Put what friends still owe me from this trip (or what I owe them) into Who owes me. */
-function TripOwedButton({ t, settlements }: { t: Trip; settlements: TripResult['settlements'] }) {
+function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (patch: Partial<Trip>) => void }) {
   const { profile, toast, go } = useApp();
+  const settlements = r.settlements;
   const guess = t.members.find((m) => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase())?.id;
   const [meId, setMeId] = useState<string | undefined>(guess);
   const [added, setAdded] = useState(false);
-  if (settlements.length === 0) return null;
+  const [logOpen, setLogOpen] = useState(false);
+  const myPaid = r.members.find((m) => m.id === meId)?.paidTotal ?? 0;
+  if (settlements.length === 0 && !(myPaid > 0)) return null;
   const mine: OwedItem[] = meId
     ? settlements
         .filter((s) => s.toId === meId || s.fromId === meId)
@@ -264,6 +281,8 @@ function TripOwedButton({ t, settlements }: { t: Trip; settlements: TripResult['
             date: todayISO(),
             note: t.name || 'Trip',
             key: `trip:${t.id}:${theyOweMe ? s.fromId : s.toId}:${theyOweMe ? 'in' : 'out'}`,
+            // what I paid was logged: their payback is money back on it
+            ...(theyOweMe && t.logged ? { spentCategoryId: t.logged.categoryId, spentTxId: t.logged.txId } : {}),
           };
         })
     : [];
@@ -286,25 +305,134 @@ function TripOwedButton({ t, settlements }: { t: Trip; settlements: TripResult['
           ))}
         </div>
       </div>
-      {added ? (
-        <button className="btn mint block" onClick={() => go({ name: 'debts' })}>
-          ✓ Added · open Who owes me ›
-        </button>
-      ) : (
-        <button
-          className="btn sky block"
-          disabled={mine.length === 0}
-          onClick={async () => {
-            const n = await recordOwed(profile.id, mine);
-            setAdded(true);
-            toast(`🦉 ${n} added to Who owes me`);
-          }}
-        >
-          🦉 {mine.length ? `Add ${mine.length} to Who owes me` : 'Nothing between you and others'}
+      {meId && myPaid > 0 && (
+        <button className="btn pink block mb" onClick={() => setLogOpen(true)}>
+          💸 {t.logged ? 'Log again' : 'Log what I paid'} {fmtMoney(myPaid, t.baseCurrency)}
         </button>
       )}
-      <div className="tiny muted mt">Adding again after changes updates the amounts; it never counts twice.</div>
+      {settlements.length > 0 &&
+        (added ? (
+          <button className="btn mint block" onClick={() => go({ name: 'debts' })}>
+            ✓ Added · open Who owes me ›
+          </button>
+        ) : (
+          <button
+            className="btn sky block"
+            disabled={mine.length === 0}
+            onClick={async () => {
+              const n = await recordOwed(profile.id, mine);
+              setAdded(true);
+              toast(`🦉 ${n} added to Who owes me`);
+            }}
+          >
+            🦉 {mine.length ? `Add ${mine.length} to Who owes me` : 'Nothing between you and others'}
+          </button>
+        ))}
+      <div className="tiny muted mt">
+        Paid for others? Log what you paid: their paybacks then come off that spending as money back. Adding again after changes
+        updates the amounts; it never counts twice.
+      </div>
+      {logOpen && meId && (
+        <TripLogSheet
+          t={t}
+          amount={myPaid}
+          owed={mine.filter((m) => m.direction === 'owedToMe')}
+          onClose={() => setLogOpen(false)}
+          onLogged={(logged, addedOwed) => {
+            update({ logged });
+            if (addedOwed) setAdded(true);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Log everything I paid on the trip as my spending; what the others owe me goes to Who owes me, linked to it. */
+function TripLogSheet({
+  t,
+  amount,
+  owed,
+  onClose,
+  onLogged,
+}: {
+  t: Trip;
+  /** in the trip's base currency */
+  amount: number;
+  owed: OwedItem[];
+  onClose: () => void;
+  onLogged: (logged: Trip['logged'], addedOwed: boolean) => void;
+}) {
+  const { profile, rates, currency, toast } = useApp();
+  const data = useData();
+  const travel = data.categories.find((c) => c.kind === 'expense' && !c.archived && /travel|trip/i.test(c.name))?.id;
+  const [categoryId, setCategoryId] = useState<string | undefined>(
+    (t.logged && data.categoryById.has(t.logged.categoryId) ? t.logged.categoryId : undefined) ?? travel,
+  );
+  const [accountId, setAccountId] = useState<string | undefined>(
+    data.accounts.find((a) => !a.archived && (a.type === 'bank' || a.type === 'credit'))?.id,
+  );
+  const [addOwed, setAddOwed] = useState(true);
+  const cur = t.baseCurrency;
+  const owedTotal = owed.reduce((x, o) => x + o.amount, 0);
+  const pay = t.payBackCurrency || cur;
+  const save = async () => {
+    const acc = accountId ? data.accountById.get(accountId) : undefined;
+    if (!acc || !categoryId) return toast('Choose an account and a category');
+    const inWallet = acc.currency !== cur && accountCurrencies(acc).includes(cur);
+    const sameCur = acc.currency === cur || inWallet;
+    const prev = t.logged && data.allTxs.some((x) => x.id === t.logged!.txId) ? t.logged.txId : undefined;
+    const txId = await saveTx(
+      {
+        id: prev,
+        profileId: profile.id,
+        date: todayISO(),
+        kind: 'expense',
+        accountId: acc.id,
+        pocket: inWallet ? cur : undefined,
+        amount: sameCur ? amount : amount * ((rates.perUsd[acc.currency] ?? 1) / (rates.perUsd[cur] ?? 1)),
+        origAmount: sameCur ? undefined : amount,
+        origCurrency: sameCur ? undefined : cur,
+        categoryId,
+        note: `${t.name || 'Trip'} (what I paid)`,
+      },
+      rates,
+      currency,
+    );
+    const doOwed = addOwed && owed.length > 0;
+    if (doOwed)
+      await recordOwed(
+        profile.id,
+        owed.map((o) => ({ ...o, spentCategoryId: categoryId, spentTxId: txId })),
+      );
+    onLogged({ txId, categoryId }, doOwed);
+    toast(doOwed ? `🌸 Logged, and ${owed.length} added to Who owes me` : '🌸 Logged');
+    onClose();
+  };
+  return (
+    <Sheet open onClose={onClose} title="💸 Log what I paid">
+      <div className="small mb">
+        Everything you paid on this trip: <b>{fmtMoney(amount, cur)}</b>
+        {t.logged ? ' (updates the entry logged before)' : ''}
+      </div>
+      {owed.length > 0 && (
+        <div className="card flat">
+          <ToggleRow
+            title={`🦉 They pay me back ${fmtMoney(owedTotal, pay)}`}
+            desc={`Adds ${owed.map((o) => `${o.person} ${fmtMoney(o.amount, pay)}`).join(', ')} to Who owes me. When they pay, it comes off this spending as money back.`}
+            on={addOwed}
+            onChange={setAddOwed}
+          />
+        </div>
+      )}
+      <Field label="Paid with">
+        <AccountPickerButton accounts={data.accounts} value={accountId} onChange={setAccountId} />
+      </Field>
+      <CategoryGrid categories={data.categories} kind="expense" value={categoryId} onPick={setCategoryId} />
+      <button className="btn primary block mt" onClick={save}>
+        Log {fmtMoney(amount, cur)}
+      </button>
+    </Sheet>
   );
 }
 
@@ -538,7 +666,7 @@ export function TripEdit({ id }: { id: string }) {
             Pay back in {pay} ▾
           </button>
         </div>
-        <TripOwedButton t={t} settlements={r.settlements} />
+        <TripOwedButton t={t} r={r} update={update} />
 
         <div className="card">
           <table className="t">

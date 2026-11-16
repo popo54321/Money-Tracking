@@ -176,3 +176,46 @@ describe('quarterly and yearly limits', () => {
     );
   });
 });
+
+describe('money back', () => {
+  const rates = { perUsd: { USD: 1, THB: 33 } };
+  const cats = [cat('dinner', 'Dinner', 'Eating Out', 5000)];
+  it('takes off the spending in the month it arrives, and says how much came back', () => {
+    // paid 2,400 for everyone on 3 Dec, friends sent 1,600 back on 5 Dec
+    const s = summarise(
+      [spend('dinner', 2400, '2026-12-03'), spend('dinner', -1600, '2026-12-05')],
+      cats,
+      '2026-12-01',
+      '2026-12-31',
+      'THB',
+      rates,
+    );
+    const line = s.expense.groups[0].cats[0];
+    expect(line.total).toBe(800);
+    expect(line.back).toBe(1600);
+    const [l] = limitLines(s, cats, undefined, '2026-12-10', '2026-12-31');
+    expect(l.spent).toBe(800);
+    expect(l.left).toBe(4200);
+    expect(l.raised).toBe(0);
+    expect(l.limitNow).toBe(5000);
+    expect(l.back).toBe(1600);
+  });
+  it('more back than spent that month raises the limit for that month only', () => {
+    // spent in November, paid back in early December
+    const nov = spend('dinner', 2400, '2026-11-28');
+    const back = spend('dinner', -1600, '2026-12-03');
+    const dec = summarise([nov, back], cats, '2026-12-01', '2026-12-31', 'THB', rates);
+    const [d] = limitLines(dec, cats, undefined, '2026-12-03', '2026-12-31');
+    expect(d.spent).toBe(0);
+    expect(d.raised).toBe(1600);
+    expect(d.limitNow).toBe(6600);
+    expect(d.left).toBe(6600);
+    // November still shows the full bill; January starts again from the limit set
+    const novS = summarise([nov, back], cats, '2026-11-01', '2026-11-30', 'THB', rates);
+    expect(limitLines(novS, cats, undefined, '2026-11-28', '2026-11-30')[0].spent).toBe(2400);
+    const jan = summarise([nov, back], cats, '2027-01-01', '2027-01-31', 'THB', rates);
+    const [j] = limitLines(jan, cats, undefined, '2027-01-02', '2027-01-31');
+    expect(j.limitNow).toBe(5000);
+    expect(j.raised).toBe(0);
+  });
+});

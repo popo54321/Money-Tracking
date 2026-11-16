@@ -9,11 +9,15 @@ export interface CatLine {
   name: string;
   total: number;
   count: number;
+  /** spending only: money back taken off `total` (a positive number) */
+  back: number;
 }
 
 export interface GroupLine {
   group: string;
   total: number;
+  /** money back taken off `total` (a positive number) */
+  back: number;
   cats: CatLine[];
 }
 
@@ -43,8 +47,9 @@ export function summarise(
   includeEmpty = false,
 ): Summary {
   const catById = new Map(categories.map((c) => [c.id, c]));
-  const incomeTotals = new Map<string, { total: number; count: number }>();
-  const expenseTotals = new Map<string, { total: number; count: number }>();
+  type Acc = { total: number; count: number; back: number };
+  const incomeTotals = new Map<string, Acc>();
+  const expenseTotals = new Map<string, Acc>();
   let unconverted = 0;
 
   for (const t of txs) {
@@ -57,16 +62,17 @@ export function summarise(
     }
     const key = t.categoryId && catById.has(t.categoryId) ? t.categoryId : '';
     const m = t.kind === 'income' ? incomeTotals : expenseTotals;
-    const cur = m.get(key) ?? { total: 0, count: 0 };
+    const cur = m.get(key) ?? { total: 0, count: 0, back: 0 };
     cur.total += v;
     cur.count += 1;
+    if (t.kind === 'expense' && v < 0) cur.back -= v;
     m.set(key, cur);
   }
 
   const ordered = [...categories].sort((a, b) => a.order - b.order);
-  const line = (c: Category | null, m: Map<string, { total: number; count: number }>): CatLine => {
-    const x = m.get(c ? c.id : '') ?? { total: 0, count: 0 };
-    return { category: c, name: c ? c.name : 'Uncategorised', total: x.total, count: x.count };
+  const line = (c: Category | null, m: Map<string, Acc>): CatLine => {
+    const x = m.get(c ? c.id : '') ?? { total: 0, count: 0, back: 0 };
+    return { category: c, name: c ? c.name : 'Uncategorised', total: x.total, count: x.count, back: x.back };
   };
 
   const incomeCats = ordered
@@ -86,12 +92,12 @@ export function summarise(
             (includeEmpty ? !c.archived || expenseTotals.has(c.id) : expenseTotals.has(c.id)),
         )
         .map((c) => line(c, expenseTotals));
-      return { group: g, total: sum(cats.map((c) => c.total)), cats };
+      return { group: g, total: sum(cats.map((c) => c.total)), back: sum(cats.map((c) => c.back)), cats };
     })
     .filter((g) => g.cats.length > 0);
   if (expenseTotals.has('')) {
     const l = line(null, expenseTotals);
-    groups.push({ group: 'Other', total: l.total, cats: [l] });
+    groups.push({ group: 'Other', total: l.total, back: l.back, cats: [l] });
   }
 
   const incomeTotal = sum(incomeCats.map((c) => c.total));

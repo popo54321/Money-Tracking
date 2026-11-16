@@ -1998,3 +1998,16 @@ button.row.is-pressed {
 .change-notes li + li {
   margin-top: 4px;
 }
+
+/* a plain tappable line inside a card (money back entries) */
+.row-plain {
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  gap: 8px;
+  border-top: 1px dashed var(--line);
+}

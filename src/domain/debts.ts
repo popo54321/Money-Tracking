@@ -10,8 +10,12 @@ export interface DebtEvent {
   type: 'lend' | 'repay';
   amount: number;
   note?: string;
-  /** a payback also logged as income: that entry (kept in step when this line changes or is deleted) */
+  /** a payback also logged (as income, or as money back): that entry (kept in step when this line changes or is deleted) */
   txId?: string;
+  /** lend: money paid for them as part of my spending (a bill or trip), so their payback is money back */
+  spentCategoryId?: string;
+  /** lend: the spending it was part of, when it was logged */
+  spentTxId?: string;
 }
 
 export interface Debt {

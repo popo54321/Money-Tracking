@@ -24,6 +24,9 @@ import { accountCurrencies, WALLET_TYPES, type Account, type Freq, type TxKind }
 import { db, uid } from '../db/db';
 import { deleteTx, saveMoveFee, saveNewEntry, saveTx } from '../db/repo';
 import { useApp, useData, type Route } from '../state/app';
+import { MoneyBackForm, MoneyBackList } from '../components/MoneyBack';
+import { askDeleteBacks } from '../components/TxRow';
+import { moneyBackOn } from '../domain/balances';
 
 type EntryRoute = Extract<Route, { name: 'entry' }>;
 
@@ -135,6 +138,9 @@ export function Entry({ route }: { route: EntryRoute }) {
   }, [transferCross, charged, acc, toAcc, rates, pocket, toPocket, toCur]);
   // a move can carry a fee (spending from the same account and currency)
   const existingFee = existing ? data.allTxs.find((t) => t.feeFor === existing.id) : undefined;
+  // money back on this spending (friends paying their share, refunds)
+  const backs = existing && existing.kind === 'expense' && existing.amount > 0 ? (data.moneyBack.get(existing.id) ?? []) : [];
+  const backTotal = existing && backs.length ? moneyBackOn(existing, backs, (id) => data.accountById.get(id)?.currency) : 0;
   const [fee, setFee] = useState<number | null>(existingFee?.amount ?? null);
   // the account picked (often the last one used) doesn't hold the currency typed: pick again
   useEffect(() => {
@@ -204,6 +210,14 @@ export function Entry({ route }: { route: EntryRoute }) {
       return;
     }
     if (takeSplits && fromLeft < -0.005) return toast('The splits add up to more than the amount');
+    if (backTotal > 0.005 && kind === 'expense' && charged !== null && charged + 0.005 < backTotal) {
+      const ok = await confirm({
+        title: 'Less than what came back?',
+        message: `${fmtMoney(backTotal, accCur)} already came back for this spending, more than ${fmtMoney(charged, accCur)}. Save anyway?`,
+        ok: 'Save',
+      });
+      if (!ok) return;
+    }
     if (instalOn && months < 2) return toast('Instalments need at least 2 months');
     const plan = instalOn ? Math.round(months) : 0;
     const draft = {
@@ -296,8 +310,11 @@ export function Entry({ route }: { route: EntryRoute }) {
     if (!existing) return;
     const ok = await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true });
     if (!ok) return;
+    const alsoBacks =
+      backs.length > 0 && (await askDeleteBacks(confirm, backTotal, existing.pocket ?? acc?.currency ?? currency));
     await removeWithUndo(async () => {
       await deleteTx(existing.id);
+      if (alsoBacks) for (const b of backs) await deleteTx(b.id);
       if (existing.recurringId) {
         // keep the repeating entry from re-creating this occurrence
         const r = await db.recurring.get(existing.recurringId);
@@ -310,6 +327,24 @@ export function Entry({ route }: { route: EntryRoute }) {
   const kindCls = kind === 'income' ? 'income' : kind === 'transfer' || kind === 'adjust' ? 'transfer' : '';
   const shownValue =
     amount === null ? (calc.expr ? fmtExpr(calc.expr) : fmtMoney(0, typedCurrency)) : fmtMoney(amount, typedCurrency);
+
+  // money back has its own small page: amount, account, date and note (its category follows its spending)
+  if (existing && existing.kind === 'expense' && existing.amount < 0) {
+    const spending = existing.refundOf ? data.allTxs.find((t) => t.id === existing.refundOf) : undefined;
+    return (
+      <>
+        <Topbar title="💸 Money back" />
+        <div className="page">
+          <MoneyBackForm spending={spending} existing={existing} onDone={back} />
+          {spending && (
+            <button className="btn block mt" onClick={() => replace({ name: 'entry', id: spending.id })}>
+              🧾 Open the spending
+            </button>
+          )}
+        </div>
+      </>
+    );
+  }
 
   // a move's fee is made by its move: it can only be changed or removed there
   if (existing?.feeFor) {
@@ -522,6 +557,10 @@ export function Entry({ route }: { route: EntryRoute }) {
         <Field label="Date">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value || today)} />
         </Field>
+
+        {existing && kind === 'expense' && existing.kind === 'expense' && existing.amount > 0 && !existing.feeFor && (
+          <MoneyBackList spending={existing} />
+        )}
 
         {canInstal && (
           <div className="card flat">

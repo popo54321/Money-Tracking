@@ -120,6 +120,7 @@ export function BillList() {
                 const copy: BillSplit = {
                   ...quick,
                   settled: undefined,
+                  logged: undefined,
                   id: uid(),
                   title: `${quick.title} (copy)`,
                   date: today,
@@ -180,21 +181,55 @@ function ItemLine({
   );
 }
 
-function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean; onClose: () => void }) {
+function LogShareSheet({
+  bill,
+  open,
+  onClose,
+  onLogged,
+}: {
+  bill: BillSplit;
+  open: boolean;
+  onClose: () => void;
+  /** what I paid was logged: remember the entry on the bill */
+  onLogged: (logged: BillSplit['logged']) => void;
+}) {
   const { profile, rates, currency, toast } = useApp();
   const data = useData();
   const r = computeBill(bill);
   const guessMe = bill.people.find((p) => p.name.trim().toLowerCase() === profile.name.toLowerCase())?.id ?? bill.people[0]?.id;
   const [me, setMe] = useState(guessMe);
-  const [what, setWhat] = useState<'share' | 'full' | 'paid'>('share');
   const plan = settleBill(r, bill.payments, bill.paidBy, bill.currency);
+  const paidOf = (id?: string) => (id ? (plan.paid.get(id) ?? 0) : 0);
+  const shareOf = (id?: string) => r.shares.find((s) => s.personId === id)?.pay ?? 0;
+  // paid it all → log the whole bill; paid more than my share → log what I paid; else my share
+  const guessWhat = (id?: string): 'share' | 'full' | 'paid' =>
+    paidOf(id) >= r.total - 0.005 && r.total > 0 ? 'full' : paidOf(id) > shareOf(id) + 0.005 ? 'paid' : 'share';
+  const [what, setWhat] = useState<'share' | 'full' | 'paid'>(guessWhat(guessMe));
+  const [addOwed, setAddOwed] = useState(true);
   const dinner = data.categories.find((c) => c.kind === 'expense' && c.name.toLowerCase() === 'dinner')?.id;
   const [categoryId, setCategoryId] = useState<string | undefined>(dinner);
   const [accountId, setAccountId] = useState<string | undefined>(
     data.accounts.find((a) => a.type === 'cash' || a.type === 'bank')?.id,
   );
-  const share = r.shares.find((s) => s.personId === me)?.pay ?? 0;
-  const myPaid = me ? (plan.paid.get(me) ?? 0) : 0;
+  const share = shareOf(me);
+  const myPaid = paidOf(me);
+  const iPaidAll = myPaid >= r.total - 0.005 && r.total > 0;
+  // what the others owe me for this bill
+  const owedToMe: OwedItem[] = me
+    ? plan.transfers
+        .filter((t) => t.toId === me)
+        .map((t) => ({
+          person: t.fromName,
+          direction: 'owedToMe' as const,
+          amount: t.amount,
+          currency: bill.currency,
+          date: bill.date,
+          note: bill.title || 'Bill split',
+          key: `bill:${bill.id}:${t.fromId}:in`,
+        }))
+    : [];
+  const owedTotal = owedToMe.reduce((x, o) => x + o.amount, 0);
+  const paidForOthers = what !== 'share' && owedToMe.length > 0;
   const amount = what === 'share' ? share : what === 'paid' ? myPaid : r.total;
   const acc = accountId ? data.accountById.get(accountId) : undefined;
   const save = async () => {
@@ -202,8 +237,9 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
     // a cash purse or top-up card holding the bill's currency pays from that wallet (no conversion)
     const inWallet = acc.currency !== bill.currency && accountCurrencies(acc).includes(bill.currency);
     const sameCur = acc.currency === bill.currency || inWallet;
-    await saveTx(
+    const txId = await saveTx(
       {
+        id: what !== 'share' && bill.logged && data.allTxs.some((t) => t.id === bill.logged!.txId) ? bill.logged.txId : undefined,
         profileId: profile.id,
         date: bill.date,
         kind: 'expense',
@@ -218,6 +254,19 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
       rates,
       currency,
     );
+    if (what !== 'share') {
+      // paid for others: their paybacks become money back on this spending
+      onLogged({ txId, categoryId });
+      if (paidForOthers && addOwed) {
+        const n = await recordOwed(
+          profile.id,
+          owedToMe.map((o) => ({ ...o, spentCategoryId: categoryId, spentTxId: txId })),
+        );
+        toast(`🌸 Logged, and ${n} added to Who owes me`);
+        onClose();
+        return;
+      }
+    }
     toast('🌸 Logged');
     onClose();
   };
@@ -226,7 +275,14 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
       <Field label="Which one is me?">
         <div className="chips">
           {bill.people.map((p) => (
-            <button key={p.id} className={`chip ${me === p.id ? 'on' : ''}`} onClick={() => setMe(p.id)}>
+            <button
+              key={p.id}
+              className={`chip ${me === p.id ? 'on' : ''}`}
+              onClick={() => {
+                setMe(p.id);
+                setWhat(guessWhat(p.id));
+              }}
+            >
               {p.name}
             </button>
           ))}
@@ -240,12 +296,23 @@ function LogShareSheet({ bill, open, onClose }: { bill: BillSplit; open: boolean
           ...(myPaid > 0 && Math.abs(myPaid - r.total) > 0.005
             ? [{ v: 'paid' as const, label: `What I paid ${fmtMoney(myPaid, bill.currency)}` }]
             : []),
-          { v: 'full', label: `Whole bill ${fmtMoney(r.total, bill.currency)}` },
+          { v: 'full', label: `${iPaidAll ? 'I paid it all' : 'Whole bill'} ${fmtMoney(r.total, bill.currency)}` },
         ]}
       />
-      <div className="tiny muted mt">
-        Paid for others? Log what you paid, then log money friends pay back as income (Payback), or add them to Who owes me below.
-      </div>
+      {paidForOthers ? (
+        <div className="card flat mt">
+          <ToggleRow
+            title={`🦉 They pay me back ${fmtMoney(owedTotal, bill.currency)}`}
+            desc={`Adds ${owedToMe.map((o) => `${o.person} ${fmtMoney(o.amount, bill.currency)}`).join(', ')} to Who owes me. When they pay, it comes off this spending as money back.`}
+            on={addOwed}
+            onChange={setAddOwed}
+          />
+        </div>
+      ) : (
+        <div className="tiny muted mt">
+          Paid for others? Log what you paid: what they owe goes to Who owes me, and their paybacks come off this spending.
+        </div>
+      )}
       <Field label="Paid with">
         <AccountPickerButton accounts={data.accounts} value={accountId} onChange={setAccountId} />
       </Field>
@@ -304,6 +371,8 @@ function PayersSection({
             date: b.date,
             note: b.title || 'Bill split',
             key: `bill:${b.id}:${otherId}:${theyOweMe ? 'in' : 'out'}`,
+            // what I paid was logged: their payback is money back on it
+            ...(theyOweMe && b.logged ? { spentCategoryId: b.logged.categoryId, spentTxId: b.logged.txId } : {}),
           };
         })
     : [];
@@ -993,7 +1062,9 @@ export function BillEdit({ id }: { id: string }) {
         )}
       </Sheet>
       <CurrencySheet open={curOpen} onClose={() => setCurOpen(false)} value={cur} onPick={(c) => update({ currency: c })} />
-      {logOpen && <LogShareSheet bill={b} open={logOpen} onClose={() => setLogOpen(false)} />}
+      {logOpen && (
+        <LogShareSheet bill={b} open={logOpen} onClose={() => setLogOpen(false)} onLogged={(logged) => update({ logged })} />
+      )}
     </>
   );
 }

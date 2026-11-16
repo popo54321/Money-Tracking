@@ -42,7 +42,10 @@ export function entriesCsv(txs: Tx[], accounts: Account[], categories: Category[
       const a = acc.get(t.accountId);
       const to = t.toAccountId ? acc.get(t.toAccountId) : undefined;
       const c = t.categoryId ? cat.get(t.categoryId) : undefined;
-      const kind = { income: 'Income', expense: 'Expense', transfer: 'Transfer', adjust: 'Balance adjustment' }[t.kind];
+      const kind =
+        t.kind === 'expense' && t.amount < 0
+          ? 'Money back'
+          : { income: 'Income', expense: 'Expense', transfer: 'Transfer', adjust: 'Balance adjustment' }[t.kind];
       return [
         t.date,
         prof.get(t.profileId) ?? t.profileId,
@@ -127,7 +130,7 @@ export async function shareMonthXlsx(
     .sort((a, b) => (a.date < b.date ? -1 : 1))
     .map((t) => ({
       Date: t.date,
-      Type: t.kind,
+      Type: t.kind === 'expense' && t.amount < 0 ? 'money back' : t.kind,
       Account: acc.get(t.accountId)?.name ?? '',
       Amount: t.amount,
       Currency: t.pocket ?? acc.get(t.accountId)?.currency ?? '',
