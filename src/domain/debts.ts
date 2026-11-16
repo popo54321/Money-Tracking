@@ -162,3 +162,22 @@ export function everyoneSummary(debts: Debt[], today: ISODate, fmt: Fmt, fmtDay:
     'Nobody owes anything right now.'
   );
 }
+
+/** What a friend's payback is for, from a bill or trip split: "Alex payback for Xiamen trip". */
+export function paybackFor(person: string, what: string): string {
+  return `${person.trim() || 'Someone'} payback for ${what}`;
+}
+
+/**
+ * The note for a payback logged in my money: "Alex payback for Xiamen trip" when what they owe came from a bill
+ * or trip split, else "Payback from Alex". A note typed on the payback is added after it.
+ */
+export function paybackNote(d: Debt, typed?: string): string {
+  const fromSplit = [...d.events]
+    .filter((e) => e.type === 'lend' && (e.spentCategoryId || /^(bill|trip):/.test(e.id)) && e.note)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
+  const base = fromSplit
+    ? paybackFor(d.person, fromSplit.note!.replace(/^.* payback for /, ''))
+    : `Payback from ${d.person.trim() || 'someone'}`;
+  return typed?.trim() ? `${base}: ${typed.trim()}` : base;
+}
