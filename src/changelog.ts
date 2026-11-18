@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.4',
+    date: '2026-11-18',
+    title: 'Balance in Edit',
+    notes: [
+      'The “Set new balance” button is gone from the account page. Tap ✏️ Edit: the balance now sits at the top, ready to change.',
+      'Type the new total and choose if the difference is just a correction, or income or spending, as before.',
+      'Cash and top-up cards with other currencies show a balance for each one. Cards show the amount owed.',
+    ],
+  },
+  {
     version: '1.23.3',
     date: '2026-11-16',
     title: 'Trip split',
