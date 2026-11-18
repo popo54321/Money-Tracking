@@ -15,6 +15,7 @@ import {
 } from '../db/repo';
 import { useApp, useData } from '../state/app';
 import { accountEmoji } from '../ui/emoji';
+import { BalanceSheet } from '../components/BalanceSheet';
 
 export function AccountEdit({ id }: { id?: string }) {
   const { profile, back, replace, toast, confirm, today, tab, removeWithUndo, rates, currency } = useApp();
@@ -38,6 +39,8 @@ export function AccountEdit({ id }: { id?: string }) {
   );
   const [curOpen, setCurOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  // a new total typed for a saved account: the balance sheet asks what the difference was
+  const [newTotal, setNewTotal] = useState<{ value: number; wallet: string } | null>(null);
   const canWallets = WALLET_TYPES.has(a.type);
   const heldIn = (c: string) => data.wallets.get(a.id)?.get(c) ?? 0;
   /** Remove a currency: straight away when empty; with money in it, ask twice (buttons swap sides). */
@@ -190,6 +193,38 @@ export function AccountEdit({ id }: { id?: string }) {
           />
         </Field>
 
+        {existing && (
+          <div className="card flat">
+            {[existing.currency, ...(existing.wallets ?? [])].map((c) => {
+              const main = c === existing.currency;
+              const cardOwed = main && existing.type === 'credit';
+              const now = main ? (data.balances.get(existing.id) ?? 0) : heldIn(c);
+              const shown = cardOwed ? -now : now;
+              return (
+                <Field
+                  key={c}
+                  label={cardOwed ? 'Amount owed now' : main ? `Balance now (${c})` : `Balance in ${c}`}
+                  hint={
+                    main
+                      ? 'Change it to match your bank or app. You then choose if the difference is just a correction, or income or spending. Saved straight away.'
+                      : undefined
+                  }
+                >
+                  <AmountField
+                    value={shown}
+                    onChange={(v) => {
+                      if (Math.abs(v - shown) > 1e-9) setNewTotal({ value: v, wallet: c });
+                    }}
+                    currency={c}
+                    title={cardOwed ? 'Amount owed now' : 'New total balance'}
+                    allowNegative={!cardOwed}
+                  />
+                </Field>
+              );
+            })}
+          </div>
+        )}
+
         <Field label="Type">
           <div className="chips">
             {ACCOUNT_TYPES.map((t) => (
@@ -275,7 +310,7 @@ export function AccountEdit({ id }: { id?: string }) {
         {!existing && (
           <Field
             label={isCard ? 'Amount owed now' : `Balance now (${a.currency})`}
-            hint="You can change it any time with “Set new balance”."
+            hint="You can change it any time from ✏️ Edit on the account."
           >
             <AmountField
               value={isCard ? -a.openingBalance : a.openingBalance}
@@ -405,6 +440,7 @@ export function AccountEdit({ id }: { id?: string }) {
           set({ wallets: [...(a.wallets ?? []), c] });
         }}
       />
+      {existing && newTotal && <BalanceSheet account={existing} open start={newTotal} onClose={() => setNewTotal(null)} />}
     </>
   );
 }
