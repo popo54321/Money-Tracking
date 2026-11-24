@@ -12,6 +12,7 @@ import {
   ToggleRow,
   Topbar,
   fmtExpr,
+  REPLACE_HINT,
   useCalc,
 } from '../components/ui';
 import { unitValue } from '../domain/balances';
@@ -414,7 +415,7 @@ export function Entry({ route }: { route: EntryRoute }) {
               {typedCurrency} ▾
             </button>
           )}
-          <div className="expr">{calc.showResult ? fmtExpr(calc.expr) : ' '}</div>
+          <div className="expr">{calc.showResult ? fmtExpr(calc.expr) : calc.fresh && showPad ? REPLACE_HINT : ' '}</div>
           <div className="val">{shownValue}</div>
         </div>
         {showPad && (

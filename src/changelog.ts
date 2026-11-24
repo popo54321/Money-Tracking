@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.5',
+    date: '2026-11-24',
+    title: 'Type over amounts',
+    notes: [
+      'Changing an amount that is already there: the first number you type now replaces it, no need to press C first.',
+      'Start with + − × or ÷ instead to add to it, e.g. 500 then + 120. ⌫ still deletes one digit at a time.',
+      'The same happens after =: typing a new number starts again.',
+    ],
+  },
+  {
     version: '1.23.4',
     date: '2026-11-18',
     title: 'Balance in Edit',
