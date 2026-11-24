@@ -251,18 +251,30 @@ const KEYS = ['(', ')', 'C', '⌫', '7', '8', '9', '+', '4', '5', '6', '−', '1
 
 export function useCalc(initial = '') {
   const [expr, setExpr] = useState(initial);
+  // a number already there (an entry being edited, or a result): the first digit typed replaces it, while
+  // + − × ÷ carry on from it
+  const [fresh, setFresh] = useState(initial !== '');
   const value = useMemo(() => evaluate(expr), [expr]);
+  /** put a number in that the next digit replaces */
+  const load = (e: string) => {
+    setExpr(e);
+    setFresh(e !== '');
+  };
   const press = (k: string) => {
+    const wasFresh = fresh;
+    setFresh(false);
     if (k === 'C') return setExpr('');
     if (k === '⌫') return setExpr((e) => e.slice(0, -1));
     if (k === '=') {
       const v = evaluate(expr);
-      if (v !== null) setExpr(String(roundTo(v, 8)));
+      if (v !== null) load(String(roundTo(v, 8)));
       return;
     }
-    setExpr((e) => {
+    const isOp = (c: string) => '+−×÷'.includes(c);
+    setExpr((prev) => {
+      // typing a digit, a point or a bracket over a number already there starts again
+      const e = wasFresh && !isOp(k) ? '' : prev;
       const last = e.slice(-1);
-      const isOp = (c: string) => '+−×÷'.includes(c);
       if (isOp(k) && isOp(last)) return e.slice(0, -1) + k;
       if (isOp(k) && e === '' && k !== '−') return e;
       if (k === '.') {
@@ -273,8 +285,11 @@ export function useCalc(initial = '') {
       return e + k;
     });
   };
-  return { expr, setExpr, value, press, showResult: hasOperator(expr) };
+  return { expr, setExpr, load, fresh, value, press, showResult: hasOperator(expr) };
 }
+
+/** Shown above a number already there, before anything is typed. */
+export const REPLACE_HINT = 'Type to replace · + − × ÷ to add to it';
 
 export function Keypad({ onKey, okLabel }: { onKey: (k: string) => void; okLabel?: string }) {
   return (
@@ -323,7 +338,7 @@ export function CalcSheet({
 }) {
   const calc = useCalc('');
   useEffect(() => {
-    if (open) calc.setExpr(initial ? String(roundTo(initial, decimalsFor(currency))) : '');
+    if (open) calc.load(initial ? String(roundTo(initial, decimalsFor(currency))) : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const finish = () => {
@@ -336,7 +351,7 @@ export function CalcSheet({
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       <div className="amount-display transfer">
-        <div className="expr">{calc.showResult ? fmtExpr(calc.expr) : ' '}</div>
+        <div className="expr">{calc.showResult ? fmtExpr(calc.expr) : calc.fresh ? REPLACE_HINT : ' '}</div>
         <div className="val">
           {calc.expr === '' ? fmtMoney(0, currency) : calc.value === null ? fmtExpr(calc.expr) : fmtMoney(calc.value, currency)}
         </div>
