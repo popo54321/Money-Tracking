@@ -2032,3 +2032,32 @@ button.row.is-pressed {
   align-items: center;
   text-align: left;
 }
+
+/* Family view: looking at another phone's money */
+.view-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(92px + var(--sab));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Family sharing: a phone and what can be done with it */
+.family-phone + .family-phone {
+  margin-top: 8px;
+}
+.family-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px 4px 56px;
+}

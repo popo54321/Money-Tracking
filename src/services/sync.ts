@@ -1,6 +1,7 @@
 // Family sharing: talks to the sync service (sync/ in this repository, on Cloudflare).
 // This phone's link (its id and secret) is kept only on this phone, never in backups.
-import { db } from '../db/db';
+// sync, backups and recovery always work on this phone's own data, even while viewing another phone
+import { mainDb as db } from '../db/db';
 import type { Account, Tx } from '../domain/types';
 
 export const SYNC_URL: string =
@@ -23,6 +24,12 @@ export interface FamilyDevice {
   joinedAt: number;
   owner: boolean;
   me: boolean;
+  /** when it last sent its family backup */
+  backupAt?: number | null;
+  /** this phone may see its money (Family view) */
+  canView?: boolean;
+  /** owner only: which phones may see its money (null = everyone) */
+  viewers?: string[] | null;
 }
 
 export interface Family {
@@ -57,6 +64,8 @@ const MESSAGES: Record<string, string> = {
   'no backup': 'There is no family backup for this phone yet.',
   'phone not found': 'That phone isn’t in the family any more.',
   'too big': 'That is too big to send.',
+  busy: 'The sharing service is busy. Try again in a while.',
+  'not allowed': 'The family’s owner hasn’t let this phone see that one.',
 };
 
 export class SyncError extends Error {
@@ -162,6 +171,8 @@ interface SyncState {
   accounts: Record<string, string>;
   lastSyncAt?: number;
   lastBackupAt?: number;
+  /** the last time a backup was tried (a failed one waits too) */
+  lastBackupTry?: number;
   lastError?: string;
 }
 
@@ -201,6 +212,8 @@ export async function stopSharing(accountId: string): Promise<void> {
   await db.accounts.update(accountId, { shared: undefined });
   const st = await getState();
   delete st.accounts[accountId];
+  for (const t of await db.txs.filter((x) => x.accountId === accountId || x.toAccountId === accountId).toArray())
+    delete st.pushed[t.id];
   await putState(st);
 }
 
@@ -355,6 +368,9 @@ async function pull(link: SyncLink, st: SyncState): Promise<void> {
         if (a.data)
           await db.accounts.put({
             ...(a.data as Account),
+            // what this phone keeps about it (its splits, paying account) stays
+            splits: here?.splits,
+            payFromAccountId: here?.payFromAccountId,
             id: a.id,
             profileId: here?.profileId ?? profile?.id ?? '',
             order: here?.order ?? 900 + local.length,
@@ -368,6 +384,11 @@ async function pull(link: SyncLink, st: SyncState): Promise<void> {
         if (a.shared && !a.shared.mine && !visible.has(a.id)) {
           await db.accounts.delete(a.id);
           await db.txs.filter((t) => !!t.remoteAuthor && (t.accountId === a.id || t.toAccountId === a.id)).delete();
+          // my entries on it stay on the others' phones: don't send them as deleted
+          const mineOnIt = await db.txs
+            .filter((t) => !t.remoteAuthor && (t.accountId === a.id || t.toAccountId === a.id))
+            .toArray();
+          for (const t of mineOnIt) delete st.pushed[t.id];
         } else if (a.shared?.mine && !visible.has(a.id)) {
           await db.accounts.update(a.id, { shared: undefined });
           delete st.accounts[a.id];
@@ -437,6 +458,7 @@ export function startAutoSync(): void {
   window.addEventListener('online', tick);
   // any change to entries or accounts here
   const soon = () => {
+    changedSinceBackup = true;
     if (!applying) syncSoon();
   };
   db.txs.hook('creating', soon);
@@ -444,12 +466,24 @@ export function startAutoSync(): void {
   db.txs.hook('deleting', soon);
   db.accounts.hook('updating', soon);
   db.accounts.hook('deleting', soon);
+  // other changes only need the family backup to follow
+  const changed = () => {
+    changedSinceBackup = true;
+  };
+  for (const t of [db.accounts, db.categories, db.recurring, db.budgets, db.goals, db.debts, db.bills, db.trips, db.profiles]) {
+    t.hook('creating', changed);
+    t.hook('updating', changed);
+    t.hook('deleting', changed);
+  }
   tick();
 }
 
 // ---------- family backup and lost phones ----------
 
 const BACKUP_EVERY = 6 * 60 * 60 * 1000;
+/** after a change, the family's copy (and Family view) follows within a few minutes */
+const BACKUP_AFTER_CHANGE = 3 * 60 * 1000;
+let changedSinceBackup = true;
 const PART = 1_000_000;
 
 async function toBase64(bytes: Uint8Array): Promise<string> {
@@ -490,7 +524,7 @@ export async function unpackBackup(parts: string[]): Promise<string> {
 export async function familyBackupNow(): Promise<number> {
   const { buildBackup } = await import('./backup');
   const { APP_VERSION } = await import('./platform');
-  const parts = await packBackup(JSON.stringify(await buildBackup()));
+  const parts = await packBackup(JSON.stringify(await buildBackup(db)));
   const r = await authed<{ updatedAt: number }>('/backup', {
     method: 'PUT',
     body: JSON.stringify({ parts, appVersion: APP_VERSION }),
@@ -502,8 +536,14 @@ export async function familyBackupNow(): Promise<number> {
 }
 
 async function maybeFamilyBackup(st: SyncState): Promise<void> {
-  if (st.lastBackupAt && Date.now() - st.lastBackupAt < BACKUP_EVERY) return;
-  await familyBackupNow().catch(() => undefined);
+  const since = Date.now() - (st.lastBackupTry ?? 0);
+  if (since < (changedSinceBackup ? BACKUP_AFTER_CHANGE : BACKUP_EVERY)) return;
+  st.lastBackupTry = Date.now();
+  await putState(st);
+  changedSinceBackup = false;
+  await familyBackupNow().catch(() => {
+    changedSinceBackup = true;
+  });
 }
 
 export const familyBackups = () => authed<{ backups: { id: string; at: number; size: number }[] }>('/backups');
@@ -525,8 +565,23 @@ export async function recoverPhone(code: string): Promise<number | null> {
   if (r.backupAt) {
     const b = await authed<{ parts: string[] }>('/backup');
     const { parseBackup, restoreBackup } = await import('./backup');
-    await restoreBackup(parseBackup(await unpackBackup(b.parts)));
+    await restoreBackup(parseBackup(await unpackBackup(b.parts)), db);
   }
   await syncNow();
   return r.backupAt;
 }
+
+// ---------- Family view ----------
+
+/** Open another phone's whole money, read-only (from its latest family backup). */
+export async function viewPhone(deviceId: string): Promise<void> {
+  const r = await authed<{ name: string; parts: string[]; updatedAt: number }>(`/view/${deviceId}`);
+  const { parseBackup } = await import('./backup');
+  const b = parseBackup(await unpackBackup(r.parts));
+  const { openView } = await import('../db/db');
+  await openView({ deviceId, name: r.name, updatedAt: r.updatedAt }, b.data);
+}
+
+/** The family's owner: which phones may see `deviceId`'s money (null = everyone). */
+export const setViewers = (deviceId: string, viewers: string[] | null) =>
+  authed<Family>(`/devices/${deviceId}/viewers`, { method: 'PUT', body: JSON.stringify({ viewers }) });

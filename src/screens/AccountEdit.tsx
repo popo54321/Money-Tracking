@@ -531,7 +531,11 @@ function ConvertCurrencySheet({ account, onClose }: { account: Account; onClose:
       ok: 'Convert',
     });
     if (!ok) return;
-    await changeAccountCurrency(account.id, to, rate);
+    try {
+      await changeAccountCurrency(account.id, to, rate);
+    } catch (e) {
+      return toast(e instanceof Error ? e.message : String(e));
+    }
     toast(`✨ ${account.name} is now in ${to}`);
     onClose();
     back();

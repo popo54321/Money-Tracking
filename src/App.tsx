@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from 'react';
+import { closeView, currentView, onViewChange, READ_ONLY } from './db/db';
 import { AppProvider, useApp } from './state/app';
 import { moveFeesIntoTheirCategory, postDuePaydays, postDueRecurring } from './db/repo';
 import { refreshPrices } from './services/prices';
@@ -353,10 +354,63 @@ function DataGate({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Family view: whose money this is, how fresh, and the way back. Tries to change it say why they can't. */
+function ViewBanner() {
+  const { toast, tab } = useApp();
+  const v = useSyncExternalStore(onViewChange, currentView);
+  useEffect(() => {
+    if (!v) return;
+    tab('home');
+    const stop = (e: PromiseRejectionEvent | ErrorEvent) => {
+      const msg = 'reason' in e ? String((e.reason as Error)?.message ?? e.reason) : e.message;
+      if (msg.includes(READ_ONLY)) {
+        e.preventDefault();
+        toast('👀 ' + READ_ONLY);
+      }
+    };
+    window.addEventListener('unhandledrejection', stop);
+    window.addEventListener('error', stop);
+    return () => {
+      window.removeEventListener('unhandledrejection', stop);
+      window.removeEventListener('error', stop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v?.deviceId]);
+  if (!v) return null;
+  const mins = Math.max(0, Math.round((Date.now() - v.updatedAt) / 60000));
+  return (
+    <div className="view-banner" role="status">
+      <span className="grow">
+        👀 <b>{v.name}</b> · read-only ·{' '}
+        {mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.round(mins / 60)} h ago`}
+      </span>
+      <button className="btn sm" onClick={closeView}>
+        Back to mine
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
+  // Family view swaps the whole app onto another phone's (read-only) copy: start it afresh on that data
+  const viewing = useSyncExternalStore(onViewChange, currentView);
+  if (viewing)
+    return (
+      <AppProvider key={`view-${viewing.deviceId}-${viewing.updatedAt}`}>
+        <ViewBanner />
+        <div className="app">
+          <ErrorBoundary>
+            <Suspense fallback={<Loading />}>
+              <Screen />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+        <TabBar />
+      </AppProvider>
+    );
   return (
     <DataGate>
-      <AppProvider>
+      <AppProvider key="mine">
         <Housekeeping />
         <div className="app">
           <ErrorBoundary>

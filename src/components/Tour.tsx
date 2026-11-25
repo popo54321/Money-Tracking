@@ -317,6 +317,12 @@ const SECTIONS: Section[] = [
       {
         at: { name: 'family' },
         target: '[data-tour="family-start"]',
+        title: 'See each other’s money',
+        text: '“👀 See their money” (or the user switcher at the top) opens another phone’s whole money, read-only. The family’s owner chooses who can see whose with “👥 Who can see”.',
+      },
+      {
+        at: { name: 'family' },
+        target: '[data-tour="family-start"]',
         title: 'Lost a phone?',
         text: 'Every phone keeps a family backup. On another phone tap 🆘 Lost next to the lost one: the code it shows puts that phone’s place and data back on a new phone.',
       },

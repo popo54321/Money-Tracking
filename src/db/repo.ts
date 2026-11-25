@@ -880,10 +880,13 @@ export async function recordOwed(profileId: string, items: OwedItem[]): Promise<
 
 export async function wipeAll(): Promise<void> {
   // the phone stays in its family (leaving is done in Family sharing)
+  // (and what it has already sent, so its old entries on shared accounts don't come back)
   const link = await db.kv.get('syncLink');
+  const sent = await db.kv.get('syncState');
   await db.transaction('rw', db.tables, async () => {
     for (const t of db.tables) await t.clear();
     if (link) await db.kv.put(link);
+    if (sent) await db.kv.put(sent);
   });
 }
 
@@ -900,6 +903,8 @@ export async function changeAccountCurrency(accountId: string, currency: string,
   await saveSafetyCopy('currency');
   const a = await db.accounts.get(accountId);
   if (!a || !(rate > 0)) return;
+  // the other phones hold its entries in the old currency: stop sharing it first
+  if (a.shared) throw new Error('This account is shared. Stop sharing it first, change the currency, then share it again.');
   const old = a.currency;
   const x = (n: number) => n * rate;
   await db.transaction('rw', [db.accounts, db.txs, db.recurring, db.goals], async () => {

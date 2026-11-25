@@ -8,7 +8,7 @@ import { todayISO } from '../domain/dates';
 import { withBtc, type RateTable } from '../domain/fx';
 import { reservedByAccount, upcomingItems, type UpcomingItem } from '../domain/reserve';
 import type { Account, Category, PriceCache, Profile, Recurring, Settings, Tx } from '../domain/types';
-import { db } from '../db/db';
+import { db, isViewing } from '../db/db';
 import { fitToAccounts, type GoalRow } from '../domain/goals';
 import { accountClaims, splitAmount, type AccountClaims } from '../domain/splits';
 import { FALLBACK_PRICES, recordChanges, updateSettings } from '../db/repo';
@@ -255,7 +255,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // An account fell below its targets: save the lower amounts. Money that left is treated as spent,
   // so targets do not come back by themselves when the account goes up again (Put back undoes a mistake).
   useEffect(() => {
-    if (!data) return;
+    if (!data || isViewing()) return;
     const cuts = data.goals.filter((r) => r.saved < r.recorded - 0.005);
     if (!cuts.length) return;
     void db.transaction('rw', db.goals, async () => {

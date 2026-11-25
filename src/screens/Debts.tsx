@@ -209,7 +209,7 @@ export function DebtList() {
 }
 
 export function DebtDetail({ id, repay }: { id: string; repay?: boolean }) {
-  const { today, back, confirm, toast, removeWithUndo, profile, rates, currency } = useApp();
+  const { today, replace, back, confirm, toast, removeWithUndo, profile, rates, currency } = useApp();
   const data = useData();
   const stored = useLiveQuery(() => db.debts.get(id), [id]);
   const [d, setD] = useState<Debt | null>(null);
@@ -250,9 +250,11 @@ export function DebtDetail({ id, repay }: { id: string; repay?: boolean }) {
   useEffect(() => {
     if (!repay || !d || repayOpened.current) return;
     repayOpened.current = true;
+    // once opened, it shouldn't open again if this screen is shown afresh
+    replace({ name: 'debt', id });
     const owed = debtStatus(d, today).owed;
     setEv({ id: uid(), date: today, type: 'repay', amount: owed > 0 ? Math.round(owed * 100) / 100 : 0 });
-  }, [repay, d, today]);
+  }, [repay, d, today, replace, id]);
   if (!d) return <Topbar title="Who owes me" />;
   const update = (patch: Partial<Debt>) => {
     const next = { ...d, ...patch };

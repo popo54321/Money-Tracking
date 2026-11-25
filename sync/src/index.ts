@@ -9,8 +9,9 @@ interface Env {
   DB: D1Database;
 }
 
-const VERSION = '3';
+const VERSION = '4';
 const RECOVERY_MINUTES = 30;
+const MAX_NEW_FAMILIES_PER_HOUR = 20;
 const MAX_PART = 1_500_000;
 const MAX_PARTS = 40;
 const MAX_DEVICES = 10;
@@ -95,6 +96,14 @@ interface Device {
   token_hash: string;
   created_at: number;
   removed_at: number | null;
+  view_by: string | null;
+}
+
+/** Can `viewer` see `target`'s whole money? (NULL: every phone in the family) */
+function canView(target: Device, viewer: string): boolean {
+  if (target.id === viewer) return false;
+  if (!target.view_by) return true;
+  return (JSON.parse(target.view_by) as string[]).includes(viewer);
 }
 
 /** The phone making the request, from "Authorization: Bearer <device id>.<secret>" */
@@ -121,16 +130,27 @@ async function newDevice(env: Env, groupId: string, name: string) {
 
 async function family(req: Request, env: Env, d: Device, owner: string) {
   const { results } = await env.DB.prepare(
-    'SELECT id, name, created_at FROM devices WHERE group_id = ? AND removed_at IS NULL ORDER BY created_at',
+    'SELECT d.*, (SELECT max(updated_at) FROM backups b WHERE b.device_id = d.id) AS backup_at FROM devices d WHERE d.group_id = ? AND d.removed_at IS NULL ORDER BY d.created_at',
   )
     .bind(d.group_id)
-    .all<{ id: string; name: string; created_at: number }>();
+    .all<Device & { backup_at: number | null }>();
+  const isOwner = d.id === owner;
   return json(req, {
     ok: true,
     groupId: d.group_id,
     deviceId: d.id,
-    isOwner: d.id === owner,
-    devices: results.map((x) => ({ id: x.id, name: x.name, joinedAt: x.created_at, owner: x.id === owner, me: x.id === d.id })),
+    isOwner,
+    devices: results.map((x) => ({
+      id: x.id,
+      name: x.name,
+      joinedAt: x.created_at,
+      owner: x.id === owner,
+      me: x.id === d.id,
+      backupAt: x.backup_at,
+      canView: canView(x, d.id),
+      // who may see this phone's money: only the owner is told (and sets it)
+      viewers: isOwner ? (x.view_by ? (JSON.parse(x.view_by) as string[]) : null) : undefined,
+    })),
     max: MAX_DEVICES,
   });
 }
@@ -149,6 +169,9 @@ async function route(req: Request, env: Env): Promise<Response> {
 
   // start a family: this phone becomes its owner
   if (path === '/family' && method === 'POST') {
+    // a plain cap so a script can't fill the database with families
+    const recent = await env.DB.prepare('SELECT count(*) AS n FROM groups WHERE created_at > ?').bind(Date.now() - 3600000).first<{ n: number }>();
+    if ((recent?.n ?? 0) >= MAX_NEW_FAMILIES_PER_HOUR) throw new Fail(429, 'busy');
     const b = await body(req);
     const name = cleanName(b.name);
     const groupId = randomId(12);
@@ -276,6 +299,31 @@ async function route(req: Request, env: Env): Promise<Response> {
     return json(req, { ok: true, ended: true });
   }
 
+  // ---------- Family view ----------
+
+  // the owner sets which phones may see a phone's money (null = everyone)
+  const vw = /^\/devices\/([A-Za-z0-9_-]+)\/viewers$/.exec(path);
+  if (vw && method === 'PUT') {
+    if (!isOwner) throw new Fail(403, 'owner only');
+    const b = await body(req);
+    const alive = await liveDevices(env, device.group_id);
+    if (!alive.has(vw[1])) throw new Fail(404, 'phone not found');
+    const viewers = Array.isArray(b.viewers) ? [...new Set(b.viewers.filter((x): x is string => typeof x === 'string' && alive.has(x) && x !== vw[1]))] : null;
+    await env.DB.prepare('UPDATE devices SET view_by = ? WHERE id = ?').bind(viewers ? JSON.stringify(viewers) : null, vw[1]).run();
+    return family(req, env, device, owner);
+  }
+
+  // see another phone's whole money: its latest family backup, if the owner lets this phone see it
+  const view = /^\/view\/([A-Za-z0-9_-]+)$/.exec(path);
+  if (view && method === 'GET') {
+    const t = await env.DB.prepare('SELECT * FROM devices WHERE id = ? AND group_id = ? AND removed_at IS NULL').bind(view[1], device.group_id).first<Device>();
+    if (!t) throw new Fail(404, 'phone not found');
+    if (!canView(t, device.id)) throw new Fail(403, 'not allowed');
+    const { results } = await env.DB.prepare('SELECT data, updated_at FROM backups WHERE device_id = ? ORDER BY part').bind(t.id).all<{ data: string; updated_at: number }>();
+    if (!results.length) throw new Fail(404, 'no backup');
+    return json(req, { ok: true, name: t.name, parts: results.map((r) => r.data), updatedAt: results[0].updated_at });
+  }
+
   // ---------- shared accounts ----------
 
   const acc = /^\/accounts\/([A-Za-z0-9_-]+)$/.exec(path);
@@ -325,6 +373,11 @@ async function route(req: Request, env: Env): Promise<Response> {
         refused.push(e.id);
         continue;
       }
+      // changing an entry needs the account still in view (taking it away is always allowed)
+      if (prev && !e.deleted && !accs.length) {
+        refused.push(e.id);
+        continue;
+      }
       if (!accs.length && !prev) {
         refused.push(e.id);
         continue;
@@ -342,7 +395,8 @@ async function route(req: Request, env: Env): Promise<Response> {
         await env.DB.prepare('INSERT INTO entries (id, account_id, author_device, data, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?)')
           .bind(e.id, accs[0], device.id, data, now, e.deleted ? 1 : 0)
           .run();
-      // an entry between two shared accounts is found from either one
+      // an entry between two shared accounts is found from either one (only its current accounts)
+      if (!e.deleted) await env.DB.prepare('DELETE FROM entry_accounts WHERE entry_id = ?').bind(e.id).run();
       if (accs.length > 1)
         await env.DB.prepare('INSERT OR REPLACE INTO entry_accounts (entry_id, account_id) VALUES (?, ?)').bind(e.id, accs[1]).run();
       done.push(e.id);

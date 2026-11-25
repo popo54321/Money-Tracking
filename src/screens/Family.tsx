@@ -3,12 +3,15 @@
 // be put back onto a new one with a code from another phone in the family.
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Field, Topbar } from '../components/ui';
+import { Field, Sheet, ToggleRow, Topbar } from '../components/ui';
 import { db } from '../db/db';
 import { fmtDate } from '../domain/dates';
 import { fmtAgo } from '../domain/dates';
 import {
   familyBackupNow,
+  setViewers,
+  viewPhone,
+  type FamilyDevice,
   familyBackups,
   makeRecoveryCode,
   recoverPhone,
@@ -41,6 +44,7 @@ export function Family() {
   const [invite, setInvite] = useState<{ code: string; expiresAt: number } | null>(null);
   const [now, setNow] = useState(Date.now());
   const [problem, setProblem] = useState<string | null>(null);
+  const [whoSees, setWhoSees] = useState<FamilyDevice | null>(null);
   const [recovery, setRecovery] = useState<{ code: string; expiresAt: number; name: string } | null>(null);
   const [lostCode, setLostCode] = useState('');
   const [backups, setBackups] = useState<Map<string, number>>(new Map());
@@ -218,59 +222,88 @@ export function Family() {
               ) : (
                 <div className="list mt">
                   {fam.devices.map((d) => (
-                    <div key={d.id} className="row" style={{ cursor: 'default' }}>
-                      <div className={`bubble ${d.owner ? 'butter' : 'sky'}`}>{d.owner ? '👑' : '📱'}</div>
-                      <div className="main">
-                        <div className="title">
-                          {d.name}
-                          {d.me ? ' (this phone)' : ''}
-                        </div>
-                        <div className="sub">
-                          {d.owner ? 'Owner · ' : ''}joined {fmtDate(ISO(d.joinedAt))}
-                          {backups.get(d.id) ? ` · backed up ${fmtAgo(backups.get(d.id)!)}` : ''}
+                    <div key={d.id} className="family-phone">
+                      <div className="row" style={{ cursor: 'default' }}>
+                        <div className={`bubble ${d.owner ? 'butter' : 'sky'}`}>{d.owner ? '👑' : '📱'}</div>
+                        <div className="main">
+                          <div className="title">
+                            {d.name}
+                            {d.me ? ' (this phone)' : ''}
+                          </div>
+                          <div className="sub">
+                            {d.owner ? 'Owner · ' : ''}joined {fmtDate(ISO(d.joinedAt))}
+                            {d.backupAt
+                              ? ` · updated ${fmtAgo(d.backupAt)}`
+                              : backups.get(d.id)
+                                ? ` · updated ${fmtAgo(backups.get(d.id)!)}`
+                                : ''}
+                            {fam.isOwner && !d.me
+                              ? ` · seen by ${d.viewers === null || d.viewers === undefined ? 'everyone' : d.viewers.length ? `${d.viewers.length}` : 'nobody'}`
+                              : ''}
+                          </div>
                         </div>
                       </div>
-                      {!d.me && (
-                        <button
-                          className="btn sm ghost"
-                          disabled={busy}
-                          aria-label={`${d.name} was lost`}
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: `Was ${d.name} lost?`,
-                              message:
-                                'You get a code to type on the new phone: it takes this phone’s place, with its family backup. The lost phone then stops working with the family.',
-                              ok: 'Make a code',
-                            });
-                            if (!ok) return;
-                            await run(async () => setRecovery(await makeRecoveryCode(d.id)));
-                          }}
-                        >
-                          🆘 Lost
-                        </button>
-                      )}
-                      {fam.isOwner && !d.owner && (
-                        <button
-                          className="btn sm danger"
-                          disabled={busy}
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: `Remove ${d.name}?`,
-                              message:
-                                'It loses access to everything shared, straight away. It can join again only with a new code.',
-                              ok: 'Remove',
-                              danger: true,
-                            });
-                            if (!ok) return;
-                            await run(async () => {
-                              setFam(await removeDevice(d.id));
-                              toast(`${d.name} removed`);
-                            });
-                          }}
-                        >
-                          Remove
-                        </button>
-                      )}
+                      <div className="family-actions">
+                        {!d.me && d.canView && (
+                          <button
+                            className="btn sm mint"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                await viewPhone(d.id);
+                              })
+                            }
+                          >
+                            👀 See their money
+                          </button>
+                        )}
+                        {fam.isOwner && (
+                          <button className="btn sm" disabled={busy} onClick={() => setWhoSees(d)}>
+                            👥 Who can see
+                          </button>
+                        )}
+                        {!d.me && (
+                          <button
+                            className="btn sm ghost"
+                            disabled={busy}
+                            aria-label={`${d.name} was lost`}
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: `Was ${d.name} lost?`,
+                                message:
+                                  'You get a code to type on the new phone: it takes this phone’s place, with its family backup. The lost phone then stops working with the family.',
+                                ok: 'Make a code',
+                              });
+                              if (!ok) return;
+                              await run(async () => setRecovery(await makeRecoveryCode(d.id)));
+                            }}
+                          >
+                            🆘 Lost
+                          </button>
+                        )}
+                        {fam.isOwner && !d.owner && (
+                          <button
+                            className="btn sm danger"
+                            disabled={busy}
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: `Remove ${d.name}?`,
+                                message:
+                                  'It loses access to everything shared, straight away. It can join again only with a new code.',
+                                ok: 'Remove',
+                                danger: true,
+                              });
+                              if (!ok) return;
+                              await run(async () => {
+                                setFam(await removeDevice(d.id));
+                                toast(`${d.name} removed`);
+                              });
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -481,6 +514,70 @@ export function Family() {
           </>
         )}
       </div>
+      {whoSees && fam && (
+        <WhoSeesSheet
+          phone={whoSees}
+          family={fam}
+          onClose={() => setWhoSees(null)}
+          onSaved={(f) => {
+            setFam(f);
+            setWhoSees(null);
+            toast('👥 Saved');
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** The family's owner: which phones may see this phone's whole money. */
+function WhoSeesSheet({
+  phone,
+  family,
+  onClose,
+  onSaved,
+}: {
+  phone: FamilyDevice;
+  family: FamilyInfo;
+  onClose: () => void;
+  onSaved: (f: FamilyInfo) => void;
+}) {
+  const { toast } = useApp();
+  const others = family.devices.filter((x) => x.id !== phone.id);
+  const [pick, setPick] = useState<string[]>(phone.viewers ?? others.map((x) => x.id));
+  const [busy, setBusy] = useState(false);
+  return (
+    <Sheet open onClose={onClose} title={`👥 Who can see ${phone.name}`}>
+      <div className="small muted mb">
+        The phones you tick can open {phone.me ? 'your' : `${phone.name}’s`} whole money, read-only: accounts, entries, summary,
+        budget, targets, investments and splits. They can’t change anything.
+      </div>
+      {others.map((x) => (
+        <ToggleRow
+          key={x.id}
+          title={`${x.name}${x.me ? ' (this phone)' : ''}`}
+          on={pick.includes(x.id)}
+          onChange={(v) => setPick(v ? [...pick, x.id] : pick.filter((y) => y !== x.id))}
+        />
+      ))}
+      <button
+        className="btn primary block mt"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            // everyone ticked is stored as "everyone", so new phones can see it too
+            const all = others.every((x) => pick.includes(x.id));
+            onSaved(await setViewers(phone.id, all ? null : pick));
+          } catch (e) {
+            toast(e instanceof Error ? e.message : String(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Save
+      </button>
+    </Sheet>
   );
 }

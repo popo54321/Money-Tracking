@@ -80,7 +80,10 @@ export function AccountLine({ a }: { a: Account }) {
         <div className={`bubble ${accountColour(a.type)}`}>{accountEmoji(a.type)}</div>
         <div className="main">
           <div className="title">{a.name}</div>
-          <div className="sub">{sub}</div>
+          <div className="sub">
+            {a.shared ? (a.shared.mine ? '👨‍👩‍👧 Shared · ' : `👨‍👩‍👧 From ${a.shared.ownerName} · `) : ''}
+            {sub}
+          </div>
         </div>
         <div className="end">
           <div className={`amt ${mainCls}`}>{main}</div>

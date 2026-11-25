@@ -1,3 +1,5 @@
+import { closeView, currentView, isViewing } from '../db/db';
+import { getLink, loadFamily, viewPhone, type FamilyDevice } from '../services/sync';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { Mascot } from '../ui/Mascot';
@@ -25,18 +27,85 @@ import { useDataKept } from '../services/storage';
 import { isNative } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
+/** Family view: the phones in the family whose money this phone may see (asked once every few minutes). */
+let familyCache: { at: number; phones: FamilyDevice[] } | null = null;
+function useFamilyPhones(): FamilyDevice[] {
+  const [phones, setPhones] = useState<FamilyDevice[]>(familyCache?.phones ?? []);
+  useEffect(() => {
+    if (familyCache && Date.now() - familyCache.at < 3 * 60000) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const link = await getLink();
+        if (!link?.token) return;
+        const f = await loadFamily();
+        familyCache = { at: Date.now(), phones: f.devices.filter((d) => !d.me && d.canView) };
+        if (alive) setPhones(familyCache.phones);
+      } catch {
+        // offline or not linked: no family phones to show
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return phones;
+}
+
 export function ProfileSwitch() {
-  const { profiles, profile, setProfile, stackDepth, go } = useApp();
+  const { profiles, profile, setProfile, stackDepth, go, toast } = useApp();
   const [open, setOpen] = useState(false);
-  if (profiles.length < 2) return null;
+  const family = useFamilyPhones();
+  const viewing = currentView();
   const compact = stackDepth > 1;
-  if (profiles.length > 2 || compact) {
+  if (profiles.length < 2 && !family.length && !viewing) return null;
+  const familyRows = (
+    <>
+      {viewing && (
+        <button
+          className="row"
+          onClick={() => {
+            closeView();
+            setOpen(false);
+          }}
+        >
+          <div className="bubble mint">🏠</div>
+          <div className="main">
+            <div className="title">Back to my money</div>
+          </div>
+        </button>
+      )}
+      {family.length > 0 && <div className="cat-group-name">👀 Family (read-only)</div>}
+      {family.map((d) => (
+        <button
+          key={d.id}
+          className="row"
+          onClick={async () => {
+            setOpen(false);
+            try {
+              await viewPhone(d.id);
+            } catch (e) {
+              toast(e instanceof Error ? e.message : String(e));
+            }
+          }}
+        >
+          <div className="bubble sky">{d.owner ? '👑' : '📱'}</div>
+          <div className="main">
+            <div className="title">{d.name}</div>
+            <div className="sub">See their money, read-only</div>
+          </div>
+          {viewing?.deviceId === d.id && <div className="end bold">✓</div>}
+        </button>
+      ))}
+    </>
+  );
+  if (profiles.length > 2 || compact || family.length || viewing) {
     return (
       <>
         <div className="profile-switch">
           <button className="on" onClick={() => setOpen(true)} aria-label={`User: ${profile.name}. Change user`}>
-            {profile.emoji ?? '🙂'}
-            {compact ? '' : ` ${profile.name}`} ▾
+            {viewing ? '👀' : (profile.emoji ?? '🙂')}
+            {compact ? '' : ` ${viewing ? viewing.name : profile.name}`} ▾
           </button>
         </div>
         <Sheet open={open} onClose={() => setOpen(false)} title="✨ Whose money?">
@@ -58,9 +127,10 @@ export function ProfileSwitch() {
                 <div className="main">
                   <div className="title">{p.name}</div>
                 </div>
-                {p.id === profile.id && <div className="end bold">✓</div>}
+                {p.id === profile.id && !viewing && <div className="end bold">✓</div>}
               </button>
             ))}
+            {familyRows}
           </div>
         </Sheet>
       </>
@@ -364,7 +434,8 @@ export function Home() {
   const [nativeUpdate, setNativeUpdate] = useState<NativeUpdateState>('none');
   useEffect(() => onWebUpdateReady(() => setWebUpdate(true)), []);
   // someone new (nothing set up yet) sees the guide once; it can be reopened from More
-  const isNew = !settings.guideSeen && data.accounts.length === 0;
+  // (not while looking at someone else's money)
+  const isNew = !settings.guideSeen && data.accounts.length === 0 && !isViewing();
   useEffect(() => {
     if (isNew && !guideAutoShown) {
       guideAutoShown = true;

@@ -1,5 +1,5 @@
 // Full backup and restore of every table, as one JSON file.
-import { db, TABLES, type TableName } from '../db/db';
+import { db, TABLES, type MoneyDB, type TableName } from '../db/db';
 import { getSettings, updateSettings } from '../db/repo';
 import { todayISO } from '../domain/dates';
 import { APP_VERSION, isNative, shareFile } from './platform';
@@ -13,9 +13,9 @@ export interface BackupFile {
   data: Partial<Record<TableName, unknown[]>>;
 }
 
-export async function buildBackup(): Promise<BackupFile> {
+export async function buildBackup(from: MoneyDB = db): Promise<BackupFile> {
   const data: BackupFile['data'] = {};
-  for (const t of TABLES) data[t] = await db.table(t).toArray();
+  for (const t of TABLES) data[t] = await from.table(t).toArray();
   // this phone's family link stays on this phone: another phone restoring the file must not become it
   data.kv = (data.kv as { key: string }[]).filter((r) => r.key !== 'syncLink');
   return { app: 'money-tracking', format: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), data };
@@ -68,16 +68,16 @@ export function backupStats(b: BackupFile): { accounts: number; entries: number;
 }
 
 /** Replace everything on this phone with the backup. */
-export async function restoreBackup(b: BackupFile): Promise<void> {
+export async function restoreBackup(b: BackupFile, to: MoneyDB = db): Promise<void> {
   // this phone keeps its own family link (a backup never holds one)
-  const link = await db.kv.get('syncLink');
-  await db.transaction('rw', db.tables, async () => {
+  const link = await to.kv.get('syncLink');
+  await to.transaction('rw', to.tables, async () => {
     for (const t of TABLES) {
-      await db.table(t).clear();
+      await to.table(t).clear();
       const rows = (b.data[t] ?? []).filter((r) => t !== 'kv' || (r as { key?: string }).key !== 'syncLink');
-      if (rows.length) await db.table(t).bulkPut(rows);
+      if (rows.length) await to.table(t).bulkPut(rows);
     }
-    if (link) await db.kv.put(link);
+    if (link) await to.kv.put(link);
   });
   await updateSettings({ lastBackupAt: Date.now() });
 }
