@@ -47,7 +47,7 @@ const BillEdit = named<{ id: string }>(() => import('./screens/BillSplit'), 'Bil
 const TripList = named(() => import('./screens/Trips'), 'TripList');
 const TripEdit = named<{ id: string }>(() => import('./screens/Trips'), 'TripEdit');
 const DebtList = named(() => import('./screens/Debts'), 'DebtList');
-const DebtDetail = named<{ id: string }>(() => import('./screens/Debts'), 'DebtDetail');
+const DebtDetail = named<{ id: string; repay?: boolean }>(() => import('./screens/Debts'), 'DebtDetail');
 const Goals = named(() => import('./screens/Goals'), 'Goals');
 const Wealth = named(() => import('./screens/Wealth'), 'Wealth');
 const Convert = named(() => import('./screens/Convert'), 'Convert');
@@ -103,7 +103,7 @@ function Screen() {
     case 'debts':
       return <DebtList />;
     case 'debt':
-      return <DebtDetail id={route.id} />;
+      return <DebtDetail id={route.id} repay={route.repay} />;
     case 'goals':
       return <Goals />;
     case 'convert':

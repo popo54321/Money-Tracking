@@ -55,7 +55,7 @@ export type Route =
   | { name: 'trips' }
   | { name: 'trip'; id: string }
   | { name: 'debts' }
-  | { name: 'debt'; id: string }
+  | { name: 'debt'; id: string; repay?: boolean }
   | { name: 'goals' }
   | { name: 'wealth' }
   | { name: 'family' }

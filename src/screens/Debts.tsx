@@ -156,14 +156,17 @@ export function DebtList() {
             {showClosed ? 'Hide settled' : 'Show settled'}
           </button>
         )}
-        <div className="tiny muted center mt">Just a record: it doesn’t change your account balances.</div>
+        <div className="tiny muted center mt">
+          A record of who owes what. Paybacks can also go into your money (as money back or income) when you add them.
+        </div>
       </div>
       {quick && (
         <QuickActions
           title={quick.person || 'Someone'}
           onClose={() => setQuick(null)}
           actions={[
-            { label: '💰 Add repayment', tone: 'mint', run: () => setAmountFor({ debt: quick, type: 'repay' }) },
+            // the same Paid back sheet as inside the person, so it can be logged in your money too
+            { label: '💰 Add repayment', tone: 'mint', run: () => go({ name: 'debt', id: quick.id, repay: true }) },
             {
               label: quick.direction === 'owedToMe' ? '💸 Lent more' : '💸 Borrowed more',
               run: () => setAmountFor({ debt: quick, type: 'lend' }),
@@ -193,11 +196,9 @@ export function DebtList() {
           open
           onClose={() => setAmountFor(null)}
           title={
-            amountFor.type === 'repay'
-              ? `${amountFor.debt.person} paid back`
-              : amountFor.debt.direction === 'owedToMe'
-                ? `Lent ${amountFor.debt.person} more`
-                : `Borrowed more from ${amountFor.debt.person}`
+            amountFor.debt.direction === 'owedToMe'
+              ? `Lent ${amountFor.debt.person} more`
+              : `Borrowed more from ${amountFor.debt.person}`
           }
           currency={amountFor.debt.currency}
           onDone={(v) => addEvent(amountFor.debt, amountFor.type, v)}
@@ -207,7 +208,7 @@ export function DebtList() {
   );
 }
 
-export function DebtDetail({ id }: { id: string }) {
+export function DebtDetail({ id, repay }: { id: string; repay?: boolean }) {
   const { today, back, confirm, toast, removeWithUndo, profile, rates, currency } = useApp();
   const data = useData();
   const stored = useLiveQuery(() => db.debts.get(id), [id]);
@@ -244,6 +245,14 @@ export function DebtDetail({ id }: { id: string }) {
   useEffect(() => {
     if (stored && !d) setD(stored);
   }, [stored, d]);
+  // opened from "Add repayment" on the list: start with the Paid back sheet, filled with what is owed
+  const repayOpened = useRef(false);
+  useEffect(() => {
+    if (!repay || !d || repayOpened.current) return;
+    repayOpened.current = true;
+    const owed = debtStatus(d, today).owed;
+    setEv({ id: uid(), date: today, type: 'repay', amount: owed > 0 ? Math.round(owed * 100) / 100 : 0 });
+  }, [repay, d, today]);
   if (!d) return <Topbar title="Who owes me" />;
   const update = (patch: Partial<Debt>) => {
     const next = { ...d, ...patch };
