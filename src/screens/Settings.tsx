@@ -260,7 +260,7 @@ export function Settings() {
 
         <Section title="👨‍👩‍👧 Family sharing">
           <div className="small muted mb">Link phones to share chosen accounts. Everything else stays on each phone.</div>
-          <button className="btn block" onClick={() => go({ name: 'family' })}>
+          <button className="btn block" data-tour="settings-family" onClick={() => go({ name: 'family' })}>
             Open Family sharing ›
           </button>
         </Section>
@@ -334,6 +334,7 @@ export function Settings() {
           <div className="vstack">
             <button
               className="btn primary block"
+              data-tour="backup"
               onClick={async () => {
                 const r = await shareBackup();
                 if (r !== 'cancelled') toast('💾 Backup saved');

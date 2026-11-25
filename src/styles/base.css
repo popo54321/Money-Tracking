@@ -2011,3 +2011,24 @@ button.row.is-pressed {
   gap: 8px;
   border-top: 1px dashed var(--line);
 }
+
+/* How to use: choose a part */
+.tour-bubble.tour-pick {
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tour-pick-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.tour-pick-list .btn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+}

@@ -394,7 +394,7 @@ export function PaydayRow() {
   const p = profile.payday;
   if (!p)
     return (
-      <button className="row" onClick={() => go({ name: 'payday' })} style={{ marginBottom: 12 }}>
+      <button className="row" data-tour="payday" onClick={() => go({ name: 'payday' })} style={{ marginBottom: 12 }}>
         <div className="bubble mint">💰</div>
         <div className="main">
           <div className="title">Set up your payday</div>

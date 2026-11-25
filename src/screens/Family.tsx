@@ -101,7 +101,7 @@ export function Family() {
                 <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />
               </Field>
             </div>
-            <div className="card">
+            <div className="card" data-tour="family-start">
               <h2>Start a family</h2>
               <div className="small muted mb">This phone becomes the owner: it invites phones and can remove them.</div>
               <button
@@ -148,7 +148,7 @@ export function Family() {
           </>
         ) : (
           <>
-            <div className="card">
+            <div className="card" data-tour="family-start">
               <div className="between">
                 <h2 style={{ margin: 0 }}>Phones in the family</h2>
                 <span className="small muted">{fam ? `${fam.devices.length} of ${fam.max}` : ''}</span>
@@ -209,9 +209,29 @@ export function Family() {
                 <h2>Invite a phone</h2>
                 {invite && left > 0 ? (
                   <>
-                    <div className="center" style={{ fontSize: 34, fontWeight: 800, letterSpacing: 4, margin: '8px 0' }}>
-                      {invite.code}
-                    </div>
+                    <button
+                      type="button"
+                      className="center block"
+                      aria-label="Copy the code"
+                      style={{
+                        fontSize: 34,
+                        fontWeight: 800,
+                        letterSpacing: 4,
+                        margin: '8px 0',
+                        width: '100%',
+                        background: 'none',
+                        border: 'none',
+                        color: 'inherit',
+                        font: 'inherit',
+                        cursor: 'pointer',
+                      }}
+                      onClick={async () => toast((await copyText(invite.code)) ? '📋 Code copied' : 'Could not copy')}
+                    >
+                      <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: 4 }}>{invite.code}</span>
+                      <div className="tiny muted" style={{ letterSpacing: 0, fontWeight: 400 }}>
+                        tap to copy
+                      </div>
+                    </button>
                     <div className="small muted center mb">
                       On the other phone: Settings → Family sharing → Join, and type this code. It works once and stops in{' '}
                       {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}.

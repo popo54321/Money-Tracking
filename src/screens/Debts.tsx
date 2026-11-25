@@ -135,7 +135,7 @@ export function DebtList() {
             📋 Summary for everyone
           </button>
         )}
-        <div className="btn-row mb">
+        <div className="btn-row mb" data-tour="debt-add">
           <button className="btn mint" onClick={() => create('owedToMe')}>
             ＋ Someone owes me
           </button>

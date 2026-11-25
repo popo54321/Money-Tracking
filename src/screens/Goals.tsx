@@ -299,7 +299,7 @@ export function Goals() {
             {active.length} {active.length === 1 ? 'thing' : 'things'} on the list
           </div>
         </div>
-        <button className="btn primary block mb" onClick={create}>
+        <button className="btn primary block mb" data-tour="add-goal" onClick={create}>
           ＋ Add to wishlist
         </button>
         {keptIn.length > 0 && (

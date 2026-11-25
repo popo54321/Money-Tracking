@@ -472,7 +472,7 @@ export function Budget() {
           )}
         </div>
 
-        <div className="card">
+        <div className="card" data-tour="budget-transfers">
           <h2>🔄 Monthly transfers {isActive ? `· ${month}` : ''}</h2>
           {isActive && <div className="tiny muted mb">Tick each one as you do it. The ticks reset every month.</div>}
           {plan.transfers.map((t) => {
