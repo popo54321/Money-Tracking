@@ -1,0 +1,12 @@
+# The sync service for shared accounts (Cloudflare Worker + D1 database).
+# Deployed by .github/workflows/sync.yml; the database id is filled in there, so it is not kept here.
+name = "money-tracking-sync"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "money-tracking-sync"
+database_id = "__DATABASE_ID__"
+migrations_dir = "migrations"

@@ -22,3 +22,7 @@ android/app/src/main/assets/capacitor.plugins.json
 
 # Python caches
 __pycache__/
+
+# sync service local files
+sync/.wrangler/
+sync/node_modules/

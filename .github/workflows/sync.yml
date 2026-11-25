@@ -1,0 +1,74 @@
+name: Sync service
+
+# Deploys the sync service (sync/) to Cloudflare: makes its D1 database the first time, applies new database
+# changes, deploys the Worker, then checks it answers. Needs the CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
+# secrets (token: Workers Scripts Edit + D1 Edit).
+on:
+  push:
+    branches: [main]
+    paths: ['sync/**', '.github/workflows/sync.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WRANGLER: npx --yes wrangler@4.168.0
+      WRANGLER_SEND_METRICS: "false"
+    defaults:
+      run:
+        working-directory: sync
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Check the secrets are set
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::CLOUDFLARE_ACCOUNT_ID secret is missing"; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::CLOUDFLARE_API_TOKEN secret is missing"; exit 1; }
+
+      - name: Find or make the database
+        run: |
+          ID=$($WRANGLER d1 list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s);const d=l.find(x=>x.name==="money-tracking-sync");process.stdout.write(d?d.uuid:"")})')
+          if [ -z "$ID" ]; then
+            $WRANGLER d1 create money-tracking-sync
+            ID=$($WRANGLER d1 list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s);const d=l.find(x=>x.name==="money-tracking-sync");process.stdout.write(d?d.uuid:"")})')
+          fi
+          test -n "$ID" || { echo "::error::Could not find or make the D1 database"; exit 1; }
+          sed -i "s/__DATABASE_ID__/$ID/" wrangler.toml
+          echo "Database ready"
+
+      - name: Apply database changes
+        run: $WRANGLER d1 migrations apply money-tracking-sync --remote
+
+      - name: Deploy the Worker
+        id: deploy
+        run: |
+          $WRANGLER deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Check it answers
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          test -n "$URL" || { echo "::error::No workers.dev address in the deploy output"; exit 1; }
+          echo "Service address: $URL"
+          for i in 1 2 3 4 5 6; do
+            OUT=$(curl -s "$URL/health" || true)
+            echo "$OUT"
+            echo "$OUT" | grep -q '"ok":true' && echo "$OUT" | grep -q '"tables":5' && exit 0
+            sleep 10
+          done
+          echo "::error::The service did not answer its health check"; exit 1
