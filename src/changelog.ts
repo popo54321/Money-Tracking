@@ -11,6 +11,15 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.29.5',
+    date: '2026-11-25',
+    title: 'Delete any group',
+    notes: [
+      'Edit groups: every group now has 🗑️. If it still has accounts, you pick which group they move to, then it is deleted.',
+      'A new account starts in Bank only if you still have that group (otherwise your first group), so a deleted group doesn’t come back.',
+    ],
+  },
+  {
     version: '1.29.4',
     date: '2026-11-25',
     title: 'Balance and shared investments',
