@@ -17,6 +17,7 @@ export const CHANGELOG: ChangeEntry[] = [
     notes: [
       'Fixed: setting “Balance now” in ✏️ Edit and then pressing Save put the balance back to what it was. The balance (and splits, and what you put in) are now never undone by Save.',
       'A shared account set to “Show in Investments” now shows on the other phones’ Investments page too, with what was put in and the profit. Only the phone that shares it sets what was put in.',
+      'Edit groups: every group now has 🗑️. If it still has accounts, you pick which group they move to, then it is deleted.',
     ],
   },
   {

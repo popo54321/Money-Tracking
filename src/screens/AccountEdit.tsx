@@ -31,7 +31,10 @@ export function AccountEdit({ id }: { id?: string }) {
         profileId: profile.id,
         name: '',
         type: 'bank',
-        group: 'Bank',
+        // Bank if that group is still there, else the first of the user's groups
+        group: accountGroupsOf(profile, data.accounts).includes('Bank')
+          ? 'Bank'
+          : (accountGroupsOf(profile, data.accounts)[0] ?? 'Bank'),
         currency: 'THB',
         openingBalance: 0,
         openingDate: today,
@@ -681,7 +684,7 @@ function OrderButtons({ id }: { id: string }) {
   );
 }
 
-/** Add, rename and remove account groups. A group with accounts in it can be renamed but not removed. */
+/** Add, rename and remove account groups. Removing one with accounts in it asks where those accounts go. */
 function GroupsSheet({
   groups,
   selected,
@@ -704,13 +707,18 @@ function GroupsSheet({
     setList(next);
     await saveAccountGroups(profile.id, next);
   };
-  const remove = async (g: string) => {
+  // a group with accounts in it: which group they move to before it goes
+  const [moving, setMoving] = useState<string | null>(null);
+  const remove = async (g: string, to?: string) => {
     const next = list.filter((x) => x !== g);
+    const target = to ?? next[0];
     await save(next);
-    // archived or removed accounts still in it move to the first group, so the old one doesn't come back
+    // its accounts (and archived or removed ones, so the old group doesn't come back) move to the chosen group
     const left = data.accounts.filter((x) => x.group === g).map((x) => x.id);
-    if (left.length && next[0]) await db.accounts.where('id').anyOf(left).modify({ group: next[0] });
-    toast(`🗑️ ${g} deleted`);
+    if (left.length && target) await db.accounts.where('id').anyOf(left).modify({ group: target });
+    if (selected === g && target) onPick(target);
+    setMoving(null);
+    toast(`🗑️ ${g} deleted${to && left.length ? `, its accounts are now in ${to}` : ''}`);
   };
   return (
     <Sheet open onClose={onClose} title="✏️ Account groups">
@@ -720,7 +728,7 @@ function GroupsSheet({
           const n = real + (g === selected && real === 0 ? 1 : 0);
           const typed = names[g] ?? g;
           return (
-            <div key={g} className="row" style={{ gap: 8 }}>
+            <div key={g} className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
               <input
                 className="grow"
                 value={typed}
@@ -739,14 +747,35 @@ function GroupsSheet({
                 }}
                 aria-label={`Rename ${g}`}
               />
-              {n > 0 ? (
+              {n > 0 && (
                 <span className="tiny muted" style={{ whiteSpace: 'nowrap' }}>
                   {real === 0 ? 'this account' : `${n} ${n === 1 ? 'account' : 'accounts'}`}
                 </span>
-              ) : (
-                <button className="btn sm ghost" aria-label={`Remove ${g}`} onClick={() => void remove(g)}>
+              )}
+              {list.length > 1 && (
+                <button
+                  className="btn sm ghost"
+                  aria-label={`Remove ${g}`}
+                  onClick={() => (n > 0 ? setMoving(moving === g ? null : g) : void remove(g))}
+                >
                   🗑️
                 </button>
+              )}
+              {moving === g && (
+                <div style={{ flexBasis: '100%' }}>
+                  <div className="tiny muted mb">
+                    Move {real === 0 ? 'this account' : `its ${n} ${n === 1 ? 'account' : 'accounts'}`} to:
+                  </div>
+                  <div className="chips">
+                    {list
+                      .filter((x) => x !== g)
+                      .map((x) => (
+                        <button key={x} type="button" className="chip" onClick={() => void remove(g, x)}>
+                          {x}
+                        </button>
+                      ))}
+                  </div>
+                </div>
               )}
             </div>
           );
@@ -768,7 +797,9 @@ function GroupsSheet({
           ＋ Add
         </button>
       </div>
-      <div className="tiny muted mt">A group with accounts in it can be renamed here; move its accounts to remove it.</div>
+      <div className="tiny muted mt">
+        Rename a group by typing over it. 🗑️ deletes one; if it has accounts, you choose where they go.
+      </div>
     </Sheet>
   );
 }
