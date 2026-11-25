@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.23.6',
+    date: '2026-11-25',
+    title: 'Budget moves into Bitcoin',
+    notes: [
+      'Budget plan: “Record ticked” now records moves into an account in another currency, like baht into Bitkub (BTC).',
+      'What arrives is worked out at today’s price. Tap the move afterwards to put the exact amount you got.',
+      'No more “recorded already” message when a move was really skipped.',
+    ],
+  },
+  {
     version: '1.23.5',
     date: '2026-11-24',
     title: 'Type over amounts',
