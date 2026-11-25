@@ -11,13 +11,21 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.29.5',
+    date: '2026-11-25',
+    title: 'Delete any group',
+    notes: [
+      'Edit groups: every group now has 🗑️. If it still has accounts, you pick which group they move to, then it is deleted.',
+      'A new account starts in Bank only if you still have that group (otherwise your first group), so a deleted group doesn’t come back.',
+    ],
+  },
+  {
     version: '1.29.4',
     date: '2026-11-25',
     title: 'Balance and shared investments',
     notes: [
       'Fixed: setting “Balance now” in ✏️ Edit and then pressing Save put the balance back to what it was. The balance (and splits, and what you put in) are now never undone by Save.',
       'A shared account set to “Show in Investments” now shows on the other phones’ Investments page too, with what was put in and the profit. Only the phone that shares it sets what was put in.',
-      'Edit groups: every group now has 🗑️. If it still has accounts, you pick which group they move to, then it is deleted.',
     ],
   },
   {
