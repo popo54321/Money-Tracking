@@ -497,3 +497,22 @@ describe('release 1.21 fixes (storage)', () => {
     expect((await db.profiles.get('u1'))!.payday!.active).toBe(false);
   });
 });
+
+describe('family link stays on this phone', () => {
+  it('is left out of backups, and survives Restore and Erase', async () => {
+    const { buildBackup, restoreBackup } = await import('../services/backup');
+    const { wipeAll } = await import('./repo');
+    const { db } = await import('./db');
+    const link = { groupId: 'g', deviceId: 'd', token: 'd.secret', name: 'Po' };
+    await db.kv.put({ key: 'syncLink', value: link });
+    const b = await buildBackup();
+    expect((b.data.kv as { key: string }[]).some((r) => r.key === 'syncLink')).toBe(false);
+    // a backup carrying someone else's link must not replace this phone's
+    b.data.kv = [...(b.data.kv as object[]), { key: 'syncLink', value: { ...link, deviceId: 'other' } }];
+    if (!b.data.profiles?.length) b.data.profiles = [{ id: 'p', name: 'P', order: 0 }];
+    await restoreBackup(b);
+    expect((await db.kv.get('syncLink'))?.value).toEqual(link);
+    await wipeAll();
+    expect((await db.kv.get('syncLink'))?.value).toEqual(link);
+  });
+});

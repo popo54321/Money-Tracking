@@ -183,7 +183,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function Settings() {
-  const { settings, prices, profiles, toast, confirm, profile, setProfile, skin } = useApp();
+  const { settings, prices, profiles, toast, confirm, profile, setProfile, skin, go } = useApp();
   const [curOpen, setCurOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
   const [watchOpen, setWatchOpen] = useState(false);
@@ -255,6 +255,13 @@ export function Settings() {
             }}
           >
             ＋ Add a user
+          </button>
+        </Section>
+
+        <Section title="👨‍👩‍👧 Family sharing">
+          <div className="small muted mb">Link phones to share chosen accounts. Everything else stays on each phone.</div>
+          <button className="btn block" onClick={() => go({ name: 'family' })}>
+            Open Family sharing ›
           </button>
         </Section>
 

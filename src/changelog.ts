@@ -11,6 +11,17 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.26.0',
+    date: '2026-11-25',
+    title: 'Family sharing: link phones',
+    notes: [
+      'Settings → Family sharing: start a family on one phone, then link up to 10 phones with a one-time code (it lasts 15 minutes).',
+      'The phone that starts it is the owner: it makes codes and can remove phones. A removed phone loses access straight away.',
+      'Each phone has a name so everyone knows who is who. A phone that joined can leave; the owner can end the family.',
+      'Nothing is shared yet: choosing accounts to share comes in the next update. Backups never carry this phone’s link.',
+    ],
+  },
+  {
     version: '1.25.3',
     date: '2026-11-25',
     title: 'Scrolling fix',

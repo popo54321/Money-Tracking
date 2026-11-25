@@ -26,6 +26,7 @@ import { More } from './screens/More';
 import { RecurringList, RecurringEdit } from './screens/Recurring';
 import { PaydayEdit } from './screens/Payday';
 import { Retire } from './screens/Retire';
+import { Family } from './screens/Family';
 import { Tour } from './components/Tour';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -109,6 +110,8 @@ function Screen() {
       return <Convert />;
     case 'wealth':
       return <Wealth />;
+    case 'family':
+      return <Family />;
     case 'settings':
       return <Settings />;
     case 'changelog':

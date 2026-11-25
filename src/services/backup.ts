@@ -16,6 +16,8 @@ export interface BackupFile {
 export async function buildBackup(): Promise<BackupFile> {
   const data: BackupFile['data'] = {};
   for (const t of TABLES) data[t] = await db.table(t).toArray();
+  // this phone's family link stays on this phone: another phone restoring the file must not become it
+  data.kv = (data.kv as { key: string }[]).filter((r) => r.key !== 'syncLink');
   return { app: 'money-tracking', format: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), data };
 }
 
@@ -67,12 +69,15 @@ export function backupStats(b: BackupFile): { accounts: number; entries: number;
 
 /** Replace everything on this phone with the backup. */
 export async function restoreBackup(b: BackupFile): Promise<void> {
+  // this phone keeps its own family link (a backup never holds one)
+  const link = await db.kv.get('syncLink');
   await db.transaction('rw', db.tables, async () => {
     for (const t of TABLES) {
       await db.table(t).clear();
-      const rows = b.data[t];
-      if (rows && rows.length) await db.table(t).bulkPut(rows);
+      const rows = (b.data[t] ?? []).filter((r) => t !== 'kv' || (r as { key?: string }).key !== 'syncLink');
+      if (rows.length) await db.table(t).bulkPut(rows);
     }
+    if (link) await db.kv.put(link);
   });
   await updateSettings({ lastBackupAt: Date.now() });
 }
