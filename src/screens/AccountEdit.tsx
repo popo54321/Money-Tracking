@@ -284,6 +284,15 @@ export function AccountEdit({ id }: { id?: string }) {
           </Field>
         )}
 
+        {!['investment', 'crypto', 'units', 'credit', 'cash', 'topup'].includes(a.type) && (
+          <ToggleRow
+            title="📈 Show in Investments"
+            desc="List it on the Investments page with what you put in and its profit (e.g. a unit-linked insurance)"
+            on={!!a.showInInvestments}
+            onChange={(v) => set({ showInInvestments: v || undefined })}
+          />
+        )}
+
         {a.type === 'units' && (
           <ToggleRow
             title="🥇 Thai gold, live price (ทองบาทละ)"

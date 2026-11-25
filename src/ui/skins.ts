@@ -52,7 +52,7 @@ const QUEENBEE: SkinDef = {
     summary: 'Summary 💅',
     budget: 'Budget plan 📋',
     goals: 'Saving targets 💖',
-    wealth: 'Wealth preserve 💎',
+    wealth: 'Investments & wealth 💎',
   },
   sparkle: {},
   tiles: {
@@ -102,7 +102,7 @@ const FANTASY: SkinDef = {
     summary: 'Summary 🔮',
     budget: 'Budget spell 📜',
     goals: 'Wishes 🌠',
-    wealth: 'Wealth preserve 🐉',
+    wealth: 'Investments & wealth 🐉',
   },
   sparkle: {
     home: '🧚',
@@ -163,7 +163,7 @@ const DINO: SkinDef = {
     summary: 'Summary 🦴',
     budget: 'Budget plan 🦖',
     goals: 'Saving targets 🦕',
-    wealth: 'Wealth preserve 🪨',
+    wealth: 'Investments & wealth 🪨',
   },
   sparkle: {
     home: '🦕',
@@ -224,7 +224,7 @@ const WILDLIFE: SkinDef = {
     summary: 'Summary 🐾',
     budget: 'Budget plan 🗺️',
     goals: 'Saving targets 🎯',
-    wealth: 'Wealth preserve 🪙',
+    wealth: 'Investments & wealth 🪙',
   },
   sparkle: {},
   tiles: {
@@ -274,7 +274,7 @@ const SPACE: SkinDef = {
     summary: 'Summary 🪐',
     budget: 'Budget plan 🗺️',
     goals: 'Saving targets 🌟',
-    wealth: 'Wealth preserve 💫',
+    wealth: 'Investments & wealth 💫',
   },
   sparkle: {},
   tiles: {
@@ -324,7 +324,7 @@ const FINANCIAL: SkinDef = {
     summary: 'Summary',
     budget: 'Budget plan',
     goals: 'Saving targets',
-    wealth: 'Wealth preserve',
+    wealth: 'Investments & wealth',
   },
   sparkle: {},
   tiles: {
