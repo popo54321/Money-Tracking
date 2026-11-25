@@ -19,6 +19,8 @@ export interface Profile {
   groupLimitPeriods?: Record<string, LimitPeriod>;
   /** a fixed salary recorded once a month (full salary in, deductions out) */
   payday?: Payday;
+  /** Wealth preserve: overall capital typed for all Bitcoin, and for all gold (see holdingStatus) */
+  wealthCapital?: { btc?: { amount: number; setAt: number }; gold?: { amount: number; setAt: number } };
 }
 
 export type AccountType =

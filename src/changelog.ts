@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.24.0',
+    date: '2026-11-25',
+    title: 'Overall capital',
+    notes: [
+      'Wealth preserve: tap “Paid (capital)” to type the total you’ve paid for all your Bitcoin (or all your gold), whatever wallets it sits in.',
+      'From then on, money moved in (buying more, budget moves into Bitkub) is added to it by itself. Selling takes off its share.',
+      'Moving between your own wallets, like Bitkub to Trezor, doesn’t change it. Profit and average cost follow the new capital.',
+    ],
+  },
+  {
     version: '1.23.6',
     date: '2026-11-25',
     title: 'Budget moves into Bitcoin',

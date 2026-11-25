@@ -31,13 +31,28 @@ export function isGoldAccount(a: Account): boolean {
   return a.type === 'units' && (a.unitPriceSource === 'live-gold' || /baht|บาท|gold|ทอง/i.test(`${a.currency} ${a.name}`));
 }
 
-export function holdingStatus(accounts: Account[], txs: Tx[], rates: RateTable, target: string): HoldingStatus {
+/**
+ * Overall capital typed for all accounts of one kind (all BTC wallets, or all gold) at a moment (`setAt`): what
+ * was paid for everything held then. Money moved in afterwards adds to it; selling takes off its share.
+ */
+export interface CapitalMark {
+  amount: number;
+  setAt: number;
+}
+
+export function holdingStatus(
+  accounts: Account[],
+  txs: Tx[],
+  rates: RateTable,
+  target: string,
+  capital?: CapitalMark,
+): HoldingStatus {
   const ids = new Set(accounts.map((a) => a.id));
   const units = new Map<string, number>();
   const cost = new Map<string, number>();
   for (const a of accounts) {
     units.set(a.id, a.openingBalance);
-    cost.set(a.id, a.costBasis ?? 0);
+    cost.set(a.id, capital ? 0 : (a.costBasis ?? 0));
   }
   const sorted = txs
     .filter((t) => ids.has(t.accountId) || (t.toAccountId !== undefined && ids.has(t.toAccountId)))
@@ -55,11 +70,11 @@ export function holdingStatus(accounts: Account[], txs: Tx[], rates: RateTable, 
       units.set(id, u + d);
     }
   };
-
-  for (const t of sorted) {
+  const apply = (t: Tx) => {
     const fromH = ids.has(t.accountId);
     const toH = t.kind === 'transfer' && t.toAccountId !== undefined && ids.has(t.toAccountId) && t.toAccountId !== t.accountId;
     if (fromH && toH) {
+      // between two of these accounts (Bitkub → Trezor): the cost moves with the coins, the total stays
       const from = t.accountId;
       const to = t.toAccountId!;
       const u = units.get(from)!;
@@ -74,6 +89,18 @@ export function holdingStatus(accounts: Account[], txs: Tx[], rates: RateTable, 
     } else if (toH) {
       add(t.toAccountId!, txDelta(t, t.toAccountId!), t);
     }
+  };
+
+  if (capital) {
+    // what was held when the overall capital was typed: that is what it paid for, shared by holding
+    const before = sorted.filter((t) => t.createdAt <= capital.setAt);
+    for (const t of before) apply(t);
+    const held = accounts.reduce((x, a) => x + Math.max(0, units.get(a.id)!), 0);
+    for (const a of accounts) cost.set(a.id, held > 0 ? (capital.amount * Math.max(0, units.get(a.id)!)) / held : 0);
+    if (held <= 0 && accounts[0]) cost.set(accounts[0].id, capital.amount);
+    for (const t of sorted) if (t.createdAt > capital.setAt) apply(t);
+  } else {
+    for (const t of sorted) apply(t);
   }
 
   const lines: HoldingLine[] = accounts.map((a) => ({

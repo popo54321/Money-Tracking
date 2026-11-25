@@ -38,6 +38,43 @@ function CostSheet({ account, onClose }: { account: Account; onClose: () => void
   );
 }
 
+/** One capital for all wallets of a kind: what you paid in total for what you hold now. */
+function CapitalSheet({ kind, status, onClose }: { kind: 'btc' | 'gold'; status: HoldingStatus; onClose: () => void }) {
+  const { currency, toast, profile } = useApp();
+  const mark = profile.wealthCapital?.[kind];
+  const [v, setV] = useState<number | null>(status.cost > 0 ? Math.round(status.cost * 100) / 100 : null);
+  const what = kind === 'btc' ? 'Bitcoin' : 'gold';
+  const save = async (next: { amount: number; setAt: number } | undefined) => {
+    await db.profiles.update(profile.id, { wealthCapital: { ...profile.wealthCapital, [kind]: next } });
+    toast(next ? '✨ Capital saved' : 'Back to each account’s own cost');
+    onClose();
+  };
+  return (
+    <Sheet open onClose={onClose} title={`💰 Overall capital · ${what}`}>
+      <div className="small muted mb">
+        Everything you’ve paid for the {what} you hold now, across all {kind === 'btc' ? 'wallets' : 'accounts'}. From now on,
+        money you move in (buying more) is added by itself, and selling takes off its share. Moving between your own{' '}
+        {kind === 'btc' ? 'wallets' : 'accounts'} changes nothing.
+      </div>
+      <Field label={`Total paid in ${currency}`}>
+        <AmountField value={v} onChange={setV} currency={currency} title="Overall capital" />
+      </Field>
+      <button
+        className="btn primary block"
+        disabled={v === null}
+        onClick={() => v !== null && save({ amount: v, setAt: Date.now() })}
+      >
+        Save
+      </button>
+      {mark && (
+        <button className="btn ghost block mt" onClick={() => save(undefined)}>
+          Use each account’s own starting cost instead
+        </button>
+      )}
+    </Sheet>
+  );
+}
+
 function HoldingCard({
   title,
   emoji,
@@ -49,6 +86,8 @@ function HoldingCard({
   extra,
   onBuy,
   onCost,
+  onCapital,
+  overall,
 }: {
   title: string;
   emoji: string;
@@ -60,6 +99,9 @@ function HoldingCard({
   extra?: React.ReactNode;
   onBuy: () => void;
   onCost: (a: Account) => void;
+  onCapital: () => void;
+  /** an overall capital is set for all accounts of this kind */
+  overall: boolean;
 }) {
   const { currency, go } = useApp();
   const pl = status.profit;
@@ -82,10 +124,14 @@ function HoldingCard({
           <div className="k">Worth now</div>
           <div className="v">{fmtMoney(status.value, currency, { compact: true })}</div>
         </div>
-        <div className="stat" style={{ background: 'var(--bg2)' }}>
-          <div className="k">Paid (capital)</div>
-          <div className="v">{status.cost > 0 ? fmtMoney(status.cost, currency, { compact: true }) : '—'}</div>
-        </div>
+        <button
+          className="stat"
+          style={{ background: 'var(--bg2)', border: 'none', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+          onClick={onCapital}
+        >
+          <div className="k">Paid (capital) ✏️</div>
+          <div className="v">{status.cost > 0 ? fmtMoney(status.cost, currency, { compact: true }) : 'Tap to add'}</div>
+        </button>
         <div className="stat" style={{ background: 'var(--bg2)' }}>
           <div className="k">Profit / loss</div>
           <div className={`v ${pl === null ? '' : pl >= 0 ? 'pos' : 'neg'}`}>
@@ -118,7 +164,7 @@ function HoldingCard({
                 </div>
               </button>
               <span className="small bold nowrap">{fmtMoney(l.value, currency, { compact: true })}</span>
-              {l.account.openingBalance !== 0 && (
+              {!overall && l.account.openingBalance !== 0 && (
                 <button className="btn sm ghost" onClick={() => onCost(l.account)} aria-label="Set starting cost">
                   ✏️
                 </button>
@@ -142,8 +188,10 @@ export function Wealth() {
   const live = data.accounts.filter((a) => !a.archived);
   const btcAccounts = live.filter(isBtcAccount);
   const goldAccounts = live.filter(isGoldAccount);
-  const btc = holdingStatus(btcAccounts, data.txs, rates, currency);
-  const gold = holdingStatus(goldAccounts, data.txs, rates, currency);
+  const { profile } = useApp();
+  const [capitalFor, setCapitalFor] = useState<'btc' | 'gold' | null>(null);
+  const btc = holdingStatus(btcAccounts, data.txs, rates, currency, profile.wealthCapital?.btc);
+  const gold = holdingStatus(goldAccounts, data.txs, rates, currency, profile.wealthCapital?.gold);
   const total = (btc.value ?? 0) + (gold.value ?? 0);
   const side = settings.goldPriceSide ?? 'buy';
   const btcPrice = rates.perUsd.BTC ? (rates.perUsd[currency] ?? 0) / rates.perUsd.BTC : null;
@@ -169,7 +217,7 @@ export function Wealth() {
               .join(' · ') ||
               (btcAccounts.length + goldAccounts.length === 0
                 ? 'Add a Bitcoin or Gold account to see it here'
-                : 'Tap ✏️ next to an account to add what you paid, to see profit')}
+                : 'Tap “Paid (capital)” to add what you paid, to see profit')}
           </div>
         </div>
 
@@ -192,6 +240,8 @@ export function Wealth() {
               : go({ name: 'accountEdit' })
           }
           onCost={setCostFor}
+          onCapital={() => setCapitalFor('btc')}
+          overall={!!profile.wealthCapital?.btc}
         />
 
         <HoldingCard
@@ -233,6 +283,8 @@ export function Wealth() {
               : go({ name: 'accountEdit' })
           }
           onCost={setCostFor}
+          onCapital={() => setCapitalFor('gold')}
+          overall={!!profile.wealthCapital?.gold}
         />
 
         <button
@@ -253,6 +305,9 @@ export function Wealth() {
         </div>
       </div>
       {costFor && <CostSheet account={costFor} onClose={() => setCostFor(null)} />}
+      {capitalFor && (
+        <CapitalSheet kind={capitalFor} status={capitalFor === 'btc' ? btc : gold} onClose={() => setCapitalFor(null)} />
+      )}
     </>
   );
 }
