@@ -15,6 +15,20 @@ import { useApp, useData } from '../state/app';
 import { ProfileSwitch } from './Home';
 import { holdProps } from '../components/hold';
 
+/** What Investments & wealth adds up to now, in the main currency: investments, and Bitcoin + gold. */
+export function useWealthTotal(): { investments: number; btcGold: number; total: number } {
+  const { rates, currency, profile } = useApp();
+  const data = useData();
+  const live = data.accounts.filter((a) => !a.archived);
+  const btc = holdingStatus(live.filter(isBtcAccount), data.txs, rates, currency, profile.wealthCapital?.btc);
+  const gold = holdingStatus(live.filter(isGoldAccount), data.txs, rates, currency, profile.wealthCapital?.gold);
+  const investments = live
+    .filter((a) => isInvestmentAccount(a) && !isBtcAccount(a) && !isGoldAccount(a))
+    .reduce((x, a) => x + (accountValue(a, investmentStatus(a, data.txs, data.categoryById).value, rates, currency) ?? 0), 0);
+  const btcGold = (btc.value ?? 0) + (gold.value ?? 0);
+  return { investments, btcGold, total: investments + btcGold };
+}
+
 function CostSheet({ account, onClose }: { account: Account; onClose: () => void }) {
   const { currency, toast } = useApp();
   const [v, setV] = useState<number | null>(account.costBasis ?? null);
