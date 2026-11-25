@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { AmountField, Field, Seg, Sheet, Topbar, Sparkle, SkinName } from '../components/ui';
-import { fmtAgo } from '../domain/dates';
+import { diffDays, fmtAgo } from '../domain/dates';
+import { accountValue } from '../domain/balances';
+import { investmentStatus, isInvestmentAccount, type InvestmentStatus } from '../domain/investments';
+import { BalanceSheet } from '../components/BalanceSheet';
 import { BAHT_WEIGHT_GRAMS } from '../domain/fx';
 import { fmtMoney, fmtNumber } from '../domain/money';
 import type { Account } from '../domain/types';
@@ -72,6 +75,118 @@ function CapitalSheet({ kind, status, onClose }: { kind: 'btc' | 'gold'; status:
         </button>
       )}
     </Sheet>
+  );
+}
+
+/** An investment account's capital: what you've put in so far, in its own currency. */
+function InvestCapitalSheet({ account, status, onClose }: { account: Account; status: InvestmentStatus; onClose: () => void }) {
+  const { toast } = useApp();
+  const [v, setV] = useState<number | null>(Math.round(status.capital * 100) / 100);
+  return (
+    <Sheet open onClose={onClose} title={`💰 Capital · ${account.name}`}>
+      <div className="small muted mb">
+        Everything you’ve put into {account.name} so far, not counting growth. From now on, money you move in is added by itself,
+        and money moved out takes off its share (so your profit % stays true).
+      </div>
+      <Field label={`Put in (${account.currency})`}>
+        <AmountField value={v} onChange={setV} currency={account.currency} title="Capital" />
+      </Field>
+      <button
+        className="btn primary block"
+        disabled={v === null}
+        onClick={async () => {
+          await db.accounts.update(account.id, { capital: { amount: v ?? 0, setAt: Date.now() } });
+          toast('✨ Capital saved');
+          onClose();
+        }}
+      >
+        Save
+      </button>
+    </Sheet>
+  );
+}
+
+/** Funds, stocks and other investment accounts: value against capital, each updated on its own. */
+function InvestmentsCard({ rows }: { rows: { account: Account; status: InvestmentStatus }[] }) {
+  const { currency, rates, today, go } = useApp();
+  const [valueFor, setValueFor] = useState<Account | null>(null);
+  const [capFor, setCapFor] = useState<{ account: Account; status: InvestmentStatus } | null>(null);
+  const inBase = (a: Account, n: number) => accountValue(a, n, rates, currency);
+  const value = rows.reduce((x, r) => x + (inBase(r.account, r.status.value) ?? 0), 0);
+  const capital = rows.reduce((x, r) => x + (inBase(r.account, r.status.capital) ?? 0), 0);
+  const profit = value - capital;
+  return (
+    <div className="card">
+      <h2 style={{ margin: 0 }}>📈 Investments</h2>
+      {rows.length === 0 ? (
+        <div className="small muted mt">
+          Accounts of type Investment show here (funds, stocks, provident fund). Others can join with “Show in Investments” in
+          their Edit page.
+        </div>
+      ) : (
+        <>
+          <div className="stat-row mt" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <div className="stat" style={{ background: 'var(--bg2)' }}>
+              <div className="k">Worth now</div>
+              <div className="v">{fmtMoney(value, currency, { compact: true })}</div>
+            </div>
+            <div className="stat" style={{ background: 'var(--bg2)' }}>
+              <div className="k">Capital · profit</div>
+              <div className={`v ${profit >= 0 ? 'pos' : 'neg'}`}>
+                {fmtMoney(capital, currency, { compact: true })} ·{' '}
+                {capital > 0 ? `${fmtNumber((profit / capital) * 100, 1, 1)}%` : '—'}
+              </div>
+            </div>
+          </div>
+          {rows.map(({ account: a, status: st }) => {
+            const stale = st.updated ? diffDays(st.updated, today) : null;
+            return (
+              <div key={a.id} className="item-line" style={{ alignItems: 'flex-start' }}>
+                <button
+                  className="grow"
+                  style={{ border: 'none', background: 'none', textAlign: 'left', padding: 0, font: 'inherit', color: 'inherit' }}
+                  onClick={() => go({ name: 'account', id: a.id })}
+                >
+                  <div className="bold small">{a.name}</div>
+                  <div className="tiny muted">
+                    put in {fmtMoney(st.capital, a.currency, { compact: true })} ·{' '}
+                    <span className={st.profit >= 0 ? 'pos' : 'neg'}>
+                      {fmtMoney(st.profit, a.currency, { compact: true, sign: true })}
+                      {st.profitPct !== null ? ` (${fmtNumber(st.profitPct * 100, 1, 1)}%)` : ''}
+                    </span>
+                  </div>
+                  <div className="tiny muted">
+                    {stale === null ? 'value never updated' : stale === 0 ? 'updated today' : `updated ${stale} days ago`}
+                    {st.takenOut > 0.005 ? ` · profit taken out ${fmtMoney(st.takenOut, a.currency, { compact: true })}` : ''}
+                  </div>
+                </button>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="small bold nowrap">{fmtMoney(st.value, a.currency, { compact: true })}</div>
+                  <div style={{ marginTop: 4, display: 'flex', gap: 4, justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
+                    <button className="btn sm ghost" onClick={() => setValueFor(a)} aria-label={`Update value of ${a.name}`}>
+                      📈 Value
+                    </button>
+                    <button
+                      className="btn sm ghost"
+                      onClick={() => setCapFor({ account: a, status: st })}
+                      aria-label={`Capital of ${a.name}`}
+                    >
+                      💰
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="tiny muted mt">
+            📈 Value: type what the app shows (market change, not income). Money moved in adds to capital; money moved out takes
+            capital out in the same share as value. Dividends and interest count as profit.
+          </div>
+        </>
+      )}
+      {valueFor && <BalanceSheet account={valueFor} open onClose={() => setValueFor(null)} />}
+      {capFor && <InvestCapitalSheet account={capFor.account} status={capFor.status} onClose={() => setCapFor(null)} />}
+    </div>
   );
 }
 
@@ -192,7 +307,17 @@ export function Wealth() {
   const [capitalFor, setCapitalFor] = useState<'btc' | 'gold' | null>(null);
   const btc = holdingStatus(btcAccounts, data.txs, rates, currency, profile.wealthCapital?.btc);
   const gold = holdingStatus(goldAccounts, data.txs, rates, currency, profile.wealthCapital?.gold);
-  const total = (btc.value ?? 0) + (gold.value ?? 0);
+  const invest = live
+    .filter((a) => isInvestmentAccount(a) && !isBtcAccount(a) && !isGoldAccount(a))
+    .map((a) => ({
+      account: a,
+      status: investmentStatus(a, data.txs, data.categoryById),
+    }));
+  const investValue = invest.reduce((x, r) => x + (accountValue(r.account, r.status.value, rates, currency) ?? 0), 0);
+  const investCapital = invest.reduce((x, r) => x + (accountValue(r.account, r.status.capital, rates, currency) ?? 0), 0);
+  const total = (btc.value ?? 0) + (gold.value ?? 0) + investValue;
+  const totalPaid = btc.cost + gold.cost + investCapital;
+  const totalProfit = (btc.profit ?? 0) + (gold.profit ?? 0) + (investValue - investCapital);
   const side = settings.goldPriceSide ?? 'buy';
   const btcPrice = rates.perUsd.BTC ? (rates.perUsd[currency] ?? 0) / rates.perUsd.BTC : null;
   const goldPrice = side === 'sell' ? prices.goldSellThb : prices.goldBuyThb;
@@ -204,22 +329,18 @@ export function Wealth() {
       <div className="page">
         <div className="hero">
           <Sparkle k="wealth" />
-          <div className="label">BTC + gold worth now</div>
+          <div className="label">Investments, BTC and gold worth now</div>
           <div className="big">{fmtMoney(total, currency)}</div>
           <div className="small bold">
-            {[
-              btc.cost + gold.cost > 0 ? `paid ${fmtMoney(btc.cost + gold.cost, currency, { compact: true })}` : '',
-              btc.profit !== null || gold.profit !== null
-                ? `profit ${fmtMoney((btc.profit ?? 0) + (gold.profit ?? 0), currency, { compact: true, sign: true })}`
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' · ') ||
-              (btcAccounts.length + goldAccounts.length === 0
-                ? 'Add a Bitcoin or Gold account to see it here'
-                : 'Tap “Paid (capital)” to add what you paid, to see profit')}
+            {totalPaid > 0
+              ? `put in ${fmtMoney(totalPaid, currency, { compact: true })} · profit ${fmtMoney(totalProfit, currency, { compact: true, sign: true })}`
+              : btcAccounts.length + goldAccounts.length + invest.length === 0
+                ? 'Add an Investment, Bitcoin or Gold account to see it here'
+                : 'Tap “Paid (capital)” or 💰 to add what you put in, to see profit'}
           </div>
         </div>
+
+        <InvestmentsCard rows={invest} />
 
         <HoldingCard
           title="Bitcoin"

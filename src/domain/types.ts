@@ -74,6 +74,13 @@ export interface Account {
   unitPriceSource?: 'manual' | 'live-gold';
   /** what the starting balance cost, in the main currency (BTC and gold profit/loss) */
   costBasis?: number;
+  /**
+   * Investments: what has been put in, in the account's currency, typed at a moment (`setAt`). Money moved in
+   * afterwards adds to it; money moved out takes off its share (see investmentStatus).
+   */
+  capital?: { amount: number; setAt: number };
+  /** shown on the Investments page even though it isn't an Investment account (e.g. a unit-linked insurance) */
+  showInInvestments?: boolean;
   // Credit cards
   creditLimit?: number;
   statementDay?: number;

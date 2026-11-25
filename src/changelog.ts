@@ -11,6 +11,18 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.25.0',
+    date: '2026-11-25',
+    title: 'Investments & wealth',
+    notes: [
+      'Wealth preserve is now Investments & wealth: your funds and stock accounts sit with Bitcoin and gold, with one total at the top.',
+      'Each investment account shows what you put in (capital), what it is worth now and the profit. Tap 📈 Value to update what it is worth, and 💰 to set the capital.',
+      'Money moved in adds to both capital and value. Dividends and interest count as profit.',
+      'Money moved out takes capital out in the same share as value (the average-cost method), so your profit % stays true. Profit that left with it shows as “profit taken out”.',
+      'Other accounts, like a unit-linked insurance, can join with “Show in Investments” in Edit.',
+    ],
+  },
+  {
     version: '1.24.0',
     date: '2026-11-25',
     title: 'Overall capital',

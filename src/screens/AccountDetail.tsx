@@ -8,6 +8,8 @@ import { AmountField, Field, Sheet, Topbar } from '../components/ui';
 import { ScheduledList, TxGroups } from '../components/TxRow';
 import { SplitsCard } from '../components/SplitsCard';
 import { accountValue, walletsValue } from '../domain/balances';
+import { investmentStatus, isInvestmentAccount } from '../domain/investments';
+import { fmtNumber } from '../domain/money';
 import { convert } from '../domain/fx';
 import { cardStatus } from '../domain/creditCard';
 import { fmtAgo, fmtDate, relativeDays } from '../domain/dates';
@@ -178,6 +180,25 @@ export function AccountDetail({ id }: { id: string }) {
             🔄 Move
           </button>
         </div>
+        {isInvestmentAccount(a) &&
+          (() => {
+            const st = investmentStatus(a, data.txs, data.categoryById);
+            return (
+              <button
+                className="card flat small"
+                style={{ width: '100%', textAlign: 'left' }}
+                onClick={() => go({ name: 'wealth' })}
+              >
+                📈 Put in <b>{fmtMoney(st.capital, a.currency)}</b> · profit{' '}
+                <b className={st.profit >= 0 ? 'pos' : 'neg'}>
+                  {fmtMoney(st.profit, a.currency, { sign: true })}
+                  {st.profitPct !== null ? ` (${fmtNumber(st.profitPct * 100, 1, 1)}%)` : ''}
+                </b>
+                <div className="tiny muted">Update its value and capital on the Investments page ›</div>
+              </button>
+            );
+          })()}
+
         {a.type === 'units' && a.unitPriceSource !== 'live-gold' && (
           <div className="btn-row mb">
             <button className="btn sky" onClick={() => setPriceOpen(true)}>

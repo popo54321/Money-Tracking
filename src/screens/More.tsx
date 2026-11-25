@@ -25,7 +25,7 @@ export function More() {
       tiles: [
         { k: 'budget', t: n('budget'), d: 'Phases & monthly transfers', c: 'mint', r: { name: 'budget' } },
         { k: 'goals', t: n('goals'), d: 'Wishlist & when to buy', c: 'peach', r: { name: 'goals' } },
-        { k: 'wealth', t: n('wealth'), d: 'BTC & gold (ทองบาทละ)', c: 'butter', r: { name: 'wealth' } },
+        { k: 'wealth', t: n('wealth'), d: 'Funds, stocks, BTC & gold', c: 'butter', r: { name: 'wealth' } },
         { k: 'monthClose', t: 'Month close', d: 'Month-end numbers to copy', c: 'sky', r: { name: 'monthClose' } },
       ],
     },
