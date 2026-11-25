@@ -879,3 +879,74 @@ export async function wipeAll(): Promise<void> {
     for (const t of db.tables) await t.clear();
   });
 }
+
+// ---------- changing an account's currency ----------
+
+/**
+ * Change an account's currency when it already has entries: every amount kept in its currency (starting balance,
+ * its side of each entry, repeating entries, splits, capital, linked saving targets) is multiplied by `rate`
+ * (1 old = rate new). The other side of moves and the values stamped in the main currency stay as they were, so
+ * other accounts and past months don't change. A safety copy is saved first.
+ */
+export async function changeAccountCurrency(accountId: string, currency: string, rate: number): Promise<void> {
+  const { saveSafetyCopy } = await import('../services/safety');
+  await saveSafetyCopy('currency');
+  const a = await db.accounts.get(accountId);
+  if (!a || !(rate > 0)) return;
+  const old = a.currency;
+  const x = (n: number) => n * rate;
+  await db.transaction('rw', [db.accounts, db.txs, db.recurring, db.goals], async () => {
+    await db.accounts.put({
+      ...a,
+      currency,
+      openingBalance: x(a.openingBalance),
+      costBasis: a.costBasis,
+      capital: a.capital ? { ...a.capital, amount: x(a.capital.amount) } : undefined,
+      creditLimit: a.creditLimit !== undefined ? x(a.creditLimit) : undefined,
+      splits: a.splits?.map((sp) => ({
+        ...sp,
+        base: x(sp.base),
+        added: sp.added ? Object.fromEntries(Object.entries(sp.added).map(([k, v]) => [k, x(v)])) : undefined,
+      })),
+    });
+    const txs = await db.txs.filter((t) => t.accountId === accountId || t.toAccountId === accountId).toArray();
+    for (const t of txs) {
+      const next = { ...t };
+      const self = t.accountId === accountId && t.toAccountId === accountId;
+      if (t.accountId === accountId && !t.pocket) {
+        // a move out keeps what arrived on the other side
+        if (t.kind === 'transfer' && !self && t.toAmount === undefined) next.toAmount = t.amount;
+        next.amount = x(t.amount);
+        next.fromSplits = t.fromSplits?.map((f) => ({ ...f, amount: x(f.amount) }));
+        if (t.origCurrency === currency) {
+          next.origAmount = undefined;
+          next.origCurrency = undefined;
+        }
+      }
+      if (t.toAccountId === accountId && !t.toPocket && t.kind === 'transfer') {
+        next.toAmount = x(t.toAmount ?? t.amount);
+      }
+      await db.txs.put(next);
+    }
+    const recs = await db.recurring.filter((r) => r.accountId === accountId || r.toAccountId === accountId).toArray();
+    for (const r of recs) {
+      const next = { ...r };
+      if (r.accountId === accountId) {
+        if (r.kind === 'transfer' && r.toAmount === undefined && r.toAccountId !== accountId) next.toAmount = r.amount;
+        next.amount = x(r.amount);
+        if (r.instalmentTotal !== undefined) next.instalmentTotal = x(r.instalmentTotal);
+      } else if (r.toAccountId === accountId) next.toAmount = x(r.toAmount ?? r.amount);
+      await db.recurring.put(next);
+    }
+    const goals = await db.goals.filter((g) => g.accountId === accountId && g.currency === old).toArray();
+    for (const g of goals)
+      await db.goals.put({
+        ...g,
+        currency,
+        price: x(g.price),
+        saved: x(g.saved),
+        monthly: x(g.monthly),
+        lowered: g.lowered ? { ...g.lowered, from: x(g.lowered.from) } : undefined,
+      });
+  });
+}

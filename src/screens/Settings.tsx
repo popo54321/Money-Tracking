@@ -342,7 +342,7 @@ export function Settings() {
                 className="btn butter block"
                 onClick={async () => {
                   const ok = await confirm({
-                    title: `Undo the ${safetyCopy.reason === 'restore' ? 'restore' : 'erase'}?`,
+                    title: `Undo the ${safetyCopy.reason === 'currency' ? 'currency change' : safetyCopy.reason}?`,
                     message: `Everything goes back to how it was on ${new Date(safetyCopy.at).toLocaleString()}. Anything added since is replaced.`,
                     ok: 'Undo it',
                   });
@@ -351,7 +351,8 @@ export function Settings() {
                   setSafetyCopy(null);
                 }}
               >
-                ↩️ Undo the last {safetyCopy.reason === 'restore' ? 'restore' : 'erase'} ({fmtAgo(safetyCopy.at)})
+                ↩️ Undo the last {safetyCopy.reason === 'currency' ? 'currency change' : safetyCopy.reason} (
+                {fmtAgo(safetyCopy.at)})
               </button>
             )}
             <button className="btn mint block" onClick={exportAll}>

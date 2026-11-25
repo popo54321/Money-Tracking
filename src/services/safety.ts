@@ -10,7 +10,7 @@ import { compareVersions } from './version';
 interface SafetyCopy {
   id: 'last';
   at: number;
-  reason: 'restore' | 'erase';
+  reason: 'restore' | 'erase' | 'currency';
   backup: BackupFile;
 }
 

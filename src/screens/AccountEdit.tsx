@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccountPickerButton, AmountField, CurrencySheet, Field, NumberInput, Sheet, ToggleRow, Topbar } from '../components/ui';
 import { deleteEffects, isLiquid, walletsByAccount } from '../domain/balances';
 import { accountGroupsOf, ACCOUNT_TYPES, WALLET_TYPES, type Account, type AccountType } from '../domain/types';
-import { fmtMoney } from '../domain/money';
+import { fmtMoney, fmtNumber } from '../domain/money';
+import { convert } from '../domain/fx';
 import { db, uid } from '../db/db';
 import {
   accountTxCount,
+  changeAccountCurrency,
   deleteAccountCascade,
   pausePaydaysUsing,
   renameAccountGroup,
@@ -41,6 +43,7 @@ export function AccountEdit({ id }: { id?: string }) {
   const [walletOpen, setWalletOpen] = useState(false);
   // a new total typed for a saved account: the balance sheet asks what the difference was
   const [newTotal, setNewTotal] = useState<{ value: number; wallet: string } | null>(null);
+  const [convertOpen, setConvertOpen] = useState(false);
   const canWallets = WALLET_TYPES.has(a.type);
   const heldIn = (c: string) => data.wallets.get(a.id)?.get(c) ?? 0;
   /** Remove a currency: straight away when empty; with money in it, ask twice (buttons swap sides). */
@@ -253,8 +256,19 @@ export function AccountEdit({ id }: { id?: string }) {
             </Field>
           </div>
         ) : a.type !== 'crypto' ? (
-          <Field label="Currency" hint={hasEntries ? 'Currency can’t change once there are entries.' : undefined}>
-            <button type="button" className="amount-field" disabled={hasEntries} onClick={() => setCurOpen(true)}>
+          <Field
+            label="Currency"
+            hint={
+              hasEntries
+                ? 'It has entries: changing it converts every amount in this account at the rate you confirm.'
+                : undefined
+            }
+          >
+            <button
+              type="button"
+              className="amount-field"
+              onClick={() => (hasEntries && existing ? setConvertOpen(true) : setCurOpen(true))}
+            >
               {a.currency} <span className="cur">▾</span>
             </button>
           </Field>
@@ -449,7 +463,81 @@ export function AccountEdit({ id }: { id?: string }) {
           set({ wallets: [...(a.wallets ?? []), c] });
         }}
       />
+      {existing && convertOpen && <ConvertCurrencySheet account={existing} onClose={() => setConvertOpen(false)} />}
       {existing && newTotal && <BalanceSheet account={existing} open start={newTotal} onClose={() => setNewTotal(null)} />}
+    </>
+  );
+}
+
+/**
+ * Change the currency of an account that has entries: type what it is worth in the new currency (filled in at
+ * today's rate) and every amount in the account is converted at that rate.
+ */
+function ConvertCurrencySheet({ account, onClose }: { account: Account; onClose: () => void }) {
+  const { rates, toast, confirm, back } = useApp();
+  const data = useData();
+  const [to, setTo] = useState<string | null>(null);
+  const [pick, setPick] = useState(true);
+  const bal = data.balances.get(account.id) ?? 0;
+  const live = to ? convert(1, account.currency, to, rates) : null;
+  const [worth, setWorth] = useState<number | null>(null);
+  const rate = to ? (bal !== 0 && worth !== null ? worth / bal : live) : null;
+  // closed the currency list without picking one: nothing to do
+  useEffect(() => {
+    if (!pick && !to) onClose();
+  }, [pick, to, onClose]);
+  const go = async () => {
+    if (!to || !rate || !(rate > 0)) return toast('Type what it is worth in the new currency');
+    const ok = await confirm({
+      title: `Change ${account.name} to ${to}?`,
+      message: `Every amount in it is converted at 1 ${account.currency} = ${fmtNumber(rate, 6, 2)} ${to}. Other accounts and past totals stay the same. A safety copy is kept (Settings → Undo).`,
+      ok: 'Convert',
+    });
+    if (!ok) return;
+    await changeAccountCurrency(account.id, to, rate);
+    toast(`✨ ${account.name} is now in ${to}`);
+    onClose();
+    back();
+  };
+  return (
+    <>
+      <Sheet open={!pick && !!to} onClose={onClose} title={`🔁 Change currency · ${account.name}`}>
+        {to && (
+          <>
+            <div className="card flat small">
+              Now: <b>{fmtMoney(bal, account.currency)}</b> in {account.currency}
+            </div>
+            <Field
+              label={`What it is worth in ${to}`}
+              hint={
+                live
+                  ? `Filled in at today’s rate (1 ${account.currency} = ${fmtNumber(live, 6, 2)} ${to}). Type what your app shows to use its rate.`
+                  : 'No rate saved for this currency: type what your app shows.'
+              }
+            >
+              <AmountField value={worth} onChange={setWorth} currency={to} title={`Worth in ${to}`} />
+            </Field>
+            <button className="btn primary block" onClick={go}>
+              Convert to {to}
+            </button>
+            <button className="btn ghost block mt" onClick={() => setPick(true)}>
+              Pick another currency
+            </button>
+          </>
+        )}
+      </Sheet>
+      <CurrencySheet
+        open={pick}
+        onClose={() => setPick(false)}
+        value={to ?? account.currency}
+        onPick={(c) => {
+          if (c === account.currency) return onClose();
+          setTo(c);
+          const r = convert(1, account.currency, c, rates);
+          setWorth(r ? Math.round(bal * r * 100) / 100 : null);
+          setPick(false);
+        }}
+      />
     </>
   );
 }

@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.25.2',
+    date: '2026-11-25',
+    title: 'Change an account’s currency',
+    notes: [
+      'Accounts with entries can now change currency (e.g. Dime from THB to USD): tap Currency in Edit, pick the new one and confirm what it is worth.',
+      'Every amount in that account is converted at that rate: starting balance, entries, repeating entries, splits, capital and linked targets.',
+      'Other accounts and past totals stay the same, and a safety copy is kept so you can undo it from Settings.',
+    ],
+  },
+  {
     version: '1.25.1',
     date: '2026-11-25',
     title: 'Fill the pot in one tap',
