@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.25.1',
+    date: '2026-11-25',
+    title: 'Fill the pot in one tap',
+    notes: [
+      'Will my money be enough?: a new button at the top puts what Investments & wealth is worth (funds, stocks, BTC and gold) into “Pot today”.',
+    ],
+  },
+  {
     version: '1.25.0',
     date: '2026-11-25',
     title: 'Investments & wealth',
