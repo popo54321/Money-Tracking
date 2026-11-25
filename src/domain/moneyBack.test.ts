@@ -53,3 +53,63 @@ describe('payback notes', () => {
     expect(paybackNote({ ...d, events: [{ ...d.events[0], id: 'x' }] })).toBe('Payback from Alex');
   });
 });
+
+describe('overall capital for all BTC wallets', async () => {
+  const { holdingStatus } = await import('./wealth');
+  const rates = { perUsd: { USD: 1, THB: 33, BTC: 1 / 60000 } };
+  const acc = (id: string, opening: number) =>
+    ({
+      id,
+      profileId: 'p',
+      name: id,
+      type: 'crypto',
+      currency: 'BTC',
+      group: 'Investments',
+      openingBalance: opening,
+      openingDate: '2026-01-01',
+      order: 0,
+      archived: false,
+    }) as import('./types').Account;
+  const accounts = [acc('bitkub', 0.03), acc('trezor', 0.63), acc('bank', 0)].slice(0, 2);
+  const tx = (x: Partial<Tx>): Tx => t({ kind: 'transfer', ...x });
+  it('starts from the typed total, adds money moved in, ignores moves between wallets', () => {
+    const capital = { amount: 500000, setAt: 100 };
+    // bought before the capital was typed: already in the 500,000
+    const old = tx({
+      id: 'o',
+      accountId: 'bank',
+      toAccountId: 'bitkub',
+      amount: 10000,
+      toAmount: 0.005,
+      value: 10000,
+      createdAt: 50,
+      date: '2026-10-01',
+    });
+    const s0 = holdingStatus(accounts, [old], rates, 'THB', capital);
+    expect(s0.cost).toBeCloseTo(500000);
+    // bought afterwards: added
+    const buy = tx({
+      id: 'b',
+      accountId: 'bank',
+      toAccountId: 'bitkub',
+      amount: 15500,
+      toAmount: 0.0077,
+      value: 15500,
+      createdAt: 200,
+      date: '2026-11-25',
+    });
+    const move = tx({
+      id: 'm',
+      accountId: 'bitkub',
+      toAccountId: 'trezor',
+      amount: 0.02,
+      toAmount: 0.02,
+      value: 0,
+      createdAt: 300,
+      date: '2026-11-26',
+    });
+    const s1 = holdingStatus(accounts, [old, buy, move], rates, 'THB', capital);
+    expect(s1.cost).toBeCloseTo(515500);
+    expect(s1.lines.reduce((x, l) => x + l.cost, 0)).toBeCloseTo(515500);
+  });
+});
