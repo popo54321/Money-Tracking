@@ -153,7 +153,18 @@ export function AccountEdit({ id }: { id?: string }) {
       ...a,
       name: a.name.trim(),
       order: stored?.order ?? a.order,
-      // who it is shared with is set in its sharing card (and synced), never by this form
+      // set elsewhere while this form may be open, so never put back by it: the balance (Balance now saves
+      // straight away), splits, what was put in (Investments), and who it is shared with
+      ...(stored
+        ? {
+            openingBalance: stored.openingBalance,
+            openingDate: stored.openingDate,
+            splits: stored.splits,
+            capital: stored.capital,
+            costBasis: stored.costBasis,
+            unitPrice: a.unitPrice !== existing?.unitPrice ? a.unitPrice : stored.unitPrice,
+          }
+        : {}),
       shared: stored?.shared,
       wallets: WALLET_TYPES.has(a.type) && a.wallets?.length ? a.wallets.filter((c) => c !== a.currency) : undefined,
     });
