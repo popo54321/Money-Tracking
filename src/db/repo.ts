@@ -875,8 +875,11 @@ export async function recordOwed(profileId: string, items: OwedItem[]): Promise<
 // ---------- reset ----------
 
 export async function wipeAll(): Promise<void> {
+  // the phone stays in its family (leaving is done in Family sharing)
+  const link = await db.kv.get('syncLink');
   await db.transaction('rw', db.tables, async () => {
     for (const t of db.tables) await t.clear();
+    if (link) await db.kv.put(link);
   });
 }
 

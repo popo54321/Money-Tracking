@@ -58,6 +58,7 @@ export type Route =
   | { name: 'debt'; id: string }
   | { name: 'goals' }
   | { name: 'wealth' }
+  | { name: 'family' }
   | { name: 'convert' }
   | { name: 'settings' }
   | { name: 'changelog' }
