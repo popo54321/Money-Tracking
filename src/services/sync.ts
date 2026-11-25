@@ -191,7 +191,8 @@ async function putState(s: SyncState): Promise<void> {
 /** What other phones get of an account: what it is, not how this phone organises it. */
 function sendable(a: Account) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { profileId, order, payFromAccountId, splits, capital, costBasis, shared, showInInvestments, ...rest } = a;
+  // what was put in, and whether it is an investment, go too: it shows on the others' Investments page
+  const { profileId, order, payFromAccountId, splits, shared, ...rest } = a;
   return rest;
 }
 

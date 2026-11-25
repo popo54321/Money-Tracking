@@ -180,13 +180,16 @@ function InvestmentsCard({ rows }: { rows: { account: Account; status: Investmen
                     <button className="btn sm ghost" onClick={() => setValueFor(a)} aria-label={`Update value of ${a.name}`}>
                       📈 Value
                     </button>
-                    <button
-                      className="btn sm ghost"
-                      onClick={() => setCapFor({ account: a, status: st })}
-                      aria-label={`Capital of ${a.name}`}
-                    >
-                      💰
-                    </button>
+                    {/* shared with you: the phone that shares it sets what was put in */}
+                    {(!a.shared || a.shared.mine) && (
+                      <button
+                        className="btn sm ghost"
+                        onClick={() => setCapFor({ account: a, status: st })}
+                        aria-label={`Capital of ${a.name}`}
+                      >
+                        💰
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
