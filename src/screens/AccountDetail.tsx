@@ -115,7 +115,7 @@ export function AccountDetail({ id }: { id: string }) {
             </span>
           </div>
         )}
-        <div className="hero">
+        <div data-tour="acct-hero" className="hero">
           <div className="label">
             {isCard
               ? bal > 0.005
@@ -219,7 +219,7 @@ export function AccountDetail({ id }: { id: string }) {
 
         {isCard && st && (
           <div className="card">
-            <h2>💳 Statement</h2>
+            <h2 data-tour="acct-statement">💳 Statement</h2>
             {!a.statementDay ? (
               <div className="small muted">Add the statement day and due day in ✏️ Edit to see what to pay and when.</div>
             ) : (
@@ -319,7 +319,7 @@ export function AccountDetail({ id }: { id: string }) {
 
         {reservedHere.length > 0 && (
           <div className="card">
-            <h2>🔒 Set aside for bills</h2>
+            <h2 data-tour="acct-reserve">🔒 Set aside for bills</h2>
             {reservedHere.map((u) => (
               <div key={u.key} className="between small" style={{ padding: '4px 0' }}>
                 <span>

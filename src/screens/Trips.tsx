@@ -315,7 +315,12 @@ function TripOwedButton({ t, r, update }: { t: Trip; r: TripResult; update: (pat
         </div>
       </div>
       {meId && myBills.length > 0 && (
-        <button className="btn pink block mb" disabled={newBills.length === 0} onClick={() => setLogOpen(true)}>
+        <button
+          data-tour="trip-log"
+          className="btn pink block mb"
+          disabled={newBills.length === 0}
+          onClick={() => setLogOpen(true)}
+        >
           {newBills.length === 0
             ? `✓ All ${myBills.length} bills you paid are logged`
             : `💸 Log the ${newBills.length} ${newBills.length === 1 ? 'bill' : 'bills'} I paid${loggedIds.size ? ' (new ones)' : ''}`}
@@ -586,7 +591,9 @@ export function TripEdit({ id }: { id: string }) {
           <input value={t.name} onChange={(e) => update({ name: e.target.value })} placeholder="e.g. Xiamen / China" />
         </Field>
 
-        <div className="section-title">👯 People ({t.members.length})</div>
+        <div className="section-title" data-tour="trip-people">
+          👯 People ({t.members.length})
+        </div>
         <div className="chips mb">
           {t.members.map((m) => (
             <button key={m.id} className="chip" onClick={() => setMember(m)}>
@@ -606,7 +613,7 @@ export function TripEdit({ id }: { id: string }) {
           </button>
         </div>
 
-        <div className="card">
+        <div className="card" data-tour="trip-rates">
           <div className="between">
             <h2 style={{ margin: 0 }}>💱 Rates → {base}</h2>
             <button className="btn sm ghost" onClick={() => setBaseCur(true)}>
@@ -651,7 +658,7 @@ export function TripEdit({ id }: { id: string }) {
           </button>
         </div>
 
-        <div className="section-title">
+        <div className="section-title" data-tour="trip-bills">
           🧾 Bills ({t.entries.length}) <span className="grow" />
           <span className="small">{fmtMoney(r.total, base)}</span>
         </div>
@@ -707,7 +714,7 @@ export function TripEdit({ id }: { id: string }) {
           </div>
         )}
 
-        <div className="hero">
+        <div className="hero" data-tour="trip-settle">
           <Sparkle k="trips" />
           <div className="label">Settle up</div>
           {r.settlements.length === 0 ? (
@@ -778,7 +785,11 @@ export function TripEdit({ id }: { id: string }) {
         >
           📋 Copy summary
         </button>
-        <button className={`btn block mt ${t.settled ? '' : 'mint'}`} onClick={() => update({ settled: !t.settled })}>
+        <button
+          data-tour="trip-settled"
+          className={`btn block mt ${t.settled ? '' : 'mint'}`}
+          onClick={() => update({ settled: !t.settled })}
+        >
           {t.settled ? '↩️ Reopen' : '✅ Mark as settled'}
         </button>
       </div>

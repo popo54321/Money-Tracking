@@ -300,7 +300,7 @@ export function DebtDetail({ id, repay }: { id: string; repay?: boolean }) {
           ]}
         />
 
-        <div className="hero mt">
+        <div className="hero mt" data-tour="debt-hero">
           <Sparkle k="debts" override={theyOwe ? '💚' : '💗'} />
           <div className="label">{theyOwe ? 'They owe you now' : 'You owe now'}</div>
           <div className="big">{fmtMoney(s.owed, cur)}</div>
@@ -331,6 +331,7 @@ export function DebtDetail({ id, repay }: { id: string; repay?: boolean }) {
             ＋ {theyOwe ? 'Lent more' : 'Borrowed more'}
           </button>
           <button
+            data-tour="debt-paid"
             className="btn mint"
             onClick={() =>
               setEv({ id: uid(), date: today, type: 'repay', amount: s.owed > 0 ? Math.round(s.owed * 100) / 100 : 0 })

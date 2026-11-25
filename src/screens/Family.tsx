@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Field, Sheet, ToggleRow, Topbar } from '../components/ui';
-import { db } from '../db/db';
+import { db, isViewing, READ_ONLY } from '../db/db';
 import { fmtDate } from '../domain/dates';
 import { fmtAgo } from '../domain/dates';
 import {
@@ -53,6 +53,11 @@ export function Family() {
 
   const linked = !!link?.token;
   const run = async <T,>(f: () => Promise<T>): Promise<T | undefined> => {
+    // looking at someone else's (or the tour's example) money: nothing here acts on it
+    if (isViewing()) {
+      toast('👀 ' + READ_ONLY);
+      return;
+    }
     setBusy(true);
     setProblem(null);
     try {

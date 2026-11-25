@@ -7,6 +7,7 @@ import { shareFile } from '../services/platform';
 import { useApp } from '../state/app';
 import { fmtMoney } from '../domain/money';
 import { useWealthTotal } from './Wealth';
+import { DEMO_CALC, isDemo } from '../services/demo';
 
 declare global {
   interface Window {
@@ -57,6 +58,18 @@ export function Retire() {
       )}
       <iframe
         ref={frame}
+        onLoad={() => {
+          // the tour's example money: example numbers too (this phone's own come back after the tour)
+          if (!isDemo()) return;
+          const doc = frame.current?.contentDocument;
+          if (!doc) return;
+          for (const [id, v] of Object.entries(DEMO_CALC)) {
+            const el = doc.getElementById(id) as HTMLInputElement | null;
+            if (!el) continue;
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }}
         className="retire-frame"
         src={`retire/index.html?look=${dark ? 'night' : 'cream'}&skin=${skin.id}`}
         title="Will my money be enough?"

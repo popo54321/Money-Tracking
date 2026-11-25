@@ -235,7 +235,7 @@ function HoldingCard({
   const { currency, go } = useApp();
   const pl = status.profit;
   return (
-    <div className="card">
+    <div className="card" data-tour={title === 'Bitcoin' ? 'wealth-btc' : 'wealth-gold'}>
       <div className="between">
         <h2 style={{ margin: 0 }}>
           {emoji} {title}

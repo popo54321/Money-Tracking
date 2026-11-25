@@ -158,7 +158,7 @@ export function PaydayEdit() {
         </div>
 
         <div className="section-title">✂️ Taken off</div>
-        <div className="card">
+        <div data-tour="payday-card" className="card">
           <Field label={`The rest: ${fmtMoney(Math.max(0, rest), cur)}`} hint="Full salary − take-home − the lines below">
             <CategorySelect
               categories={data.categories}

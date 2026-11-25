@@ -378,7 +378,7 @@ function PayersSection({
     : [];
 
   return (
-    <div className="card">
+    <div className="card" data-tour="bill-payers">
       <h2>💳 Who paid?</h2>
       <Seg
         value={several ? 'several' : 'one'}
@@ -683,7 +683,7 @@ export function BillEdit({ id }: { id: string }) {
           </Field>
         </div>
 
-        <div className="section-title">
+        <div className="section-title" data-tour="bill-people">
           👯 People ({b.people.length}) <span className="grow" />
           <button className="btn sm ghost" onClick={() => setCurOpen(true)}>
             {cur} ▾
@@ -725,7 +725,9 @@ export function BillEdit({ id }: { id: string }) {
 
         {b.mode === 'even' ? (
           <>
-            <div className="section-title">🍜 Food for everyone</div>
+            <div className="section-title" data-tour="bill-shared">
+              🍜 Food for everyone
+            </div>
             <div className="person-card">
               {food.map((i) => (
                 <ItemLine key={i.id} item={i} currency={cur} onChange={setItem} onRemove={() => removeItem(i.id)} />
@@ -746,7 +748,9 @@ export function BillEdit({ id }: { id: string }) {
           </>
         ) : (
           <>
-            <div className="section-title">🍜 Own orders</div>
+            <div className="section-title" data-tour="bill-own">
+              🍜 Own orders
+            </div>
             {tableItems.length > 0 && (
               <div className="person-card">
                 <div className="bold">🍽️ For the whole table (shared by everyone)</div>
@@ -787,7 +791,7 @@ export function BillEdit({ id }: { id: string }) {
             );
           })}
 
-        <div className="section-title">
+        <div className="section-title" data-tour="bill-shared-items">
           {b.mode === 'even'
             ? '🍻 Only for some (drinks…, split between the people ticked)'
             : '🍻 Shared items (split between the people ticked)'}
@@ -836,7 +840,7 @@ export function BillEdit({ id }: { id: string }) {
         </button>
 
         <div className="card">
-          <h2>🧾 Service charge, VAT & tip</h2>
+          <h2 data-tour="bill-charges">🧾 Service charge, VAT & tip</h2>
           <div className="chips mb">
             <button className="chip" onClick={() => update({ servicePct: 10, vatPct: 7, vatOnService: true })}>
               10% + 7%
@@ -914,7 +918,7 @@ export function BillEdit({ id }: { id: string }) {
           </div>
         </div>
 
-        <div className="hero">
+        <div className="hero" data-tour="bill-total">
           <Sparkle k="bills" />
           <div className="label">Total bill</div>
           <div className="big">{fmtMoney(r.total, cur)}</div>
@@ -989,11 +993,15 @@ export function BillEdit({ id }: { id: string }) {
           >
             📋 Copy summary
           </button>
-          <button className="btn pink" onClick={() => setLogOpen(true)}>
+          <button data-tour="bill-log" className="btn pink" onClick={() => setLogOpen(true)}>
             💸 Log my spending
           </button>
         </div>
-        <button className={`btn block mt ${b.settled ? '' : 'mint'}`} onClick={() => update({ settled: !b.settled })}>
+        <button
+          data-tour="bill-settled"
+          className={`btn block mt ${b.settled ? '' : 'mint'}`}
+          onClick={() => update({ settled: !b.settled })}
+        >
           {b.settled ? '↩️ Reopen' : '✅ Mark as settled'}
         </button>
       </div>

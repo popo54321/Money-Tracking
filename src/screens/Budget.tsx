@@ -377,7 +377,7 @@ export function Budget() {
           </div>
         )}
 
-        <div className="hero">
+        <div data-tour="budget-hero" className="hero">
           <Sparkle k="budget" override={isActive ? '⭐' : undefined} />
           <div className="label">{phase.name}</div>
           <div className="big">{fmtMoney(totals.total, cur)}</div>
@@ -400,7 +400,7 @@ export function Budget() {
         </Field>
 
         <div className="card">
-          <h2>💗 Where the money goes</h2>
+          <h2 data-tour="budget-lines">💗 Where the money goes</h2>
           <table className="t">
             <thead>
               <tr>
@@ -527,7 +527,7 @@ export function Budget() {
         </div>
 
         <div className="card">
-          <h2>🎁 Bonus split</h2>
+          <h2 data-tour="budget-bonus">🎁 Bonus split</h2>
           <Field label="Bonus income">
             <AmountField
               value={plan.bonus.income}
@@ -544,7 +544,7 @@ export function Budget() {
         </div>
 
         <div className="card">
-          <h2>🍀 Leftover money rule</h2>
+          <h2 data-tour="budget-leftover">🍀 Leftover money rule</h2>
           <Field label="Leftover each month">
             <AmountField
               value={plan.surplus.amount}

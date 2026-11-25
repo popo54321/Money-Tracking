@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.29.0',
+    date: '2026-11-25',
+    title: 'A tour with example money',
+    notes: [
+      'How to use now runs on example money (Alex, made up) so every screen is filled in, and goes much deeper: inside an account and a card statement, an entry with money back, limits, payday, every part of a dinner bill split and a trip, a person in Who owes me, each part of the Budget plan, saving targets, investments and Bitcoin, shared accounts and Family view.',
+      'Will my money be enough? gets example numbers during the tour, and your own come back after.',
+      'Your own money is never touched: the example is read-only, and ending the tour (or “End tour”) brings yours straight back.',
+    ],
+  },
+  {
     version: '1.28.1',
     date: '2026-11-25',
     title: 'Tour of Will my money be enough?',
