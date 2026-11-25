@@ -1,11 +1,19 @@
-// Family sharing, part 1: link phones. The phone that starts a family invites others with a code and can remove
-// them; a removed phone loses access straight away. Sharing accounts comes next.
+// Family sharing: link phones (the phone that starts a family invites others with a code and can remove them; a
+// removed phone loses access straight away), see the accounts shared, and keep a family backup so a lost phone can
+// be put back onto a new one with a code from another phone in the family.
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Field, Topbar } from '../components/ui';
 import { db } from '../db/db';
 import { fmtDate } from '../domain/dates';
+import { fmtAgo } from '../domain/dates';
 import {
+  familyBackupNow,
+  familyBackups,
+  makeRecoveryCode,
+  recoverPhone,
+  syncNow,
+  syncStatus,
   clearRemovedNote,
   joinFamily,
   leaveFamily,
@@ -24,7 +32,7 @@ import { useApp } from '../state/app';
 const ISO = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export function Family() {
-  const { profile, toast, confirm } = useApp();
+  const { profile, toast, confirm, go } = useApp();
   const link = useLiveQuery(async () => ((await db.kv.get('syncLink'))?.value as SyncLink | undefined) ?? null, []);
   const [fam, setFam] = useState<FamilyInfo | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,6 +41,11 @@ export function Family() {
   const [invite, setInvite] = useState<{ code: string; expiresAt: number } | null>(null);
   const [now, setNow] = useState(Date.now());
   const [problem, setProblem] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<{ code: string; expiresAt: number; name: string } | null>(null);
+  const [lostCode, setLostCode] = useState('');
+  const [backups, setBackups] = useState<Map<string, number>>(new Map());
+  const status = useLiveQuery(() => syncStatus(), []);
+  const sharedAccounts = useLiveQuery(async () => (await db.accounts.toArray()).filter((a) => a.shared && !a.removed), []);
 
   const linked = !!link?.token;
   const run = async <T,>(f: () => Promise<T>): Promise<T | undefined> => {
@@ -51,14 +64,17 @@ export function Family() {
 
   useEffect(() => {
     if (!linked) return;
+    void familyBackups()
+      .then((r) => setBackups(new Map(r.backups.map((b) => [b.id, b.at]))))
+      .catch(() => undefined);
     void run(async () => setFam(await loadFamily()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linked]);
   useEffect(() => {
-    if (!invite) return;
+    if (!invite && !recovery) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [invite]);
+  }, [invite, recovery]);
   useEffect(() => {
     if (link?.name) setName(link.name);
   }, [link?.name]);
@@ -145,6 +161,50 @@ export function Family() {
                 Join
               </button>
             </div>
+            <div className="card">
+              <h2>🆘 Lost your phone?</h2>
+              <div className="small muted mb">
+                On another phone in your family: Family sharing → your old phone → 🆘 Lost. Type the code it shows here: this
+                phone takes the old one’s place (and role), with its data from the family backup. The lost phone stops working
+                with the family.
+              </div>
+              <Field label="Recovery code">
+                <input
+                  value={lostCode}
+                  onChange={(e) => setLostCode(e.target.value.toUpperCase())}
+                  placeholder="ABCD-EFGH"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  maxLength={9}
+                  style={{ letterSpacing: 2, fontWeight: 700 }}
+                />
+              </Field>
+              <button
+                className="btn block"
+                disabled={busy || lostCode.replace(/[^A-Z0-9]/gi, '').length !== 8}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Put the lost phone back here?',
+                    message: 'Everything on this phone is replaced by the lost phone’s family backup.',
+                    ok: 'Put it back',
+                    danger: true,
+                  });
+                  if (!ok) return;
+                  await run(async () => {
+                    const at = await recoverPhone(lostCode);
+                    setLostCode('');
+                    setFam(await loadFamily());
+                    toast(
+                      at
+                        ? `✅ Back, with the backup from ${fmtDate(ISO(at))}`
+                        : '✅ Back in the family (there was no backup yet)',
+                    );
+                  });
+                }}
+              >
+                Put my old phone back here
+              </button>
+            </div>
           </>
         ) : (
           <>
@@ -167,8 +227,28 @@ export function Family() {
                         </div>
                         <div className="sub">
                           {d.owner ? 'Owner · ' : ''}joined {fmtDate(ISO(d.joinedAt))}
+                          {backups.get(d.id) ? ` · backed up ${fmtAgo(backups.get(d.id)!)}` : ''}
                         </div>
                       </div>
+                      {!d.me && (
+                        <button
+                          className="btn sm ghost"
+                          disabled={busy}
+                          aria-label={`${d.name} was lost`}
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `Was ${d.name} lost?`,
+                              message:
+                                'You get a code to type on the new phone: it takes this phone’s place, with its family backup. The lost phone then stops working with the family.',
+                              ok: 'Make a code',
+                            });
+                            if (!ok) return;
+                            await run(async () => setRecovery(await makeRecoveryCode(d.id)));
+                          }}
+                        >
+                          🆘 Lost
+                        </button>
+                      )}
                       {fam.isOwner && !d.owner && (
                         <button
                           className="btn sm danger"
@@ -201,6 +281,93 @@ export function Family() {
                 onClick={() => void run(async () => setFam(await loadFamily()))}
               >
                 ↻ Refresh
+              </button>
+            </div>
+
+            {recovery && now < recovery.expiresAt && (
+              <div className="card">
+                <h2>🆘 Code for {recovery.name}</h2>
+                <button
+                  type="button"
+                  className="center block"
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    color: 'inherit',
+                    font: 'inherit',
+                    cursor: 'pointer',
+                  }}
+                  onClick={async () => toast((await copyText(recovery.code)) ? '📋 Code copied' : 'Could not copy')}
+                >
+                  <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: 4 }}>{recovery.code}</span>
+                  <div className="tiny muted">tap to copy</div>
+                </button>
+                <div className="small muted center">
+                  On the new phone: Settings → Family sharing → Lost your phone?, and type this code. It works once and stops in{' '}
+                  {Math.floor((recovery.expiresAt - now) / 60000)}:
+                  {String(Math.floor(((recovery.expiresAt - now) % 60000) / 1000)).padStart(2, '0')}.
+                </div>
+              </div>
+            )}
+
+            <div className="card">
+              <h2>👨‍👩‍👧 Shared accounts</h2>
+              {!sharedAccounts?.length ? (
+                <div className="small muted">
+                  None yet. To share one: open the account → ✏️ Edit → Share with family, and tick the phones.
+                </div>
+              ) : (
+                <div className="list">
+                  {sharedAccounts.map((a) => (
+                    <button key={a.id} className="row" onClick={() => go({ name: 'account', id: a.id })}>
+                      <div className={`bubble ${a.shared!.mine ? 'mint' : 'sky'}`}>{a.shared!.mine ? '📤' : '📥'}</div>
+                      <div className="main">
+                        <div className="title">{a.name}</div>
+                        <div className="sub">
+                          {a.shared!.mine
+                            ? `You share it with ${a.shared!.members.length} ${a.shared!.members.length === 1 ? 'phone' : 'phones'}`
+                            : `Shared with you by ${a.shared!.ownerName}`}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="small muted mt">
+                {status?.lastError
+                  ? `⚠️ ${status.lastError}`
+                  : status?.lastSyncAt
+                    ? `In step ${fmtAgo(status.lastSyncAt)}. It keeps itself in step while the app is open.`
+                    : 'Not in step yet.'}
+              </div>
+              <button className="btn ghost block mt" disabled={busy} onClick={() => void run(() => syncNow())}>
+                ↻ Sync now
+              </button>
+            </div>
+
+            <div className="card">
+              <h2>💾 Family backup</h2>
+              <div className="small muted mb">
+                Every phone in the family keeps a copy of all its data with the family (every 6 hours while the app is open). If a
+                phone is lost, another phone makes a code (🆘 Lost) and the new phone gets its place and data back.
+              </div>
+              <div className="small">
+                This phone: {status?.lastBackupAt ? `backed up ${fmtAgo(status.lastBackupAt)}` : 'not backed up yet'}
+              </div>
+              <button
+                className="btn block mt"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await familyBackupNow();
+                    const r = await familyBackups();
+                    setBackups(new Map(r.backups.map((b) => [b.id, b.at])));
+                    toast('💾 Backed up with the family');
+                  })
+                }
+              >
+                Back up now
               </button>
             </div>
 
@@ -276,7 +443,6 @@ export function Family() {
             </div>
 
             <div className="card">
-              <div className="small muted mb">Coming next: choose accounts to share and who sees them.</div>
               <button
                 className="btn danger block"
                 disabled={busy}

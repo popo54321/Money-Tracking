@@ -22,10 +22,13 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
   const isBack = tx.kind === 'expense' && tx.amount < 0;
   const backs = tx.kind === 'expense' && !isBack ? (moneyBack.get(tx.id) ?? []) : [];
   const backTotal = backs.length ? moneyBackOn(tx, backs, (id) => accountById.get(id)?.currency) : 0;
-  const canGetBack = tx.kind === 'expense' && !isBack && !tx.feeFor && !ghost;
+  const canGetBack = tx.kind === 'expense' && !isBack && !tx.feeFor && !ghost && !tx.remoteAuthor;
   const acc = accountById.get(tx.accountId);
   const to = tx.toAccountId ? accountById.get(tx.toAccountId) : undefined;
   const cat = tx.categoryId ? categoryById.get(tx.categoryId) : undefined;
+  // written on another phone in the family: shown here, changed only there
+  const remote = tx.remoteAuthor;
+  const nameOf = (id?: string) => (id ? (accountById.get(id)?.name ?? tx.remoteNames?.[id] ?? '?') : '?');
 
   let emoji = '❔';
   let colour = 'lav';
@@ -37,7 +40,7 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
   if (tx.kind === 'income' || tx.kind === 'expense') {
     emoji = categoryEmoji(cat);
     colour = tx.kind === 'income' ? 'mint' : groupColour(cat?.group ?? '');
-    title = cat?.name ?? (tx.kind === 'income' ? 'Income' : 'Spending');
+    title = cat?.name ?? tx.categoryName ?? (tx.kind === 'income' ? 'Income' : 'Spending');
     amount = tx.kind === 'income' ? tx.amount : -tx.amount;
     cls = tx.kind === 'income' ? 'pos' : 'neg';
     if (isBack) {
@@ -51,8 +54,8 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
     colour = 'lav';
     title =
       tx.toAccountId === tx.accountId
-        ? `${acc?.name ?? '?'}: ${tx.pocket ?? acc?.currency} → ${tx.toPocket ?? acc?.currency}`
-        : `${acc?.name ?? '?'} → ${to?.name ?? '?'}`;
+        ? `${nameOf(tx.accountId)}: ${tx.pocket ?? acc?.currency} → ${tx.toPocket ?? acc?.currency}`
+        : `${nameOf(tx.accountId)} → ${nameOf(tx.toAccountId)}`;
     if (contextAccountId && contextAccountId === tx.toAccountId && tx.toAccountId !== tx.accountId) {
       amount = tx.toAmount ?? tx.amount;
       cur = tx.toPocket ?? to?.currency ?? cur;
@@ -69,7 +72,8 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
   }
   const sub = [
     ghost ? `Scheduled · ${fmtDate(tx.date, false)} (${relativeDays(today, tx.date)})` : '',
-    tx.kind === 'transfer' ? '' : acc?.name,
+    remote ? `👤 ${remote.name}` : '',
+    tx.kind === 'transfer' ? '' : (acc?.name ?? tx.remoteNames?.[tx.accountId]),
     tx.note,
     backTotal > 0.005 ? `💸 ${fmtMoney(backTotal, cur)} back · yours ${fmtMoney(tx.amount - backTotal, cur)}` : '',
     tx.recurringId ? '🔁' : '',
@@ -122,58 +126,62 @@ export function TxRow({ tx, contextAccountId, ghost }: { tx: Tx; contextAccountI
           title={`${title} · ${fmtMoney(amount, cur)}`}
           onClose={() => setMenu(false)}
           actions={
-            isBack
-              ? [
-                  { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
-                  ...(tx.refundOf && allTxs.some((t) => t.id === tx.refundOf)
-                    ? [
-                        {
-                          label: '🧾 Open the spending',
-                          tone: 'plain' as const,
-                          run: () => go({ name: 'entry', id: tx.refundOf! }),
-                        },
-                      ]
-                    : []),
-                  {
-                    label: '🗑️ Delete',
-                    tone: 'danger',
-                    run: async () => {
-                      if (!(await confirm({ title: 'Delete this money back?', ok: 'Delete', danger: true }))) return;
-                      await removeWithUndo(() => deleteTx(tx.id));
-                    },
-                  },
-                ]
-              : tx.feeFor
+            remote
+              ? [{ label: `👀 Open (added by ${remote.name})`, tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) }]
+              : isBack
                 ? [
-                    {
-                      label: '🔄 Open the move (its fee is changed there)',
-                      tone: 'plain',
-                      run: () => go({ name: 'entry', id: tx.feeFor! }),
-                    },
-                  ]
-                : [
-                    ...(canGetBack ? [{ label: '💸 Got money back', tone: 'mint' as const, run: () => setBackOpen(true) }] : []),
                     { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
-                    { label: '📄 Duplicate (log it again today)', tone: 'plain', run: duplicate },
+                    ...(tx.refundOf && allTxs.some((t) => t.id === tx.refundOf)
+                      ? [
+                          {
+                            label: '🧾 Open the spending',
+                            tone: 'plain' as const,
+                            run: () => go({ name: 'entry', id: tx.refundOf! }),
+                          },
+                        ]
+                      : []),
                     {
                       label: '🗑️ Delete',
                       tone: 'danger',
                       run: async () => {
-                        if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
-                        const alsoBacks = backs.length > 0 && (await askDeleteBacks(confirm, backTotal, cur));
-                        await removeWithUndo(async () => {
-                          await deleteTx(tx.id);
-                          if (alsoBacks) for (const b of backs) await deleteTx(b.id);
-                          if (tx.recurringId) {
-                            // keep the repeating entry from recording this date again
-                            const r = await db.recurring.get(tx.recurringId);
-                            if (r && (!r.lastPosted || r.lastPosted < tx.date))
-                              await db.recurring.update(r.id, { lastPosted: tx.date });
-                          }
-                        });
+                        if (!(await confirm({ title: 'Delete this money back?', ok: 'Delete', danger: true }))) return;
+                        await removeWithUndo(() => deleteTx(tx.id));
                       },
                     },
                   ]
+                : tx.feeFor
+                  ? [
+                      {
+                        label: '🔄 Open the move (its fee is changed there)',
+                        tone: 'plain',
+                        run: () => go({ name: 'entry', id: tx.feeFor! }),
+                      },
+                    ]
+                  : [
+                      ...(canGetBack
+                        ? [{ label: '💸 Got money back', tone: 'mint' as const, run: () => setBackOpen(true) }]
+                        : []),
+                      { label: '✏️ Edit', tone: 'plain', run: () => go({ name: 'entry', id: tx.id }) },
+                      { label: '📄 Duplicate (log it again today)', tone: 'plain', run: duplicate },
+                      {
+                        label: '🗑️ Delete',
+                        tone: 'danger',
+                        run: async () => {
+                          if (!(await confirm({ title: 'Delete this entry?', ok: 'Delete', danger: true }))) return;
+                          const alsoBacks = backs.length > 0 && (await askDeleteBacks(confirm, backTotal, cur));
+                          await removeWithUndo(async () => {
+                            await deleteTx(tx.id);
+                            if (alsoBacks) for (const b of backs) await deleteTx(b.id);
+                            if (tx.recurringId) {
+                              // keep the repeating entry from recording this date again
+                              const r = await db.recurring.get(tx.recurringId);
+                              if (r && (!r.lastPosted || r.lastPosted < tx.date))
+                                await db.recurring.update(r.id, { lastPosted: tx.date });
+                            }
+                          });
+                        },
+                      },
+                    ]
           }
         />
       )}

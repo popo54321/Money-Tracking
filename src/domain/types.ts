@@ -81,6 +81,11 @@ export interface Account {
   capital?: { amount: number; setAt: number };
   /** shown on the Investments page even though it isn't an Investment account (e.g. a unit-linked insurance) */
   showInInvestments?: boolean;
+  /**
+   * Family sharing: this account is shared. `mine`: this phone shares it (it can change the account); otherwise it
+   * was shared with this phone by `ownerName`, and only entries can be added to it here.
+   */
+  shared?: { mine: boolean; ownerDevice: string; ownerName: string; members: string[] };
   // Credit cards
   creditLimit?: number;
   statementDay?: number;
@@ -148,6 +153,12 @@ export interface Tx {
    * the month it arrives). The spending it came back for, when known.
    */
   refundOf?: string;
+  /** Family sharing: written on another phone (shown here, counted in the shared account, not in this phone's totals) */
+  remoteAuthor?: { id: string; name: string };
+  /** names of accounts this phone doesn't have (the other side of a shared move) */
+  remoteNames?: Record<string, string>;
+  /** the category's name on the phone that wrote it */
+  categoryName?: string;
   categoryId?: string;
   note?: string;
   /** what was typed, when it was in another currency */

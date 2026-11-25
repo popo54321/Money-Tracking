@@ -172,6 +172,10 @@ export async function saveTx(draft: TxDraft, rates: RateTable, defaultCurrency: 
         : undefined,
     feeFor: draft.feeFor ?? existing?.feeFor,
     refundOf: draft.kind === 'expense' && draft.amount < 0 ? (draft.refundOf ?? existing?.refundOf) : undefined,
+    // an entry from another phone stays theirs (it is never changed here)
+    remoteAuthor: existing?.remoteAuthor,
+    remoteNames: existing?.remoteNames,
+    categoryName: existing?.categoryName,
     value,
     valueCurrency,
     recurringId: draft.recurringId ?? existing?.recurringId,

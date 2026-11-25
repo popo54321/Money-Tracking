@@ -55,6 +55,8 @@ export function summarise(
   for (const t of txs) {
     if (t.date < from || t.date > to) continue;
     if (t.kind !== 'income' && t.kind !== 'expense') continue;
+    // written on another phone in the family: it is their income or spending, not this phone's
+    if (t.remoteAuthor) continue;
     const v = txValue(t, target, rates);
     if (v === null) {
       unconverted++;

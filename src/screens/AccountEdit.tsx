@@ -18,6 +18,7 @@ import {
 import { useApp, useData } from '../state/app';
 import { accountEmoji } from '../ui/emoji';
 import { BalanceSheet } from '../components/BalanceSheet';
+import { getLink, loadFamily, shareAccount, type Family } from '../services/sync';
 
 export function AccountEdit({ id }: { id?: string }) {
   const { profile, back, replace, toast, confirm, today, tab, removeWithUndo, rates, currency } = useApp();
@@ -152,6 +153,8 @@ export function AccountEdit({ id }: { id?: string }) {
       ...a,
       name: a.name.trim(),
       order: stored?.order ?? a.order,
+      // who it is shared with is set in its sharing card (and synced), never by this form
+      shared: stored?.shared,
       wallets: WALLET_TYPES.has(a.type) && a.wallets?.length ? a.wallets.filter((c) => c !== a.currency) : undefined,
     });
     toast(existing ? '✨ Saved' : '🎉 Account added');
@@ -182,6 +185,38 @@ export function AccountEdit({ id }: { id?: string }) {
   };
 
   const others = data.accounts.filter((x) => x.id !== a.id && x.type !== 'credit');
+
+  // shared with this phone by another: only its owner changes it; entries (and the balance) can be added here
+  if (existing?.shared && !existing.shared.mine) {
+    const now = data.balances.get(existing.id) ?? 0;
+    const shown = existing.type === 'credit' ? -now : now;
+    return (
+      <>
+        <Topbar title="Shared account" />
+        <div className="page">
+          <div className="banner sky">
+            <span>👨‍👩‍👧</span>
+            <span className="grow small">
+              <b>{existing.name}</b> is shared with you by {existing.shared.ownerName}. Only they can change the account itself.
+              You can add entries, and set its balance (that adds an entry).
+            </span>
+          </div>
+          <Field label={existing.type === 'credit' ? 'Amount owed now' : `Balance now (${existing.currency})`}>
+            <AmountField
+              value={shown}
+              onChange={(v) => {
+                if (Math.abs(v - shown) > 1e-9) setNewTotal({ value: v, wallet: existing.currency });
+              }}
+              currency={existing.currency}
+              title="New total balance"
+              allowNegative={existing.type !== 'credit'}
+            />
+          </Field>
+        </div>
+        {newTotal && <BalanceSheet account={existing} open start={newTotal} onClose={() => setNewTotal(null)} />}
+      </>
+    );
+  }
 
   return (
     <>
@@ -227,6 +262,8 @@ export function AccountEdit({ id }: { id?: string }) {
             })}
           </div>
         )}
+
+        {existing && <ShareCard account={existing} />}
 
         <Field label="Type">
           <div className="chips">
@@ -539,6 +576,69 @@ function ConvertCurrencySheet({ account, onClose }: { account: Account; onClose:
         }}
       />
     </>
+  );
+}
+
+/** Family sharing: choose which phones in the family see this account (and add entries to it). */
+function ShareCard({ account }: { account: Account }) {
+  const { toast } = useApp();
+  const [fam, setFam] = useState<Family | null | undefined>(undefined);
+  const [pick, setPick] = useState<string[]>(account.shared?.members ?? []);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void getLink().then(async (l) => {
+      if (!l?.token) return alive && setFam(null);
+      try {
+        const f = await loadFamily();
+        if (alive) setFam(f);
+      } catch {
+        if (alive) setFam(null);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!fam) return null;
+  const others = fam.devices.filter((d) => !d.me);
+  if (!others.length) return null;
+  const now = account.shared?.members ?? [];
+  const changed = pick.length !== now.length || pick.some((x) => !now.includes(x));
+  const save = async (members: string[]) => {
+    setBusy(true);
+    try {
+      await shareAccount(account, members);
+      toast(
+        members.length ? `👨‍👩‍👧 Shared with ${members.length} ${members.length === 1 ? 'phone' : 'phones'}` : 'No longer shared',
+      );
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="card flat">
+      <div className="bold small">👨‍👩‍👧 Share with family</div>
+      <div className="tiny muted mb">
+        The phones you tick see this account and all its entries, and can add their own. Each person can only change their own
+        entries. It counts in full in everyone’s net worth.
+      </div>
+      {others.map((d) => (
+        <ToggleRow
+          key={d.id}
+          title={d.name}
+          on={pick.includes(d.id)}
+          onChange={(v) => setPick(v ? [...pick, d.id] : pick.filter((x) => x !== d.id))}
+        />
+      ))}
+      {changed && (
+        <button className="btn primary block mt" disabled={busy} onClick={() => save(pick)}>
+          {pick.length ? (now.length ? 'Save sharing' : 'Share it') : 'Stop sharing'}
+        </button>
+      )}
+    </div>
   );
 }
 

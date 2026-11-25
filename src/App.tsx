@@ -257,6 +257,10 @@ function Housekeeping() {
       alive = false;
     };
   }, [today, currency, toast]);
+  // family sharing: keep shared accounts in step while the app is open (does nothing until a phone is linked)
+  useEffect(() => {
+    void import('./services/sync').then((m) => m.startAutoSync());
+  }, []);
   // Android: keep app files that started fine, then look for newer ones (they switch in by themselves)
   useEffect(() => {
     if (!isNative()) return;

@@ -11,6 +11,18 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.27.0',
+    date: '2026-11-25',
+    title: 'Shared accounts and family backup',
+    notes: [
+      'Share an account with your family: open it → ✏️ Edit → Share with family, and tick the phones. It appears on their phones and counts in full in everyone’s net worth.',
+      'Everyone sees every entry on a shared account and can add their own. Each person can only change or delete their own entries; others’ show who added them.',
+      'Others’ spending on a shared account changes its balance but not your own income, spending or limits.',
+      'It keeps itself in step while the app is open (and Sync now in Family sharing). A removed phone loses shared accounts straight away.',
+      'Family backup: every linked phone keeps a copy of all its data with the family. Lost a phone? On another phone tap 🆘 Lost next to it, then type the code on the new phone: it gets the old phone’s place, role and data back, and the lost phone is shut out.',
+    ],
+  },
+  {
     version: '1.26.1',
     date: '2026-11-25',
     title: 'A fuller How to use',

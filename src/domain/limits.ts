@@ -107,7 +107,7 @@ export function plannedItems(
       });
   }
   for (const t of scheduled)
-    if (t.kind === 'expense' && t.categoryId && t.date >= from && t.date <= to)
+    if (t.kind === 'expense' && !t.remoteAuthor && t.categoryId && t.date >= from && t.date <= to)
       out.push({
         key: `t:${t.id}`,
         date: t.date,
