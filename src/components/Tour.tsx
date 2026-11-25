@@ -16,6 +16,8 @@ interface Step {
   text: string;
   /** the "install it on your phone" card (only when the app is open in a browser, not installed) */
   install?: boolean;
+  /** the target is inside the built-in "Will my money be enough?" calculator (after opening this tab of it) */
+  calc?: 'tabCalc' | 'tabDet' | 'tabSum';
 }
 interface Section {
   id: string;
@@ -286,7 +288,138 @@ const SECTIONS: Section[] = [
         at: 'more',
         target: '[data-tour="retire"]',
         title: 'Will my money be enough?',
-        text: 'Plan to retirement here. Its top button fills “Pot today” with your investments, Bitcoin and gold in one tap.',
+        text: 'Plan to retirement here (it has its own part in How to use). Its top button fills “Pot today” with your investments, Bitcoin and gold.',
+      },
+    ],
+  },
+  {
+    id: 'retire',
+    emoji: '🔭',
+    title: 'Will my money be enough?',
+    steps: [
+      {
+        at: 'more',
+        target: '[data-tour="retire"]',
+        title: 'Will my money be enough?',
+        text: 'Your retirement and money-health check. Tap this big button to open it.',
+      },
+      {
+        at: { name: 'retire' },
+        target: '[data-tour="retire-fill"]',
+        title: 'Fill it from your money',
+        text: 'One tap puts what your investments, Bitcoin and gold are worth into “Pot today”.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#h-inputs',
+        title: 'Your numbers',
+        text: 'Everything starts here. The tabs at the top are Calculator (your numbers), Details (the deeper answers) and Result (your level).',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#start',
+        title: 'Pot today',
+        text: 'What you have invested now. The Investments & wealth button above can fill it for you.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#monthly',
+        title: 'Investing each month',
+        text: 'How much you add every month. Next to it you can raise it each year and set inflation.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#growth',
+        title: 'Growth',
+        text: 'How much your investments grow a year on average, before inflation. The next box is the growth after you retire (usually lower and safer).',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#age',
+        title: 'Ages',
+        text: 'Your age now and when you want to retire. You can also tick that you never plan to retire.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#spend',
+        title: 'Spending after retirement',
+        text: 'What you would spend each month then, in today’s money. Inflation is added for you.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#s-today',
+        title: 'Your money today',
+        text: 'Income, spending, debts and cash. It checks your money’s health: emergency cash, debt load and how much you keep each month.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#s-life',
+        title: 'Life checklist',
+        text: 'Job, home, car, children, big plans, a will: each answer adjusts the advice.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabCalc',
+        target: '#s-ins',
+        title: 'Insurance',
+        text: 'Health, life, home, car and income cover. It flags what is missing for your situation.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabSum',
+        target: '#rpg',
+        title: 'Your result and adventurer',
+        text: 'Result shows your level (1 to 30) with your theme’s adventurer, and what would take you to the next level. Save or share it as a picture.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabDet',
+        target: '#s-ret',
+        title: 'After you retire',
+        text: 'How long your money lasts, year by year, and the age it runs out (if it does).',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabDet',
+        target: '#s-scen',
+        title: 'When could you stop adding money?',
+        text: 'The age from which your pot can grow on its own and still be enough.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabDet',
+        target: '#s-mkt',
+        title: 'Markets up and down',
+        text: 'What happens with good and bad years along the way, not just the average.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabDet',
+        target: '#s-ages',
+        title: 'Retiring earlier or later',
+        text: 'How a few years earlier or later changes the answer.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabDet',
+        target: '#s-pay',
+        title: 'How much to invest',
+        text: 'The monthly amount that makes the money last all the way, if what you invest now isn’t enough.',
+      },
+      {
+        at: { name: 'retire' },
+        calc: 'tabDet',
+        target: '#s-plans',
+        title: 'Compare plans',
+        text: 'Save two plans (A and B) and see them side by side.',
       },
     ],
   },
@@ -374,6 +507,30 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 
+/** The built-in calculator's page, when it is on screen. */
+function calcFrame(): HTMLIFrameElement | null {
+  return document.querySelector('iframe.retire-frame');
+}
+
+/** Find a step's button on screen (inside the calculator for its steps), with where it is on the whole screen. */
+function locate(step: Step): { el: Element; rect: DOMRect } | null {
+  if (!step.calc) {
+    const el = [...document.querySelectorAll(step.target)].find(visible);
+    return el ? { el, rect: el.getBoundingClientRect() } : null;
+  }
+  const frame = calcFrame();
+  const doc = frame?.contentDocument;
+  if (!frame || !doc || doc.readyState !== 'complete') return null;
+  const el = [...doc.querySelectorAll(step.target)].find(visible);
+  if (!el) return null;
+  const f = frame.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  // only the part showing inside the calculator's frame
+  const top = Math.max(f.top + r.top, f.top);
+  const bottom = Math.min(f.top + r.bottom, f.bottom);
+  return { el, rect: new DOMRect(f.left + r.left, top, r.width, Math.max(24, bottom - top)) };
+}
+
 const visible = (el: Element) => {
   const r = el.getBoundingClientRect();
   return r.width > 0 && r.height > 0;
@@ -419,14 +576,24 @@ export function Tour() {
     }
     let tries = 0;
     let timer = 0;
+    let tabbed = false;
     const find = () => {
-      const el = [...document.querySelectorAll(step.target)].find(visible);
-      if (el) {
-        el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-        setRect(el.getBoundingClientRect());
+      // calculator steps: open the right tab of it first
+      if (step.calc && !tabbed) {
+        const tabBtn = calcFrame()?.contentDocument?.getElementById(step.calc) as HTMLElement | null;
+        if (tabBtn) {
+          tabBtn.click();
+          tabbed = true;
+        }
+      }
+      const hit = locate(step);
+      if (hit) {
+        hit.el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+        setRect(locate(step)?.rect ?? hit.rect);
         return;
       }
-      if (++tries < 20) timer = window.setTimeout(find, 60);
+      // the calculator takes a moment to load
+      if (++tries < (step.calc ? 60 : 20)) timer = window.setTimeout(find, step.calc ? 100 : 60);
       else if (i < steps.length - 1) setI(i + 1);
       else finish();
     };
@@ -440,15 +607,19 @@ export function Tour() {
   useLayoutEffect(() => {
     if (!on || !rect || !step.target) return;
     const again = () => {
-      const el = [...document.querySelectorAll(step.target)].find(visible);
-      if (el) setRect(el.getBoundingClientRect());
+      const hit = locate(step);
+      if (hit) setRect(hit.rect);
     };
+    const inner = step.calc ? calcFrame()?.contentWindow : null;
     window.addEventListener('resize', again);
     window.addEventListener('scroll', again, true);
+    inner?.addEventListener('scroll', again, true);
     return () => {
       window.removeEventListener('resize', again);
       window.removeEventListener('scroll', again, true);
+      inner?.removeEventListener('scroll', again, true);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [on, rect, step.target]);
 
   if (state.mode === 'pick') return <TourPicker />;

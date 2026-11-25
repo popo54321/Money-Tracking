@@ -50,7 +50,7 @@ export function Retire() {
       <Topbar title="🔭 Will my money be enough?" />
       {wealth.total > 0 && (
         <div style={{ padding: '6px 16px 8px' }}>
-          <button className="btn mint block" onClick={fillPot}>
+          <button className="btn mint block" data-tour="retire-fill" onClick={fillPot}>
             ＋ Use Investments & wealth as Pot today · {fmtMoney(wealth.total, currency, { compact: true })}
           </button>
         </div>
