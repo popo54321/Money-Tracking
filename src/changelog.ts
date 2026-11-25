@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.28.1',
+    date: '2026-11-25',
+    title: 'Tour of Will my money be enough?',
+    notes: [
+      'How to use has a new part, 🔭 Will my money be enough?: it walks through the calculator itself, pointing at each box (Pot today, investing, growth, ages, spending), your money today, the life checklist and insurance, your result and adventurer, and every Details section.',
+    ],
+  },
+  {
     version: '1.28.0',
     date: '2026-11-25',
     title: 'Family view',
