@@ -55,7 +55,7 @@ export function TripList() {
     <>
       <Topbar title="Trip split 🧳" />
       <div className="page">
-        <button className="btn primary block mb" onClick={create}>
+        <button className="btn primary block mb" data-tour="new-trip" onClick={create}>
           ＋ New trip
         </button>
         {allTrips && allTrips.length === 0 && (

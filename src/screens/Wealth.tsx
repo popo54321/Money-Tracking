@@ -130,7 +130,7 @@ function InvestmentsCard({ rows }: { rows: { account: Account; status: Investmen
   const capital = rows.reduce((x, r) => x + (inBase(r.account, r.status.capital) ?? 0), 0);
   const profit = value - capital;
   return (
-    <div className="card">
+    <div className="card" data-tour="wealth-invest">
       <h2 style={{ margin: 0 }}>📈 Investments</h2>
       {rows.length === 0 ? (
         <div className="small muted mt">

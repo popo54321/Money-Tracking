@@ -43,7 +43,7 @@ export function More() {
     <>
       <Topbar title={<SkinName k="more" />} right={<ProfileSwitch />} noBack />
       <div className="page">
-        <button className="guide-strip" data-tour="tile-guide" onClick={startTour}>
+        <button className="guide-strip" data-tour="tile-guide" onClick={() => startTour('pick')}>
           <span className="e">{skin.tiles.guide}</span>
           <span className="grow">
             <b>How to use</b> · shows you where to tap

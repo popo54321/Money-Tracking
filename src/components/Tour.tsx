@@ -2,19 +2,26 @@
 // button and says where to tap. It starts by itself for someone new and again from More → How to use.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { updateSettings } from '../db/repo';
-import { useApp } from '../state/app';
+import { useApp, type Route } from '../state/app';
 import { isNative, openExternal } from '../services/platform';
 import { canInstallNow, installNow } from '../services/press';
 
 type Tab = 'home' | 'accounts' | 'summary' | 'more';
 interface Step {
-  tab: Tab;
+  /** a tab, or a screen opened from More (Bill split, Settings…) */
+  at: Tab | Route;
   /** what to point at (the first match on screen); missing on screen = the step is skipped */
   target: string;
   title: string;
   text: string;
   /** the "install it on your phone" card (only when the app is open in a browser, not installed) */
   install?: boolean;
+}
+interface Section {
+  id: string;
+  emoji: string;
+  title: string;
+  steps: Step[];
 }
 
 /** Open in a phone or computer browser, not yet installed (the Android app and a home-screen app skip the step). */
@@ -27,100 +34,322 @@ const isIPhone = () =>
   /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
 const isAndroid = () => /Android/.test(navigator.userAgent);
 
-const STEPS: Step[] = [
-  { tab: 'home', target: '', title: 'Install it on your phone', text: '', install: true },
-  { tab: 'home', target: '[data-tour="tab-home"]', title: 'This is Home', text: 'Tap Home any time to come back here.' },
+const tile = (k: string) => `[data-tour="tile-${k}"]`;
+const PAGE = '.topbar h1';
+
+const SECTIONS: Section[] = [
   {
-    tab: 'home',
-    target: '[data-tour="hero"]',
-    title: 'Your money at a glance',
-    text: 'Net worth, how much is liquid and how much is truly Free to spend, with this month’s income and spending.',
+    id: 'start',
+    emoji: '🚀',
+    title: 'Getting started',
+    steps: [
+      { at: 'home', target: '', title: 'Install it on your phone', text: '', install: true },
+      { at: 'home', target: '[data-tour="tab-home"]', title: 'This is Home', text: 'Tap Home any time to come back here.' },
+      {
+        at: 'home',
+        target: '[data-tour="hero"]',
+        title: 'Your money at a glance',
+        text: 'Net worth, how much is liquid and how much is truly Free to spend, with this month’s income and spending.',
+      },
+      {
+        at: 'home',
+        target: '[data-tour="quick"]',
+        title: 'Log money here',
+        text: 'Tap Spend, Income or Move to add an entry. Move is for money going between your own accounts.',
+      },
+      { at: 'home', target: '[data-tour="add"]', title: 'Or tap +', text: 'The + adds a spending entry from any screen.' },
+      {
+        at: 'accounts',
+        target: '[data-tour="tab-accounts"]',
+        title: 'Your accounts',
+        text: 'Tap Accounts to see every bank account, card and cash purse.',
+      },
+      {
+        at: 'accounts',
+        target: '[data-tour="add-account"]',
+        title: 'Start here',
+        text: 'Tap this to add your bank accounts, credit cards and cash. Do this first.',
+      },
+      {
+        at: 'accounts',
+        target: '.list button.row',
+        title: 'Open an account',
+        text: 'Tap an account to see its entries and what is set aside. Tap ✏️ Edit there to change its balance to match your bank.',
+      },
+    ],
   },
   {
-    tab: 'home',
-    target: '[data-tour="quick"]',
-    title: 'Log money here',
-    text: 'Tap Spend, Income or Move to add an entry. Move is for money going between your own accounts.',
-  },
-  { tab: 'home', target: '[data-tour="add"]', title: 'Or tap +', text: 'The + adds a spending entry from any screen.' },
-  {
-    tab: 'accounts',
-    target: '[data-tour="tab-accounts"]',
-    title: 'Your accounts',
-    text: 'Tap Accounts to see every bank account, card and cash purse.',
-  },
-  {
-    tab: 'accounts',
-    target: '[data-tour="add-account"]',
-    title: 'Start here',
-    text: 'Tap this to add your bank accounts, credit cards and cash. Do this first.',
-  },
-  {
-    tab: 'accounts',
-    target: '.list button.row',
-    title: 'Open an account',
-    text: 'Tap an account to see its entries and what is set aside. Press and hold it to edit or move money.',
-  },
-  {
-    tab: 'summary',
-    target: '[data-tour="tab-summary"]',
-    title: 'Where your money went',
-    text: 'Tap Summary to see spending and income by category, for any month.',
-  },
-  { tab: 'more', target: '[data-tour="tab-more"]', title: 'Everything else', text: 'Tap More for all the other tools.' },
-  {
-    tab: 'more',
-    target: '[data-tour="tile-recurring"]',
-    title: 'Bills, subscriptions and salary',
-    text: 'Tap Repeating to add what comes every month. Set up your Payday at the top of that page.',
+    id: 'entries',
+    emoji: '✍️',
+    title: 'Entries and money back',
+    steps: [
+      {
+        at: 'home',
+        target: '.list button.row',
+        title: 'Change an entry',
+        text: 'Tap an entry to edit it. Press and hold it for quick actions: edit, duplicate, delete.',
+      },
+      {
+        at: 'home',
+        target: '.list button.row',
+        title: 'Got money back?',
+        text: 'Paid for friends, or got a refund? Hold the spending and pick “💸 Got money back” (or tap it and use “＋ Got money back”). It takes the amount off that category, not counted as income.',
+      },
+      {
+        at: 'home',
+        target: '[data-tour="quick"]',
+        title: 'Typing amounts',
+        text: 'The keypad does sums (500+120). When a number is already there, the first digit you type replaces it; start with + − × ÷ to add to it.',
+      },
+    ],
   },
   {
-    tab: 'more',
-    target: '[data-tour="tile-goals"]',
-    title: 'Saving for something',
-    text: 'Tap here to save towards things you want to buy.',
+    id: 'summary',
+    emoji: '📊',
+    title: 'Summary, categories and limits',
+    steps: [
+      {
+        at: 'summary',
+        target: '[data-tour="tab-summary"]',
+        title: 'Where your money went',
+        text: 'Tap Summary to see spending and income by category, for any month, compared with the month before.',
+      },
+      { at: 'more', target: '[data-tour="tab-more"]', title: 'Everything else', text: 'Tap More for all the other tools.' },
+      {
+        at: 'more',
+        target: tile('categories'),
+        title: 'Categories and limits',
+        text: 'Tap Categories to rename them, change emoji or set a limit per month, quarter or year. Limits show on Home with how much is left a day.',
+      },
+    ],
   },
   {
-    tab: 'more',
-    target: '[data-tour="tile-bills"]',
-    title: 'Splitting a bill',
-    text: 'Tap Bill split when eating out with friends. Trip split, next to it, is for trips, days out and other group plans.',
+    id: 'repeating',
+    emoji: '🔁',
+    title: 'Bills, subscriptions and payday',
+    steps: [
+      {
+        at: 'more',
+        target: tile('recurring'),
+        title: 'Repeating',
+        text: 'Tap Repeating for anything that comes again: rent, Spotify, insurance. They record themselves on the day.',
+      },
+      {
+        at: { name: 'recurring' },
+        target: '[data-tour="payday"]',
+        title: 'Your payday',
+        text: 'Set up your salary here: the full pay comes in and deductions go out, so the account goes up by your take-home pay.',
+      },
+      {
+        at: { name: 'recurring' },
+        target: PAGE,
+        title: 'Money set aside',
+        text: 'Upcoming bills are set aside in the account that pays them, so Free shows what you can really spend. Yearly bills build up a little each month.',
+      },
+    ],
   },
   {
-    tab: 'more',
-    target: '[data-tour="tile-categories"]',
-    title: 'Categories and limits',
-    text: 'Tap Categories to rename them, change emoji or set a monthly limit.',
+    id: 'bills',
+    emoji: '🍽️',
+    title: 'Bill split',
+    steps: [
+      { at: 'more', target: tile('bills'), title: 'Bill split', text: 'For eating out with friends: tap Bill split.' },
+      {
+        at: { name: 'bills' },
+        target: '[data-tour="new-bill"]',
+        title: 'Start a bill',
+        text: 'Tap ＋ New bill, add the people, then each dish and who had it. Shared dishes are split between them. Add service charge and VAT and it shares those out fairly.',
+      },
+      {
+        at: { name: 'bills' },
+        target: '[data-tour="new-bill"]',
+        title: 'Who paid, who owes',
+        text: 'Say who paid (one or several people) and it shows the fewest payments to settle up. “Add to Who owes me” keeps track of what friends still owe you.',
+      },
+      {
+        at: { name: 'bills' },
+        target: '[data-tour="new-bill"]',
+        title: 'Log it and settle it',
+        text: '“💸 Log my spending” adds it to your money. Paid it all? Pick “I paid it all” and friends’ paybacks come off it later. When everyone has paid, mark it as settled to hide it.',
+      },
+    ],
   },
   {
-    tab: 'more',
-    target: '[data-tour="tile-settings"]',
-    title: 'Settings',
-    text: 'Tap Settings to change the theme, add a second user, back up your data or update.',
+    id: 'trips',
+    emoji: '🧳',
+    title: 'Trip split',
+    steps: [
+      {
+        at: 'more',
+        target: tile('trips'),
+        title: 'Trip split',
+        text: 'For trips, days out and anything you do with a group: tap Trip split.',
+      },
+      {
+        at: { name: 'trips' },
+        target: '[data-tour="new-trip"]',
+        title: 'Start a trip',
+        text: 'Tap ＋ New trip, add the people and the trip’s exchange rates. Add each bill: who paid, how much, in which currency, its day, and who shares it.',
+      },
+      {
+        at: { name: 'trips' },
+        target: '[data-tour="new-trip"]',
+        title: 'Settle up',
+        text: 'It shows who pays whom, in the currency you choose. Add what’s owed to Who owes me. A big dinner can be split in detail: tap the bill, then “Split this bill in detail”.',
+      },
+      {
+        at: { name: 'trips' },
+        target: '[data-tour="new-trip"]',
+        title: 'Log the bills you paid',
+        text: '“💸 Log the bills I paid” adds each bill you paid as its own entry, on its own day. Mark the trip as settled when everyone has paid.',
+      },
+    ],
   },
   {
-    tab: 'more',
-    target: '[data-tour="retire"]',
-    title: 'Plan to retirement',
-    text: 'Tap this big button to see if your money will last all the way to retirement.',
+    id: 'debts',
+    emoji: '🤝',
+    title: 'Who owes me',
+    steps: [
+      { at: 'more', target: tile('debts'), title: 'Who owes me', text: 'Tap here for money you lent or borrowed.' },
+      {
+        at: { name: 'debts' },
+        target: '[data-tour="debt-add"]',
+        title: 'Add a person',
+        text: 'Add someone who owes you, or someone you owe, with interest if there is any. Bill split and Trip split can add people here for you.',
+      },
+      {
+        at: { name: 'debts' },
+        target: '[data-tour="debt-add"]',
+        title: 'When they pay you back',
+        text: 'Tap “＋ Paid back” on the person and log it as money back on a category (for a dinner you paid) or as income. Copy summary sends what is owed in a chat.',
+      },
+    ],
   },
   {
-    tab: 'more',
-    target: '[data-tour="tile-guide"]',
-    title: 'See this again',
-    text: 'Tap How to use whenever you want this tour again.',
+    id: 'budget',
+    emoji: '🗺️',
+    title: 'Budget plan',
+    steps: [
+      { at: 'more', target: tile('budget'), title: 'Budget plan', text: 'Tap here to plan where each month’s pay goes.' },
+      {
+        at: { name: 'budget' },
+        target: PAGE,
+        title: 'Phases and lines',
+        text: 'Make a phase for each stage of life, with an amount per line (rent, investing, travel). It shows each as a % of income.',
+      },
+      {
+        at: { name: 'budget' },
+        target: '[data-tour="budget-transfers"]',
+        title: 'Monthly transfers',
+        text: 'Link each transfer to its accounts, tick them as you do them, then “Record ticked” records the moves, even into Bitcoin or another currency.',
+      },
+    ],
+  },
+  {
+    id: 'goals',
+    emoji: '🎯',
+    title: 'Saving targets',
+    steps: [
+      { at: 'more', target: tile('goals'), title: 'Saving targets', text: 'Tap here to save towards things you want.' },
+      {
+        at: { name: 'goals' },
+        target: '[data-tour="add-goal"]',
+        title: 'Add a target',
+        text: 'Add what it costs and how much you save a month; it says when you can buy it. Keep it in an account and it shows as part of that account.',
+      },
+    ],
+  },
+  {
+    id: 'wealth',
+    emoji: '📈',
+    title: 'Investments, Bitcoin and gold',
+    steps: [
+      {
+        at: 'more',
+        target: tile('wealth'),
+        title: 'Investments & wealth',
+        text: 'Tap here for your funds, stocks, Bitcoin and gold together.',
+      },
+      {
+        at: { name: 'wealth' },
+        target: '[data-tour="wealth-invest"]',
+        title: 'Each investment',
+        text: 'Each shows what you put in, what it’s worth and the profit. Tap 📈 Value to update what it’s worth, and 💰 to set what you put in.',
+      },
+      {
+        at: { name: 'wealth' },
+        target: '[data-tour="wealth-invest"]',
+        title: 'How money in and out counts',
+        text: 'Money moved in adds to what you put in. Money moved out takes it out in the same share as the value, so your profit % stays true.',
+      },
+      {
+        at: 'more',
+        target: '[data-tour="retire"]',
+        title: 'Will my money be enough?',
+        text: 'Plan to retirement here. Its top button fills “Pot today” with your investments, Bitcoin and gold in one tap.',
+      },
+    ],
+  },
+  {
+    id: 'family',
+    emoji: '👨‍👩‍👧',
+    title: 'Family sharing',
+    steps: [
+      { at: 'more', target: tile('settings'), title: 'Settings', text: 'Family sharing lives in Settings.' },
+      {
+        at: { name: 'settings' },
+        target: '[data-tour="settings-family"]',
+        title: 'Family sharing',
+        text: 'Link up to 10 phones to share chosen accounts. Everything else stays on each phone.',
+      },
+      {
+        at: { name: 'family' },
+        target: '[data-tour="family-start"]',
+        title: 'Start or join',
+        text: 'One phone starts the family and makes a one-time code (15 minutes). The other phone types it under Join. The phone that starts it can remove phones; a removed phone loses access straight away.',
+      },
+    ],
+  },
+  {
+    id: 'settings',
+    emoji: '⚙️',
+    title: 'Settings and backup',
+    steps: [
+      {
+        at: { name: 'settings' },
+        target: '[data-tour="backup"]',
+        title: 'Back up',
+        text: 'Save a backup file now and then (to Drive, email or Files). Restore puts it back on any phone.',
+      },
+      {
+        at: { name: 'settings' },
+        target: PAGE,
+        title: 'Make it yours',
+        text: 'Change the theme, the main currency, add a second user (each has their own money), and check for updates.',
+      },
+      {
+        at: 'more',
+        target: '[data-tour="tile-guide"]',
+        title: 'See this again',
+        text: 'Tap How to use whenever you want to learn a part again.',
+      },
+    ],
   },
 ];
 
-// the tour's on/off state, shared with whoever starts it
-let running = false;
+const ALL_STEPS = SECTIONS.flatMap((x) => x.steps);
+
+// the tour's state, shared with whoever starts it: off, choosing a part, or running some steps
+type TourState = { mode: 'off' } | { mode: 'pick' } | { mode: 'run'; steps: Step[] };
+let running: TourState = { mode: 'off' };
 const listeners = new Set<() => void>();
-const setRunning = (v: boolean) => {
+const setRunning = (v: TourState) => {
   running = v;
   listeners.forEach((l) => l());
 };
-export function startTour(): void {
-  setRunning(true);
+/** 'all' runs every part (someone new); 'pick' lets them choose a part first (More → How to use). */
+export function startTour(how: 'all' | 'pick' = 'all'): void {
+  setRunning(how === 'pick' ? { mode: 'pick' } : { mode: 'run', steps: ALL_STEPS });
 }
 const subscribe = (l: () => void) => {
   listeners.add(l);
@@ -133,16 +362,22 @@ const visible = (el: Element) => {
 };
 
 export function Tour() {
-  const on = useSyncExternalStore(subscribe, () => running);
-  const { tab, stackDepth, route, settings } = useApp();
+  const state = useSyncExternalStore(subscribe, () => running);
+  const on = state.mode === 'run';
+  const { tab, go, stackDepth, route, settings } = useApp();
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   // the steps for this run: the install card only for someone using the app in a browser
-  const steps = useMemo(() => (on ? STEPS.filter((s) => !s.install || needsInstall()) : STEPS), [on]);
+  const steps = useMemo(
+    () => (state.mode === 'run' ? state.steps.filter((s) => !s.install || needsInstall()) : ALL_STEPS),
+    [state],
+  );
   const step = steps[Math.min(i, steps.length - 1)];
+  // a new run (a part picked) starts from its first step
+  useEffect(() => setI(0), [state]);
 
   const finish = useCallback(() => {
-    setRunning(false);
+    setRunning({ mode: 'off' });
     setI(0);
     setRect(null);
     void updateSettings({ guideSeen: true });
@@ -152,7 +387,14 @@ export function Tour() {
   // go to the step's tab, then find its button (waiting for the screen to draw); skip steps with nothing to show
   useEffect(() => {
     if (!on) return;
-    if (stackDepth !== 1 || route.name !== step.tab) tab(step.tab);
+    if (typeof step.at === 'string') {
+      if (stackDepth !== 1 || route.name !== step.at) tab(step.at);
+    } else if (route.name !== step.at.name) {
+      // a screen opened from More (or from Settings for Family sharing)
+      tab('more');
+      if (step.at.name === 'family') go({ name: 'settings' });
+      go(step.at);
+    }
     if (step.install) {
       setRect(null);
       return;
@@ -191,6 +433,7 @@ export function Tour() {
     };
   }, [on, rect, step.target]);
 
+  if (state.mode === 'pick') return <TourPicker />;
   if (!on) return null;
   const pad = 6;
   const vh = window.innerHeight;
@@ -237,6 +480,32 @@ export function Tour() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** More → How to use: the whole tour, or one part of it. */
+function TourPicker() {
+  const close = () => setRunning({ mode: 'off' });
+  return (
+    <div className="tour" role="dialog" aria-label="How to use this app">
+      <div className="tour-dim" onClick={close} />
+      <div className="tour-bubble centre tour-pick">
+        <div className="tour-title">📖 What would you like to learn?</div>
+        <button className="btn primary block" onClick={() => setRunning({ mode: 'run', steps: ALL_STEPS })}>
+          ▶ The whole tour
+        </button>
+        <div className="tour-pick-list">
+          {SECTIONS.map((x) => (
+            <button key={x.id} className="btn block" onClick={() => setRunning({ mode: 'run', steps: x.steps })}>
+              <span>{x.emoji}</span> <span className="grow">{x.title}</span> <span className="muted small">{x.steps.length}</span>
+            </button>
+          ))}
+        </div>
+        <button className="btn ghost block" onClick={close}>
+          Close
+        </button>
+      </div>
     </div>
   );
 }

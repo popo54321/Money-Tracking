@@ -58,7 +58,7 @@ export function BillList() {
     <>
       <Topbar title="Bill split 🍽️" />
       <div className="page">
-        <button className="btn primary block mb" onClick={create}>
+        <button className="btn primary block mb" data-tour="new-bill" onClick={create}>
           ＋ New bill
         </button>
         {allBills && allBills.length === 0 && (

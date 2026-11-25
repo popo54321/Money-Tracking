@@ -11,6 +11,16 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.26.1',
+    date: '2026-11-25',
+    title: 'A fuller How to use',
+    notes: [
+      'How to use now covers every part: entries and money back, limits, repeating bills and payday, Bill split, Trip split, Who owes me, Budget plan, Saving targets, Investments, Bitcoin and gold, Family sharing, and backup.',
+      'More → How to use asks what you want to learn: the whole tour, or just one part.',
+      'Family sharing: tap the invite code itself to copy it.',
+    ],
+  },
+  {
     version: '1.26.0',
     date: '2026-11-25',
     title: 'Family sharing: link phones',
