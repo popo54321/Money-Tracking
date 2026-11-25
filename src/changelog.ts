@@ -11,6 +11,18 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.29.1',
+    date: '2026-11-25',
+    title: 'Sharing and tour fixes',
+    notes: [
+      'Shared accounts: entries written by another person under a second user on their phone now show (and count) on yours.',
+      'Sharing many entries at once no longer fails; syncing asks the service fewer questions, so it is quicker.',
+      'Erasing your data on a linked phone no longer removes your entries from shared accounts on the other phones.',
+      'Will my money be enough?: your own numbers always come back after the tour, even if the app was closed during it. While looking at someone else’s money, its button no longer fills their money into your calculator.',
+      'The user switcher’s family list updates straight away after joining or leaving a family.',
+    ],
+  },
+  {
     version: '1.29.0',
     date: '2026-11-25',
     title: 'A tour with example money',

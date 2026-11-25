@@ -11,9 +11,10 @@ import { closeView, currentView, mainDb, openView, type TableName } from '../db/
 export const DEMO_ID = 'demo';
 const P = 'demo-user';
 
-// what the calculator saved for this phone, put back after the tour
+// what the calculator saved for this phone, kept aside (in storage, so even closing the app mid-tour loses
+// nothing) and put back after the tour
 const CALC_KEYS = ['paying-in-stop-v4', 'paying-in-plans-v1'];
-let calcSaved: Record<string, string | null> | null = null;
+const CALC_ASIDE = 'mt.calcBeforeTour';
 
 export const isDemo = (): boolean => currentView()?.deviceId === DEMO_ID;
 
@@ -393,9 +394,10 @@ export async function demoData(): Promise<Partial<Record<TableName, unknown[]>>>
 export async function openDemo(): Promise<void> {
   if (isDemo()) return;
   try {
-    calcSaved = Object.fromEntries(CALC_KEYS.map((k) => [k, localStorage.getItem(k)]));
+    if (!localStorage.getItem(CALC_ASIDE))
+      localStorage.setItem(CALC_ASIDE, JSON.stringify(Object.fromEntries(CALC_KEYS.map((k) => [k, localStorage.getItem(k)]))));
   } catch {
-    calcSaved = null;
+    // no storage: the calculator then keeps the example numbers
   }
   await openView({ deviceId: DEMO_ID, name: 'Example money (tour)', updatedAt: Date.now() }, await demoData());
 }
@@ -407,17 +409,19 @@ export function closeDemo(): void {
   restoreCalc();
 }
 
-function restoreCalc(): void {
-  if (!calcSaved) return;
+/** Put this phone's own calculator numbers back (after the tour, or at start-up if the app closed mid-tour). */
+export function restoreCalc(): void {
   try {
-    for (const [k, v] of Object.entries(calcSaved)) {
+    const raw = localStorage.getItem(CALC_ASIDE);
+    if (!raw) return;
+    for (const [k, v] of Object.entries(JSON.parse(raw) as Record<string, string | null>)) {
       if (v === null) localStorage.removeItem(k);
       else localStorage.setItem(k, v);
     }
+    localStorage.removeItem(CALC_ASIDE);
   } catch {
     // nothing to put back
   }
-  calcSaved = null;
 }
 
 /** Example numbers for the built-in calculator (only while the tour shows the example money). */

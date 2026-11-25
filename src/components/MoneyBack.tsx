@@ -159,7 +159,7 @@ export function MoneyBackList({ spending }: { spending: Tx }) {
   const spendCur = spending.pocket ?? data.accountById.get(spending.accountId)?.currency ?? '';
   const total = moneyBackOn(spending, backs, (id) => data.accountById.get(id)?.currency);
   return (
-    <div className="card flat">
+    <div className="card flat" data-tour="money-back">
       <div className="between">
         <b className="small">💸 Money back</b>
         {backs.length > 0 && (
