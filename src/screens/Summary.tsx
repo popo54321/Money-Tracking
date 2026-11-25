@@ -81,6 +81,7 @@ export function Summary() {
     <button
       key={c.category?.id ?? 'none'}
       className="row"
+      data-tour={kind === 'expense' ? 'summary-cat' : undefined}
       onClick={() => go({ name: 'txList', categoryId: c.category?.id ?? '', from: range.from, to: range.to, title: c.name })}
       {...holdProps(() => c.category && setEditing(c.category))}
       style={{ alignItems: 'flex-start' }}

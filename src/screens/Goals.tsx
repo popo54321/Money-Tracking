@@ -291,7 +291,7 @@ export function Goals() {
     <>
       <Topbar title={<SkinName k="goals" />} right={<ProfileSwitch />} />
       <div className="page">
-        <div className="hero">
+        <div data-tour="goals-hero" className="hero">
           <Sparkle k="goals" />
           <div className="label">Still to save for my wishlist</div>
           <div className="big">{fmtMoney(totalLeft, currency)}</div>
@@ -362,7 +362,7 @@ export function Goals() {
             const colour = COLOURS[i % COLOURS.length];
             const acc = g.accountId ? data.accountById.get(g.accountId) : undefined;
             return (
-              <div key={g.id} className="card" style={{ opacity: g.done ? 0.6 : 1 }}>
+              <div key={g.id} className="card" data-tour="goal-card" style={{ opacity: g.done ? 0.6 : 1 }}>
                 <button
                   style={{ border: 'none', background: 'none', padding: 0, width: '100%', textAlign: 'left' }}
                   onClick={() => setEdit(g)}

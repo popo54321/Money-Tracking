@@ -326,7 +326,7 @@ function LimitsCard() {
           {over ? ` · ${over} over` : ' · all within'}
         </button>
       ) : (
-        <div className="list">
+        <div className="list" data-tour="limits">
           {lines.map((l) => (
             <button
               key={l.key}

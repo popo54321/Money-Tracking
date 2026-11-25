@@ -28,7 +28,8 @@ import { RecurringList, RecurringEdit } from './screens/Recurring';
 import { PaydayEdit } from './screens/Payday';
 import { Retire } from './screens/Retire';
 import { Family } from './screens/Family';
-import { Tour } from './components/Tour';
+import { endTour, Tour } from './components/Tour';
+import { DEMO_ID } from './services/demo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Screens used less often load on first visit (they are still kept for offline use).
@@ -377,6 +378,17 @@ function ViewBanner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v?.deviceId]);
   if (!v) return null;
+  if (v.deviceId === DEMO_ID)
+    return (
+      <div className="view-banner" role="status">
+        <span className="grow">
+          📖 <b>Example money</b> for the tour · your own is safe
+        </span>
+        <button className="btn sm" onClick={() => endTour()}>
+          End tour
+        </button>
+      </div>
+    );
   const mins = Math.max(0, Math.round((Date.now() - v.updatedAt) / 60000));
   return (
     <div className="view-banner" role="status">
@@ -406,6 +418,7 @@ export default function App() {
           </ErrorBoundary>
         </div>
         <TabBar />
+        <Tour />
       </AppProvider>
     );
   return (

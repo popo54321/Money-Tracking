@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { updateSettings } from '../db/repo';
 import { useApp, type Route } from '../state/app';
+import { onViewChange } from '../db/db';
+import { closeDemo, isDemo, openDemo } from '../services/demo';
 import { isNative, openExternal } from '../services/platform';
 import { canInstallNow, installNow } from '../services/press';
 
@@ -46,37 +48,60 @@ const SECTIONS: Section[] = [
     title: 'Getting started',
     steps: [
       { at: 'home', target: '', title: 'Install it on your phone', text: '', install: true },
-      { at: 'home', target: '[data-tour="tab-home"]', title: 'This is Home', text: 'Tap Home any time to come back here.' },
+      {
+        at: 'home',
+        target: '[data-tour="tab-home"]',
+        title: 'This is Home (with example money)',
+        text: 'The tour shows a made-up person, Alex, so every screen is filled in. Your own money is safe and comes back when the tour ends.',
+      },
       {
         at: 'home',
         target: '[data-tour="hero"]',
         title: 'Your money at a glance',
-        text: 'Net worth, how much is liquid and how much is truly Free to spend, with this month’s income and spending.',
+        text: 'Net worth (everything you own minus what you owe), Liquid (money you can reach) and Free: what’s left after bills, splits and saving targets are set aside. Spend from Free.',
       },
       {
         at: 'home',
         target: '[data-tour="quick"]',
         title: 'Log money here',
-        text: 'Tap Spend, Income or Move to add an entry. Move is for money going between your own accounts.',
+        text: 'Spend, Income or Move. Move is money between your own accounts, like paying the card from the bank: it isn’t spending.',
+      },
+      {
+        at: 'home',
+        target: '[data-tour="limits"]',
+        title: 'Spending limits',
+        text: 'Each limit shows what’s left and about how much a day you can spend. Bills still to come this month are counted already.',
       },
       { at: 'home', target: '[data-tour="add"]', title: 'Or tap +', text: 'The + adds a spending entry from any screen.' },
       {
         at: 'accounts',
-        target: '[data-tour="tab-accounts"]',
-        title: 'Your accounts',
-        text: 'Tap Accounts to see every bank account, card and cash purse.',
-      },
-      {
-        at: 'accounts',
         target: '[data-tour="add-account"]',
-        title: 'Start here',
-        text: 'Tap this to add your bank accounts, credit cards and cash. Do this first.',
+        title: 'Add your accounts first',
+        text: 'Bank accounts, cash, credit cards, investments, Bitcoin and gold. Type the balance your bank shows; you can correct it any time in ✏️ Edit.',
       },
       {
         at: 'accounts',
         target: '.list button.row',
-        title: 'Open an account',
-        text: 'Tap an account to see its entries and what is set aside. Tap ✏️ Edit there to change its balance to match your bank.',
+        title: 'Every account',
+        text: 'Each shows its balance and what’s Free in it. Press and hold one for quick actions (spend, move, pay the card).',
+      },
+      {
+        at: { name: 'account', id: 'd-bank' },
+        target: '[data-tour="acct-hero"]',
+        title: 'Inside an account',
+        text: 'Balance, what’s set aside for bills and targets, and what’s Free. Its entries are listed below.',
+      },
+      {
+        at: { name: 'account', id: 'd-bank' },
+        target: '[data-tour="acct-reserve"]',
+        title: 'Set aside for bills',
+        text: 'Rent and other bills paid from this account are kept aside before they’re due, so you don’t spend them by mistake.',
+      },
+      {
+        at: { name: 'account', id: 'd-card' },
+        target: '[data-tour="acct-statement"]',
+        title: 'Credit cards',
+        text: 'A card shows this statement, when it’s due and a Pay button. Its paying bank keeps the money aside until you pay.',
       },
     ],
   },
@@ -86,22 +111,22 @@ const SECTIONS: Section[] = [
     title: 'Entries and money back',
     steps: [
       {
-        at: 'home',
-        target: '.list button.row',
-        title: 'Change an entry',
-        text: 'Tap an entry to edit it. Press and hold it for quick actions: edit, duplicate, delete.',
+        at: { name: 'entry', id: 'demo-dinner' },
+        target: '.amount-display',
+        title: 'An entry',
+        text: 'Amount (the keypad does sums like 500+120), which account, a note, the date and the category. Tap an entry anywhere to open it like this.',
+      },
+      {
+        at: { name: 'entry', id: 'demo-dinner' },
+        target: '.card.flat:has(.btn.mint)',
+        title: 'Money back',
+        text: 'Alex paid ฿2,400 for dinner and Ben sent ฿1,600 back. Money back takes it off Dinner (so the limit gets room back), not counted as income. “＋ Got money back” adds more.',
       },
       {
         at: 'home',
         target: '.list button.row',
-        title: 'Got money back?',
-        text: 'Paid for friends, or got a refund? Hold the spending and pick “💸 Got money back” (or tap it and use “＋ Got money back”). It takes the amount off that category, not counted as income.',
-      },
-      {
-        at: 'home',
-        target: '[data-tour="quick"]',
-        title: 'Typing amounts',
-        text: 'The keypad does sums (500+120). When a number is already there, the first digit you type replaces it; start with + − × ÷ to add to it.',
+        title: 'Quick actions',
+        text: 'Press and hold any entry: edit, duplicate, delete, or “💸 Got money back”.',
       },
     ],
   },
@@ -114,14 +139,19 @@ const SECTIONS: Section[] = [
         at: 'summary',
         target: '[data-tour="tab-summary"]',
         title: 'Where your money went',
-        text: 'Tap Summary to see spending and income by category, for any month, compared with the month before.',
+        text: 'Income and spending by category for any month, quarter or year, compared with the one before.',
       },
-      { at: 'more', target: '[data-tour="tab-more"]', title: 'Everything else', text: 'Tap More for all the other tools.' },
+      {
+        at: 'summary',
+        target: '[data-tour="summary-cat"]',
+        title: 'Each category',
+        text: 'Its total, its share of spending and what came back. Tap it for its entries; press and hold to edit it or set a limit.',
+      },
       {
         at: 'more',
         target: tile('categories'),
         title: 'Categories and limits',
-        text: 'Tap Categories to rename them, change emoji or set a limit per month, quarter or year. Limits show on Home with how much is left a day.',
+        text: 'Rename, add emoji, group them, and set a limit per month, quarter or year on a category or a whole group.',
       },
     ],
   },
@@ -134,19 +164,19 @@ const SECTIONS: Section[] = [
         at: 'more',
         target: tile('recurring'),
         title: 'Repeating',
-        text: 'Tap Repeating for anything that comes again: rent, Spotify, insurance. They record themselves on the day.',
+        text: 'Rent, subscriptions, insurance and salary: tap Repeating.',
       },
       {
         at: { name: 'recurring' },
-        target: '[data-tour="payday"]',
+        target: '.list button.row',
+        title: 'Each repeating entry',
+        text: 'It records itself on the day. Yearly ones (like insurance) build up a little each month so the money is there in time.',
+      },
+      {
+        at: { name: 'payday' },
+        target: '[data-tour="payday-card"]',
         title: 'Your payday',
-        text: 'Set up your salary here: the full pay comes in and deductions go out, so the account goes up by your take-home pay.',
-      },
-      {
-        at: { name: 'recurring' },
-        target: PAGE,
-        title: 'Money set aside',
-        text: 'Upcoming bills are set aside in the account that pays them, so Free shows what you can really spend. Yearly bills build up a little each month.',
+        text: 'Full salary in, tax and deductions out, so the account goes up by your take-home pay. It records itself on the day, or tap “Pay arrived” early.',
       },
     ],
   },
@@ -155,24 +185,60 @@ const SECTIONS: Section[] = [
     emoji: '🍽️',
     title: 'Bill split',
     steps: [
-      { at: 'more', target: tile('bills'), title: 'Bill split', text: 'For eating out with friends: tap Bill split.' },
+      { at: 'more', target: tile('bills'), title: 'Bill split', text: 'For eating out with friends.' },
       {
         at: { name: 'bills' },
         target: '[data-tour="new-bill"]',
         title: 'Start a bill',
-        text: 'Tap ＋ New bill, add the people, then each dish and who had it. Shared dishes are split between them. Add service charge and VAT and it shares those out fairly.',
+        text: 'Tap ＋ New bill. Here is Alex’s Friday dinner, already filled in.',
       },
       {
-        at: { name: 'bills' },
-        target: '[data-tour="new-bill"]',
-        title: 'Who paid, who owes',
-        text: 'Say who paid (one or several people) and it shows the fewest payments to settle up. “Add to Who owes me” keeps track of what friends still owe you.',
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-total"]',
+        title: 'The total and each share',
+        text: 'Food, service charge and VAT add up to the bill; each person’s share is worked out fairly from what they had.',
       },
       {
-        at: { name: 'bills' },
-        target: '[data-tour="new-bill"]',
-        title: 'Log it and settle it',
-        text: '“💸 Log my spending” adds it to your money. Paid it all? Pick “I paid it all” and friends’ paybacks come off it later. When everyone has paid, mark it as settled to hide it.',
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-people"]',
+        title: 'People',
+        text: 'Add everyone at the table.',
+      },
+      {
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-shared-items"]',
+        title: 'Shared dishes',
+        text: 'Dishes shared by some or all: tick who had them and the price is split between just those people (the tom yum is everyone’s, the beers just two).',
+      },
+      {
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-own"]',
+        title: 'Own orders',
+        text: 'Each person’s own dishes; a dish two people shared (the beers) is split between just them.',
+      },
+      {
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-charges"]',
+        title: 'Service charge, VAT and tip',
+        text: 'Set the %; they are shared out in proportion to what each person ordered.',
+      },
+      {
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-payers"]',
+        title: 'Who paid',
+        text: 'One person or several. It shows the fewest payments to settle up, and “Add to Who owes me” keeps track of who still owes.',
+      },
+      {
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-log"]',
+        title: 'Log it in your money',
+        text: '“I paid it all” logs the whole bill and adds friends to Who owes me; their paybacks come off Dinner as money back.',
+      },
+      {
+        at: { name: 'bill', id: 'demo-bill' },
+        target: '[data-tour="bill-settled"]',
+        title: 'Settled',
+        text: 'When everyone has paid, mark it as settled to hide it from the list.',
       },
     ],
   },
@@ -181,29 +247,42 @@ const SECTIONS: Section[] = [
     emoji: '🧳',
     title: 'Trip split',
     steps: [
+      { at: 'more', target: tile('trips'), title: 'Trip split', text: 'For trips, days out and anything you do with a group.' },
       {
-        at: 'more',
-        target: tile('trips'),
-        title: 'Trip split',
-        text: 'For trips, days out and anything you do with a group: tap Trip split.',
-      },
-      {
-        at: { name: 'trips' },
-        target: '[data-tour="new-trip"]',
-        title: 'Start a trip',
-        text: 'Tap ＋ New trip, add the people and the trip’s exchange rates. Add each bill: who paid, how much, in which currency, its day, and who shares it.',
-      },
-      {
-        at: { name: 'trips' },
-        target: '[data-tour="new-trip"]',
+        at: { name: 'trip', id: 'demo-trip' },
+        target: '[data-tour="trip-settle"]',
         title: 'Settle up',
-        text: 'It shows who pays whom, in the currency you choose. Add what’s owed to Who owes me. A big dinner can be split in detail: tap the bill, then “Split this bill in detail”.',
+        text: 'Who pays whom at the end, in the currency you choose, with the fewest payments.',
       },
       {
-        at: { name: 'trips' },
-        target: '[data-tour="new-trip"]',
+        at: { name: 'trip', id: 'demo-trip' },
+        target: '[data-tour="trip-people"]',
+        title: 'People',
+        text: 'Everyone on the trip.',
+      },
+      {
+        at: { name: 'trip', id: 'demo-trip' },
+        target: '[data-tour="trip-rates"]',
+        title: 'Exchange rates',
+        text: 'The trip’s own fixed rates, filled in from today’s and editable, so everyone agrees on the numbers.',
+      },
+      {
+        at: { name: 'trip', id: 'demo-trip' },
+        target: '[data-tour="trip-bills"]',
+        title: 'Bills',
+        text: 'Each bill: who paid, how much, in which currency, which day, and who shares it (everyone, some, or just the payer). A big dinner can be split in detail like Bill split.',
+      },
+      {
+        at: { name: 'trip', id: 'demo-trip' },
+        target: '[data-tour="trip-log"]',
         title: 'Log the bills you paid',
-        text: '“💸 Log the bills I paid” adds each bill you paid as its own entry, on its own day. Mark the trip as settled when everyone has paid.',
+        text: 'Each bill you paid goes into your money as its own entry, on its own day.',
+      },
+      {
+        at: { name: 'trip', id: 'demo-trip' },
+        target: '[data-tour="trip-settled"]',
+        title: 'Settled',
+        text: 'Mark the trip as settled when everyone has paid.',
       },
     ],
   },
@@ -212,18 +291,24 @@ const SECTIONS: Section[] = [
     emoji: '🤝',
     title: 'Who owes me',
     steps: [
-      { at: 'more', target: tile('debts'), title: 'Who owes me', text: 'Tap here for money you lent or borrowed.' },
+      { at: 'more', target: tile('debts'), title: 'Who owes me', text: 'Money you lent or borrowed.' },
       {
         at: { name: 'debts' },
-        target: '[data-tour="debt-add"]',
-        title: 'Add a person',
-        text: 'Add someone who owes you, or someone you owe, with interest if there is any. Bill split and Trip split can add people here for you.',
+        target: '.list button.row',
+        title: 'Everyone',
+        text: 'Who owes you, and who you owe. “Summary for everyone” copies it all for a group chat.',
       },
       {
-        at: { name: 'debts' },
-        target: '[data-tour="debt-add"]',
+        at: { name: 'debt', id: 'demo-debt-ben' },
+        target: '[data-tour="debt-hero"]',
+        title: 'One person',
+        text: 'What they owe now, what was paid back, and interest if you set any.',
+      },
+      {
+        at: { name: 'debt', id: 'demo-debt-ben' },
+        target: '[data-tour="debt-paid"]',
         title: 'When they pay you back',
-        text: 'Tap “＋ Paid back” on the person and log it as money back on a category (for a dinner you paid) or as income. Copy summary sends what is owed in a chat.',
+        text: '“＋ Paid back”, then log it in your money: as money back on a category (for a dinner you paid) or as income.',
       },
     ],
   },
@@ -232,18 +317,35 @@ const SECTIONS: Section[] = [
     emoji: '🗺️',
     title: 'Budget plan',
     steps: [
-      { at: 'more', target: tile('budget'), title: 'Budget plan', text: 'Tap here to plan where each month’s pay goes.' },
       {
         at: { name: 'budget' },
-        target: PAGE,
-        title: 'Phases and lines',
-        text: 'Make a phase for each stage of life, with an amount per line (rent, investing, travel). It shows each as a % of income.',
+        target: '[data-tour="budget-hero"]',
+        title: 'Your monthly plan',
+        text: 'Your income and how much of it the plan uses. Make a phase for each stage of life.',
+      },
+      {
+        at: { name: 'budget' },
+        target: '[data-tour="budget-lines"]',
+        title: 'Where the money goes',
+        text: 'An amount for each line (saving, investing, living costs, fun), each shown as a % of income.',
       },
       {
         at: { name: 'budget' },
         target: '[data-tour="budget-transfers"]',
         title: 'Monthly transfers',
-        text: 'Link each transfer to its accounts, tick them as you do them, then “Record ticked” records the moves, even into Bitcoin or another currency.',
+        text: 'Tick each transfer as you do it; “Record ticked” records the moves (even into Bitcoin or another currency).',
+      },
+      {
+        at: { name: 'budget' },
+        target: '[data-tour="budget-bonus"]',
+        title: 'Bonus split',
+        text: 'How a bonus is shared out, by %.',
+      },
+      {
+        at: { name: 'budget' },
+        target: '[data-tour="budget-leftover"]',
+        title: 'Leftover money rule',
+        text: 'Where money left over goes, depending on whether your emergency fund is big enough yet.',
       },
     ],
   },
@@ -252,12 +354,23 @@ const SECTIONS: Section[] = [
     emoji: '🎯',
     title: 'Saving targets',
     steps: [
-      { at: 'more', target: tile('goals'), title: 'Saving targets', text: 'Tap here to save towards things you want.' },
+      {
+        at: { name: 'goals' },
+        target: '[data-tour="goals-hero"]',
+        title: 'Saving targets',
+        text: 'Everything you’re saving for, together.',
+      },
+      {
+        at: { name: 'goals' },
+        target: '[data-tour="goal-card"]',
+        title: 'One target',
+        text: 'Price, saved so far and the monthly saving: it says when you can buy it. Kept in an account, it’s set aside there so Free stays true.',
+      },
       {
         at: { name: 'goals' },
         target: '[data-tour="add-goal"]',
-        title: 'Add a target',
-        text: 'Add what it costs and how much you save a month; it says when you can buy it. Keep it in an account and it shows as part of that account.',
+        title: 'Add one',
+        text: 'Tap ＋ Add to wishlist.',
       },
     ],
   },
@@ -267,28 +380,28 @@ const SECTIONS: Section[] = [
     title: 'Investments, Bitcoin and gold',
     steps: [
       {
-        at: 'more',
-        target: tile('wealth'),
-        title: 'Investments & wealth',
-        text: 'Tap here for your funds, stocks, Bitcoin and gold together.',
+        at: { name: 'wealth' },
+        target: '.hero',
+        title: 'Everything you invest',
+        text: 'Funds, stocks, Bitcoin and gold: what they’re worth, what you put in, and the profit.',
       },
       {
         at: { name: 'wealth' },
         target: '[data-tour="wealth-invest"]',
         title: 'Each investment',
-        text: 'Each shows what you put in, what it’s worth and the profit. Tap 📈 Value to update what it’s worth, and 💰 to set what you put in.',
+        text: 'Put in ฿110,000, now worth more: the profit and %. 📈 Value updates what it’s worth; 💰 sets what you put in.',
       },
       {
         at: { name: 'wealth' },
         target: '[data-tour="wealth-invest"]',
-        title: 'How money in and out counts',
-        text: 'Money moved in adds to what you put in. Money moved out takes it out in the same share as the value, so your profit % stays true.',
+        title: 'Money in and out',
+        text: 'Money moved in adds to what you put in. Money moved out takes it out in the same share as the value, so your profit % stays true. Dividends count as profit.',
       },
       {
-        at: 'more',
-        target: '[data-tour="retire"]',
-        title: 'Will my money be enough?',
-        text: 'Plan to retirement here (it has its own part in How to use). Its top button fills “Pot today” with your investments, Bitcoin and gold.',
+        at: { name: 'wealth' },
+        target: '[data-tour="wealth-btc"]',
+        title: 'Bitcoin and gold',
+        text: 'Live prices, your holding across all wallets, the overall capital (tap Paid) and the average cost.',
       },
     ],
   },
@@ -428,36 +541,35 @@ const SECTIONS: Section[] = [
     emoji: '👨‍👩‍👧',
     title: 'Family sharing',
     steps: [
-      { at: 'more', target: tile('settings'), title: 'Settings', text: 'Family sharing lives in Settings.' },
       {
         at: { name: 'settings' },
         target: '[data-tour="settings-family"]',
         title: 'Family sharing',
-        text: 'Link up to 10 phones to share chosen accounts. Everything else stays on each phone.',
+        text: 'In Settings. Link up to 10 phones.',
       },
       {
         at: { name: 'family' },
         target: '[data-tour="family-start"]',
         title: 'Start or join',
-        text: 'One phone starts the family and makes a one-time code (15 minutes). The other phone types it under Join. The phone that starts it can remove phones; a removed phone loses access straight away.',
+        text: 'One phone starts the family and makes a one-time code (15 minutes); the others type it under Join. The phone that starts it is the head: it invites and removes phones.',
       },
       {
-        at: { name: 'family' },
-        target: '[data-tour="family-start"]',
-        title: 'Share an account',
-        text: 'Open an account → ✏️ Edit → Share with family, and tick the phones. They see all its entries and add their own; each person can only change their own. It counts in full in everyone’s net worth.',
+        at: { name: 'account', id: 'd-joint' },
+        target: '.banner',
+        title: 'Shared accounts',
+        text: 'Open an account → ✏️ Edit → Share with family, and tick phones. Everyone sees all its entries and adds their own (Sam’s groceries here); each can only change their own. Any phone can share, like a spare card for a child.',
       },
       {
         at: { name: 'family' },
         target: '[data-tour="family-start"]',
         title: 'See each other’s money',
-        text: '“👀 See their money” (or the user switcher at the top) opens another phone’s whole money, read-only. The family’s owner chooses who can see whose with “👥 Who can see”.',
+        text: '“👀 See their money” (or the user switcher) opens another phone’s whole money, read-only. The head chooses who can see whose with “👥 Who can see”.',
       },
       {
         at: { name: 'family' },
         target: '[data-tour="family-start"]',
         title: 'Lost a phone?',
-        text: 'Every phone keeps a family backup. On another phone tap 🆘 Lost next to the lost one: the code it shows puts that phone’s place and data back on a new phone.',
+        text: 'Every phone keeps a family backup. On another phone tap 🆘 Lost next to it: the code it shows puts that phone’s place and data back on a new phone.',
       },
     ],
   },
@@ -476,7 +588,7 @@ const SECTIONS: Section[] = [
         at: { name: 'settings' },
         target: PAGE,
         title: 'Make it yours',
-        text: 'Change the theme, the main currency, add a second user (each has their own money), and check for updates.',
+        text: 'Theme, main currency, a second user (each with their own money) and updates.',
       },
       {
         at: 'more',
@@ -498,9 +610,27 @@ const setRunning = (v: TourState) => {
   running = v;
   listeners.forEach((l) => l());
 };
+/** Run some steps on the example money (opened first, so the app is already showing it). */
+async function runSteps(steps: Step[]): Promise<void> {
+  try {
+    await openDemo();
+  } catch {
+    // without the example money the steps still point at this phone's own screens
+  }
+  setRunning({ mode: 'run', steps });
+}
+
 /** 'all' runs every part (someone new); 'pick' lets them choose a part first (More → How to use). */
 export function startTour(how: 'all' | 'pick' = 'all'): void {
-  setRunning(how === 'pick' ? { mode: 'pick' } : { mode: 'run', steps: ALL_STEPS });
+  if (how === 'pick') setRunning({ mode: 'pick' });
+  else void runSteps(ALL_STEPS);
+}
+
+/** Stop the tour and go back to this phone's own money. */
+export function endTour(): void {
+  setRunning({ mode: 'off' });
+  closeDemo();
+  void updateSettings({ guideSeen: true });
 }
 const subscribe = (l: () => void) => {
   listeners.add(l);
@@ -552,19 +682,26 @@ export function Tour() {
   useEffect(() => setI(0), [state]);
 
   const finish = useCallback(() => {
-    setRunning({ mode: 'off' });
     setI(0);
     setRect(null);
-    void updateSettings({ guideSeen: true });
+    endTour();
     tab('home');
   }, [tab]);
+  // the example money was closed some other way: the tour ends too
+  useEffect(
+    () =>
+      onViewChange(() => {
+        if (running.mode === 'run' && !isDemo()) setRunning({ mode: 'off' });
+      }),
+    [],
+  );
 
   // go to the step's tab, then find its button (waiting for the screen to draw); skip steps with nothing to show
   useEffect(() => {
     if (!on) return;
     if (typeof step.at === 'string') {
       if (stackDepth !== 1 || route.name !== step.at) tab(step.at);
-    } else if (route.name !== step.at.name) {
+    } else if (route.name !== step.at.name || (step.at as { id?: string }).id !== (route as { id?: string }).id) {
       // a screen opened from More (or from Settings for Family sharing)
       tab('more');
       if (step.at.name === 'family') go({ name: 'settings' });
@@ -681,12 +818,12 @@ function TourPicker() {
       <div className="tour-dim" onClick={close} />
       <div className="tour-bubble centre tour-pick">
         <div className="tour-title">📖 What would you like to learn?</div>
-        <button className="btn primary block" onClick={() => setRunning({ mode: 'run', steps: ALL_STEPS })}>
+        <button className="btn primary block" onClick={() => void runSteps(ALL_STEPS)}>
           ▶ The whole tour
         </button>
         <div className="tour-pick-list">
           {SECTIONS.map((x) => (
-            <button key={x.id} className="btn block" onClick={() => setRunning({ mode: 'run', steps: x.steps })}>
+            <button key={x.id} className="btn block" onClick={() => void runSteps(x.steps)}>
               <span>{x.emoji}</span> <span className="grow">{x.title}</span> <span className="muted small">{x.steps.length}</span>
             </button>
           ))}

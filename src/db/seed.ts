@@ -14,9 +14,9 @@ export const DEFAULT_SETTINGS: Settings = {
   githubRepo: 'popo54321/Money-Tracking',
 };
 
-const INCOME = ['Salary', 'Bonus', 'Investing Dividend', 'Investing Income', 'Interest', 'Gifts', 'Payback', 'Other'];
+export const INCOME = ['Salary', 'Bonus', 'Investing Dividend', 'Investing Income', 'Interest', 'Gifts', 'Payback', 'Other'];
 
-const EXPENSE: [string, string[]][] = [
+export const EXPENSE: [string, string[]][] = [
   ['Eating Out', ['Breakfast', 'Lunch', 'Dinner', 'Delivery', 'Coffee']],
   [
     'Discretionary',
