@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.25.3',
+    date: '2026-11-25',
+    title: 'Scrolling fix',
+    notes: [
+      'Fixed: after updating a value (or using any pop-up with a calculator inside), the page sometimes stopped scrolling until the app was restarted.',
+    ],
+  },
+  {
     version: '1.25.2',
     date: '2026-11-25',
     title: 'Change an account’s currency',
