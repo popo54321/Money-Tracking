@@ -687,10 +687,19 @@ function GroupsSheet({
   const [list, setList] = useState(groups);
   const [names, setNames] = useState<Record<string, string>>({});
   const [added, setAdded] = useState('');
-  const inUse = (g: string) => data.accounts.filter((x) => x.group === g).length;
+  // only accounts in use count: archived and removed ones don't stop a group being deleted
+  const inUse = (g: string) => data.accounts.filter((x) => x.group === g && !x.archived && !x.removed).length;
   const save = async (next: string[]) => {
     setList(next);
     await saveAccountGroups(profile.id, next);
+  };
+  const remove = async (g: string) => {
+    const next = list.filter((x) => x !== g);
+    await save(next);
+    // archived or removed accounts still in it move to the first group, so the old one doesn't come back
+    const left = data.accounts.filter((x) => x.group === g).map((x) => x.id);
+    if (left.length && next[0]) await db.accounts.where('id').anyOf(left).modify({ group: next[0] });
+    toast(`🗑️ ${g} deleted`);
   };
   return (
     <Sheet open onClose={onClose} title="✏️ Account groups">
@@ -724,7 +733,7 @@ function GroupsSheet({
                   {real === 0 ? 'this account' : `${n} ${n === 1 ? 'account' : 'accounts'}`}
                 </span>
               ) : (
-                <button className="btn sm ghost" aria-label={`Remove ${g}`} onClick={() => save(list.filter((x) => x !== g))}>
+                <button className="btn sm ghost" aria-label={`Remove ${g}`} onClick={() => void remove(g)}>
                   🗑️
                 </button>
               )}

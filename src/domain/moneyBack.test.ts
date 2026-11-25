@@ -113,3 +113,15 @@ describe('overall capital for all BTC wallets', async () => {
     expect(s1.lines.reduce((x, l) => x + l.cost, 0)).toBeCloseTo(515500);
   });
 });
+
+describe('account groups', () => {
+  it('archived and removed accounts do not keep a deleted group', async () => {
+    const { accountGroupsOf } = await import('./types');
+    const groups = accountGroupsOf({ accountGroups: ['Bank'] }, [
+      { group: 'Old', archived: true },
+      { group: 'Gone', removed: true, archived: true },
+      { group: 'Live' },
+    ]);
+    expect(groups).toEqual(['Bank', 'Live']);
+  });
+});
