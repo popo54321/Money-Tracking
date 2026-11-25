@@ -28,7 +28,7 @@ import { RecurringList, RecurringEdit } from './screens/Recurring';
 import { PaydayEdit } from './screens/Payday';
 import { Retire } from './screens/Retire';
 import { Family } from './screens/Family';
-import { endTour, Tour } from './components/Tour';
+import { Tour } from './components/Tour';
 import { DEMO_ID } from './services/demo';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -378,17 +378,8 @@ function ViewBanner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v?.deviceId]);
   if (!v) return null;
-  if (v.deviceId === DEMO_ID)
-    return (
-      <div className="view-banner" role="status">
-        <span className="grow">
-          📖 <b>Example money</b> for the tour · your own is safe
-        </span>
-        <button className="btn sm" onClick={() => endTour()}>
-          End tour
-        </button>
-      </div>
-    );
+  // the tour's example money: the tour itself says so, and Skip ends it
+  if (v.deviceId === DEMO_ID) return null;
   const mins = Math.max(0, Math.round((Date.now() - v.updatedAt) / 60000));
   return (
     <div className="view-banner" role="status">

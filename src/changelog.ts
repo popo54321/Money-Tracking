@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.29.2',
+    date: '2026-11-25',
+    title: 'Tidier tour',
+    notes: [
+      'The “Example money · End tour” bar no longer covers the screen during How to use. Skip (or Done) ends the tour and brings your own money back.',
+    ],
+  },
+  {
     version: '1.29.1',
     date: '2026-11-25',
     title: 'Sharing and tour fixes',
