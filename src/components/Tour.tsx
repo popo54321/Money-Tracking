@@ -308,6 +308,18 @@ const SECTIONS: Section[] = [
         title: 'Start or join',
         text: 'One phone starts the family and makes a one-time code (15 minutes). The other phone types it under Join. The phone that starts it can remove phones; a removed phone loses access straight away.',
       },
+      {
+        at: { name: 'family' },
+        target: '[data-tour="family-start"]',
+        title: 'Share an account',
+        text: 'Open an account → ✏️ Edit → Share with family, and tick the phones. They see all its entries and add their own; each person can only change their own. It counts in full in everyone’s net worth.',
+      },
+      {
+        at: { name: 'family' },
+        target: '[data-tour="family-start"]',
+        title: 'Lost a phone?',
+        text: 'Every phone keeps a family backup. On another phone tap 🆘 Lost next to the lost one: the code it shows puts that phone’s place and data back on a new phone.',
+      },
     ],
   },
   {

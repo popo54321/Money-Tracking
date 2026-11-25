@@ -105,6 +105,16 @@ export function AccountDetail({ id }: { id: string }) {
         }
       />
       <div className="page">
+        {a.shared && (
+          <div className="banner sky">
+            <span>👨‍👩‍👧</span>
+            <span className="grow small">
+              {a.shared.mine
+                ? `Shared with ${a.shared.members.length} ${a.shared.members.length === 1 ? 'phone' : 'phones'} in your family. Entries from everyone show here.`
+                : `Shared with you by ${a.shared.ownerName}. You see everyone’s entries and can add your own.`}
+            </span>
+          </div>
+        )}
         <div className="hero">
           <div className="label">
             {isCard

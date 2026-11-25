@@ -329,6 +329,40 @@ export function Entry({ route }: { route: EntryRoute }) {
   const shownValue =
     amount === null ? (calc.expr ? fmtExpr(calc.expr) : fmtMoney(0, typedCurrency)) : fmtMoney(amount, typedCurrency);
 
+  // written on another phone in the family: shown, never changed here
+  if (existing?.remoteAuthor) {
+    const cur = existing.pocket ?? acc?.currency ?? currency;
+    const names = (id?: string) => (id ? (data.accountById.get(id)?.name ?? existing.remoteNames?.[id] ?? '?') : '');
+    return (
+      <>
+        <Topbar title="Shared entry" />
+        <div className="page">
+          <div className="banner sky">
+            <span>👤</span>
+            <span className="grow small">
+              Added by <b>{existing.remoteAuthor.name}</b>. Only they can change or delete it. It counts in the shared account’s
+              balance, not in your own income and spending.
+            </span>
+          </div>
+          <div className="card">
+            <div className="big">
+              {fmtMoney(existing.kind === 'income' ? existing.amount : -existing.amount, cur, { sign: true })}
+            </div>
+            <div className="small mt">
+              {existing.kind === 'transfer'
+                ? `${names(existing.accountId)} → ${names(existing.toAccountId)}`
+                : `${data.categoryById.get(existing.categoryId ?? '')?.name ?? existing.categoryName ?? (existing.kind === 'income' ? 'Income' : 'Spending')} · ${names(existing.accountId)}`}
+            </div>
+            <div className="small muted">
+              {fmtDate(existing.date)}
+              {existing.note ? ` · ${existing.note}` : ''}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   // money back has its own small page: amount, account, date and note (its category follows its spending)
   if (existing && existing.kind === 'expense' && existing.amount < 0) {
     const spending = existing.refundOf ? data.allTxs.find((t) => t.id === existing.refundOf) : undefined;
