@@ -28,23 +28,33 @@ import { isNative } from '../services/platform';
 import { useApp, useData } from '../state/app';
 
 /** Family view: the phones in the family whose money this phone may see (asked once every few minutes). */
-let familyCache: { at: number; phones: FamilyDevice[] } | null = null;
+let familyCache: { at: number; token: string; phones: FamilyDevice[] } | null = null;
+let familyAsking: Promise<FamilyDevice[]> | null = null;
+async function familyPhones(): Promise<FamilyDevice[]> {
+  const link = await getLink();
+  if (!link?.token) {
+    familyCache = null;
+    return [];
+  }
+  // a different link (joined, left, put back): ask again
+  if (familyCache && familyCache.token === link.token && Date.now() - familyCache.at < 3 * 60000) return familyCache.phones;
+  familyAsking ??= loadFamily()
+    .then((f) => {
+      const phones = f.devices.filter((d) => !d.me && d.canView);
+      familyCache = { at: Date.now(), token: link.token, phones };
+      return phones;
+    })
+    .catch(() => familyCache?.phones ?? [])
+    .finally(() => {
+      familyAsking = null;
+    });
+  return familyAsking;
+}
 function useFamilyPhones(): FamilyDevice[] {
   const [phones, setPhones] = useState<FamilyDevice[]>(familyCache?.phones ?? []);
   useEffect(() => {
-    if (familyCache && Date.now() - familyCache.at < 3 * 60000) return;
     let alive = true;
-    void (async () => {
-      try {
-        const link = await getLink();
-        if (!link?.token) return;
-        const f = await loadFamily();
-        familyCache = { at: Date.now(), phones: f.devices.filter((d) => !d.me && d.canView) };
-        if (alive) setPhones(familyCache.phones);
-      } catch {
-        // offline or not linked: no family phones to show
-      }
-    })();
+    void familyPhones().then((p) => alive && setPhones(p));
     return () => {
       alive = false;
     };

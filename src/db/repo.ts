@@ -886,7 +886,8 @@ export async function wipeAll(): Promise<void> {
   await db.transaction('rw', db.tables, async () => {
     for (const t of db.tables) await t.clear();
     if (link) await db.kv.put(link);
-    if (sent) await db.kv.put(sent);
+    // keep where the last sync got to (old entries don't come back), but nothing to take back from the others
+    if (sent) await db.kv.put({ key: 'syncState', value: { ...(sent.value as object), pushed: {} } });
   });
 }
 

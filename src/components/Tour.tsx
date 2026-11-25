@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExte
 import { updateSettings } from '../db/repo';
 import { useApp, type Route } from '../state/app';
 import { onViewChange } from '../db/db';
-import { closeDemo, isDemo, openDemo } from '../services/demo';
+import { closeDemo, isDemo, openDemo, restoreCalc } from '../services/demo';
 import { isNative, openExternal } from '../services/platform';
 import { canInstallNow, installNow } from '../services/press';
 
@@ -118,7 +118,7 @@ const SECTIONS: Section[] = [
       },
       {
         at: { name: 'entry', id: 'demo-dinner' },
-        target: '.card.flat:has(.btn.mint)',
+        target: '[data-tour="money-back"]',
         title: 'Money back',
         text: 'Alex paid ฿2,400 for dinner and Ben sent ฿1,600 back. Money back takes it off Dinner (so the limit gets room back), not counted as income. “＋ Got money back” adds more.',
       },
@@ -691,7 +691,10 @@ export function Tour() {
   useEffect(
     () =>
       onViewChange(() => {
-        if (running.mode === 'run' && !isDemo()) setRunning({ mode: 'off' });
+        if (isDemo()) return;
+        // the example money was left (or replaced): the calculator gets its own numbers back
+        restoreCalc();
+        if (running.mode === 'run') setRunning({ mode: 'off' });
       }),
     [],
   );

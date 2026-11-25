@@ -177,6 +177,7 @@ interface SyncState {
 }
 
 const STATE = 'syncState';
+const PUSH_BATCH = 10;
 const emptyState = (): SyncState => ({ since: 0, pushed: {}, accounts: {} });
 
 async function getState(): Promise<SyncState> {
@@ -306,6 +307,7 @@ async function pushAccounts(link: SyncLink, st: SyncState): Promise<void> {
 async function pushEntries(st: SyncState): Promise<void> {
   const accounts = await db.accounts.toArray();
   const shared = new Set(accounts.filter((a) => a.shared && !a.removed).map((a) => a.id));
+  if (!shared.size && !Object.keys(st.pushed).length) return;
   const byId = new Map(accounts.map((a) => [a.id, a]));
   const cats = new Map((await db.categories.toArray()).map((c) => [c.id, c.name]));
   const txs = await db.txs.toArray();
@@ -331,8 +333,9 @@ async function pushEntries(st: SyncState): Promise<void> {
   }
   // deleted here
   for (const id of Object.keys(st.pushed)) if (!seen.has(id)) out.push({ id, accountIds: [], deleted: true });
-  for (let i = 0; i < out.length; i += 200) {
-    const part = out.slice(i, i + 200);
+  // small batches: a free Cloudflare request may run only about 50 database queries
+  for (let i = 0; i < out.length; i += PUSH_BATCH) {
+    const part = out.slice(i, i + PUSH_BATCH);
     const r = await authed<{ done: string[]; refused: string[] }>('/entries', {
       method: 'POST',
       body: JSON.stringify({ entries: part }),
@@ -410,7 +413,10 @@ async function pull(link: SyncLink, st: SyncState): Promise<void> {
           if (here?.remoteAuthor) await db.txs.delete(e.id);
           continue;
         }
-        await db.txs.put({ ...e.data, remoteAuthor: { id: e.author, name: e.authorName } });
+        // it belongs to whichever user on this phone has the account it is on
+        const owner = local.find((x) => x.id === e.data!.accountId || x.id === e.data!.toAccountId);
+        const profileId = owner?.profileId ?? profile?.id ?? e.data.profileId;
+        await db.txs.put({ ...e.data, profileId, remoteAuthor: { id: e.author, name: e.authorName } });
       }
     });
   } finally {

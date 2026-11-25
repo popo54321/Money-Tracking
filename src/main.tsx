@@ -19,6 +19,8 @@ async function start() {
   } catch {
     // not supported everywhere
   }
+  // a tour that was cut short (app closed) leaves the calculator's own numbers aside: put them back
+  (await import('./services/demo')).restoreCalc();
   await ensureSeeded();
   await migrate();
   createRoot(document.getElementById('root')!).render(

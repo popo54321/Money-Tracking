@@ -8,6 +8,7 @@ import { useApp } from '../state/app';
 import { fmtMoney } from '../domain/money';
 import { useWealthTotal } from './Wealth';
 import { DEMO_CALC, isDemo } from '../services/demo';
+import { isViewing } from '../db/db';
 
 declare global {
   interface Window {
@@ -49,7 +50,7 @@ export function Retire() {
   return (
     <div className="retire-screen">
       <Topbar title="🔭 Will my money be enough?" />
-      {wealth.total > 0 && (
+      {wealth.total > 0 && (!isViewing() || isDemo()) && (
         <div style={{ padding: '6px 16px 8px' }}>
           <button className="btn mint block" data-tour="retire-fill" onClick={fillPot}>
             ＋ Use Investments & wealth as Pot today · {fmtMoney(wealth.total, currency, { compact: true })}

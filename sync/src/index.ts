@@ -12,6 +12,7 @@ interface Env {
 const VERSION = '4';
 const RECOVERY_MINUTES = 30;
 const MAX_NEW_FAMILIES_PER_HOUR = 20;
+const MAX_ENTRIES_PER_PUSH = 12;
 const MAX_PART = 1_500_000;
 const MAX_PARTS = 40;
 const MAX_DEVICES = 10;
@@ -359,16 +360,31 @@ async function route(req: Request, env: Env): Promise<Response> {
   // send entries on shared accounts: new ones, changes and deletions (only your own)
   if (path === '/entries' && method === 'POST') {
     const b = await body(req);
-    const list = Array.isArray(b.entries) ? b.entries.slice(0, 500) : [];
+    // a few at a time: a free Cloudflare request may run only about 50 database queries
+    const list = (Array.isArray(b.entries) ? b.entries.slice(0, MAX_ENTRIES_PER_PUSH) : []) as {
+      id?: unknown;
+      accountIds?: unknown;
+      data?: unknown;
+      deleted?: unknown;
+    }[];
     const visible = await visibleAccounts(env, device);
     const ids = new Set(visible.filter((a) => !a.removed_at).map((a) => a.id));
     const now = Date.now();
     const done: string[] = [];
     const refused: string[] = [];
-    for (const e of list as { id?: unknown; accountIds?: unknown; data?: unknown; deleted?: unknown }[]) {
+    // who wrote the ones that exist already, in one query
+    const askIds = list.map((e) => e.id).filter((x): x is string => typeof x === 'string');
+    const authors = new Map<string, string>();
+    if (askIds.length) {
+      const { results } = await env.DB.prepare(`SELECT id, author_device FROM entries WHERE id IN (${askIds.map(() => '?').join(',')})`)
+        .bind(...askIds)
+        .all<{ id: string; author_device: string }>();
+      for (const r of results) authors.set(r.id, r.author_device);
+    }
+    for (const e of list) {
       if (typeof e.id !== 'string') continue;
       const accs = Array.isArray(e.accountIds) ? e.accountIds.filter((x): x is string => typeof x === 'string' && ids.has(x)) : [];
-      const prev = await env.DB.prepare('SELECT author_device FROM entries WHERE id = ?').bind(e.id).first<{ author_device: string }>();
+      const prev = authors.has(e.id) ? { author_device: authors.get(e.id)! } : null;
       if (prev && prev.author_device !== device.id) {
         refused.push(e.id);
         continue;
@@ -419,25 +435,36 @@ async function route(req: Request, env: Env): Promise<Response> {
       updatedAt: a.updated_at,
       data: a.updated_at > since ? JSON.parse(a.data) : undefined,
     }));
-    const entries: unknown[] = [];
-    for (const a of live) {
-      // newly visible (or changed) accounts send all their entries; others only what changed
-      const all = a.updated_at > since;
-      const q = all
-        ? 'SELECT * FROM entries WHERE (account_id = ? OR id IN (SELECT entry_id FROM entry_accounts WHERE account_id = ?))'
-        : 'SELECT * FROM entries WHERE (account_id = ? OR id IN (SELECT entry_id FROM entry_accounts WHERE account_id = ?)) AND updated_at > ?';
-      const st = all ? env.DB.prepare(q).bind(a.id, a.id) : env.DB.prepare(q).bind(a.id, a.id, since);
-      const { results } = await st.all<{ id: string; author_device: string; data: string; updated_at: number; deleted: number }>();
-      for (const r of results)
-        entries.push({
-          id: r.id,
-          author: r.author_device,
-          authorName: names.get(r.author_device) ?? 'A phone',
-          deleted: !!r.deleted,
-          updatedAt: r.updated_at,
-          data: r.deleted ? undefined : JSON.parse(r.data),
-        });
+    // newly visible (or changed) accounts send all their entries; the others only what changed: two queries
+    const fresh = live.filter((a) => a.updated_at > since).map((a) => a.id);
+    const steady = live.filter((a) => a.updated_at <= since).map((a) => a.id);
+    type Row = { id: string; author_device: string; data: string; updated_at: number; deleted: number };
+    const inList = (n: number) => Array(n).fill('?').join(',');
+    const rows = new Map<string, Row>();
+    if (fresh.length) {
+      const { results } = await env.DB.prepare(
+        `SELECT * FROM entries WHERE account_id IN (${inList(fresh.length)}) OR id IN (SELECT entry_id FROM entry_accounts WHERE account_id IN (${inList(fresh.length)}))`,
+      )
+        .bind(...fresh, ...fresh)
+        .all<Row>();
+      for (const r of results) rows.set(r.id, r);
     }
+    if (steady.length) {
+      const { results } = await env.DB.prepare(
+        `SELECT * FROM entries WHERE updated_at > ? AND (account_id IN (${inList(steady.length)}) OR id IN (SELECT entry_id FROM entry_accounts WHERE account_id IN (${inList(steady.length)})))`,
+      )
+        .bind(since, ...steady, ...steady)
+        .all<Row>();
+      for (const r of results) rows.set(r.id, r);
+    }
+    const entries = [...rows.values()].map((r) => ({
+      id: r.id,
+      author: r.author_device,
+      authorName: names.get(r.author_device) ?? 'A phone',
+      deleted: !!r.deleted,
+      updatedAt: r.updated_at,
+      data: r.deleted ? undefined : JSON.parse(r.data),
+    }));
     return json(req, { ok: true, now, accounts, entries, me: device.id });
   }
 
