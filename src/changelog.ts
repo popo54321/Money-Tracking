@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.29.3',
+    date: '2026-11-25',
+    title: 'Delete account groups',
+    notes: [
+      'Edit groups: a group used only by archived or deleted accounts can now be deleted (🗑️), and it stays deleted. Those old accounts move to your first group.',
+    ],
+  },
+  {
     version: '1.29.2',
     date: '2026-11-25',
     title: 'Tidier tour',

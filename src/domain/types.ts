@@ -43,9 +43,13 @@ export const ACCOUNT_TYPES: { type: AccountType; label: string; defaultGroup: st
 export const DEFAULT_ACCOUNT_GROUPS = ['Bank', 'Cash', 'Credit', 'Investments', 'Assets', 'Insurance'];
 
 /** A user's account groups: their own list (or the starting one), plus any group an account is still in. */
-export function accountGroupsOf(profile: { accountGroups?: string[] }, accounts: { group: string }[]): string[] {
+export function accountGroupsOf(
+  profile: { accountGroups?: string[] },
+  accounts: { group: string; archived?: boolean; removed?: boolean }[],
+): string[] {
   const out = [...(profile.accountGroups ?? DEFAULT_ACCOUNT_GROUPS)];
-  for (const a of accounts) if (a.group && !out.includes(a.group)) out.push(a.group);
+  // archived and removed accounts don't keep a group alive (so a deleted group stays deleted)
+  for (const a of accounts) if (a.group && !a.archived && !a.removed && !out.includes(a.group)) out.push(a.group);
   return out;
 }
 
