@@ -11,6 +11,14 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.27.1',
+    date: '2026-11-25',
+    title: 'Repayments from the list',
+    notes: [
+      'Who owes me: holding a person and choosing “💰 Add repayment” now opens the full Paid back sheet, filled with what is owed, so it can go into your money as money back or income.',
+    ],
+  },
+  {
     version: '1.27.0',
     date: '2026-11-25',
     title: 'Shared accounts and family backup',
