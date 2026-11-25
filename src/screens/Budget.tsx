@@ -14,7 +14,8 @@ import {
 import { phaseTotals, pctTotal, splitRows, surplusRule, transferAmount } from '../domain/budget';
 import { applyBudgetTick } from '../domain/splits';
 import { monthKey } from '../domain/dates';
-import { fmtMoney, fmtNumber } from '../domain/money';
+import { decimalsFor, fmtMoney, fmtNumber, roundTo } from '../domain/money';
+import { unitValue } from '../domain/balances';
 import type { BudgetPlan, BudgetRow, BudgetTransfer } from '../domain/types';
 import { db, uid } from '../db/db';
 import { getOrCreateBudget, saveAccount, saveBudget, saveTx } from '../db/repo';
@@ -219,6 +220,9 @@ export function Budget() {
   const recordTicked = async () => {
     let n = 0;
     const now: string[] = [];
+    // moves into another currency (baht into Bitcoin, dollars…): what arrives is worked out at today's price
+    const converted: { name: string; amount: string }[] = [];
+    const stuck: string[] = [];
     for (const t of plan.transfers) {
       // a transfer is recorded once a month: a second tap skips it
       if (!done.includes(t.id) || recorded.includes(t.id) || !t.fromAccountId || !t.toAccountId) continue;
@@ -226,7 +230,18 @@ export function Budget() {
       if (!amt) continue;
       const fromAcc = data.accountById.get(t.fromAccountId);
       const toAcc = data.accountById.get(t.toAccountId);
-      if (!fromAcc || !toAcc || fromAcc.currency !== toAcc.currency) continue;
+      if (!fromAcc || !toAcc) continue;
+      let toAmount = amt;
+      if (fromAcc.currency !== toAcc.currency) {
+        const v1 = unitValue(fromAcc, rates, 'USD');
+        const v2 = unitValue(toAcc, rates, 'USD');
+        if (v1 === null || v2 === null || v2 === 0) {
+          stuck.push(toAcc.name);
+          continue;
+        }
+        toAmount = roundTo((amt * v1) / v2, decimalsFor(toAcc.currency));
+        converted.push({ name: toAcc.name, amount: fmtMoney(toAmount, toAcc.currency) });
+      }
       await saveTx(
         {
           profileId: profile.id,
@@ -235,7 +250,7 @@ export function Budget() {
           accountId: t.fromAccountId,
           toAccountId: t.toAccountId,
           amount: amt,
-          toAmount: amt,
+          toAmount,
           note: `Budget: ${t.fromLabel} → ${t.toLabel}`,
         },
         rates,
@@ -245,12 +260,23 @@ export function Budget() {
       now.push(t.id);
     }
     if (now.length) update({ ...plan, checklist: { month, done, recorded: [...recorded, ...now] } });
+    const notes = [
+      ...converted.map((c) => `${c.name}: about ${c.amount} at today's price. Tap the move to put the exact amount.`),
+      ...stuck.map((name) => `${name}: no price yet, so it wasn't recorded. Go online and try again.`),
+    ];
     toast(
-      n
-        ? `🔄 Recorded ${n} transfers`
-        : recorded.length
-          ? 'Those are recorded already this month'
-          : 'Tick transfers that have accounts linked first',
+      [
+        n
+          ? `🔄 Recorded ${n} ${n === 1 ? 'transfer' : 'transfers'}`
+          : stuck.length
+            ? ''
+            : recorded.length
+              ? 'Those are recorded already this month'
+              : 'Tick transfers that have accounts linked first',
+        ...notes,
+      ]
+        .filter(Boolean)
+        .join(' · '),
     );
   };
 
