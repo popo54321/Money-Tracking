@@ -202,6 +202,21 @@ export function NoteInput({
 
 // ---------- sheets ----------
 
+// Scrolling the page behind is locked while any sheet is open: one count for all of them, so sheets opened inside
+// other sheets (a calculator inside a form) can close in any order and the page always scrolls again afterwards.
+let openSheets = 0;
+function lockScroll(): () => void {
+  openSheets++;
+  document.body.style.overflow = 'hidden';
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    openSheets = Math.max(0, openSheets - 1);
+    if (openSheets === 0) document.body.style.overflow = '';
+  };
+}
+
 export function Sheet({
   open,
   onClose,
@@ -217,11 +232,10 @@ export function Sheet({
   useEffect(() => {
     if (!open) return;
     const pop = pushOverlay(onClose);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const unlock = lockScroll();
     return () => {
       pop();
-      document.body.style.overflow = prev;
+      unlock();
     };
   }, [open, onClose, pushOverlay]);
   if (!open) return null;
