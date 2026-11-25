@@ -11,6 +11,18 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    version: '1.28.0',
+    date: '2026-11-25',
+    title: 'Family view',
+    notes: [
+      'See another phone’s whole money, read-only, like switching user: Family sharing → 👀 See their money, or pick them in the user switcher at the top. Accounts, entries, Summary, Budget plan, targets, investments, Bill split and Trip split are all there; nothing can be changed. “Back to mine” returns to your own.',
+      'The family’s owner decides who can see whose money: 👥 Who can see, next to each phone. Everyone can see everyone to start with.',
+      'Each phone now sends its data a few minutes after a change, so what others see stays fresh.',
+      'Shared accounts are marked in the Accounts list (Shared, or From who). Any phone can share its own accounts and cards, like a spare card for a child.',
+      'Fixes: stopping sharing no longer removes the other person’s entries; a shared account must stop sharing before its currency changes; a failed family backup waits before trying again; erasing data on a linked phone no longer brings its shared entries back.',
+    ],
+  },
+  {
     version: '1.27.1',
     date: '2026-11-25',
     title: 'Repayments from the list',
